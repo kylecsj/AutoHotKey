@@ -1,0 +1,65 @@
+	
+
+    Sintax: MsgBox, % Func("GuiResize", "GuiName", "GuiTitle", "LR")
+            • ID/LR = inferior derecha/lower right
+            • II/LL = inferior izquierda/lower left
+            • SD/UR = superior derecha/upper right
+            • SI/UL = superior izquierda/upper left
+     
+     
+
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+    ;###########################################################################
+    ;#NOT EDIT#############################################################
+    ;###########################################################################
+    Func(nameofthecommand := "", subcomandname := "null", countoroptionsorkeys := "", aditionalcommand := "", subaditionalcommand := ""){
+    if (nameofthecommand = "GuiResize" OR nameofthecommand = "ResizeGui")
+    {
+            WinWaitActive, % countoroptionsorkeys
+            WinGetActiveStats, GuiTitle, GuiWidth, GuiHeight, GuiX, GuiY
+            WinGetPos,,, TrayWidth, TrayHeight, ahk_class Shell_TrayWnd
+            if (aditionalcommand = "" OR aditionalcommand = "ID" OR aditionalcommand = "DI" OR aditionalcommand = "LR")
+            {
+                    GuiWidth := A_ScreenWidth - GuiWidth
+                    GuiHeight := A_ScreenHeight - GuiHeight - TrayHeight
+            }
+            if (aditionalcommand = "SD" OR aditionalcommand = "DS" OR aditionalcommand = "UR")
+            {
+                    GuiWidth := A_ScreenWidth - GuiWidth
+                    GuiHeight := A_ScreenHeight - GuiHeight - A_ScreenHeight + GuiHeight
+            }
+            if (aditionalcommand = "SI" OR aditionalcommand = "IS" OR aditionalcommand = "UL")
+            {
+                    GuiWidth := A_ScreenWidth - GuiWidth - A_ScreenWidth + GuiWidth
+                    GuiHeight := A_ScreenHeight - GuiHeight - A_ScreenHeight + GuiHeight
+            }
+            if (aditionalcommand = "II" OR aditionalcommand = "LL")
+            {
+                    GuiWidth := A_ScreenWidth - GuiWidth - A_ScreenWidth + GuiWidth
+                    GuiHeight := A_ScreenHeight - GuiHeight - TrayHeight
+            }
+            try Gui, % subcomandname ":Show", x%GuiWidth% y%GuiHeight%, % GuiTitle
+            return "x(" GuiWidth ") - y(" GuiHeight ") | " GuiTitle
+    }
+    }
+
