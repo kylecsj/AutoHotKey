@@ -1,0 +1,52 @@
+	
+
+    ;EXAMPLE
+    MsgBox, % Rename(A_Desktop "\2009.txt", "2014.txt") ; file, newname
+     
+     
+     
+     
+    ; FUNCTIONS
+    Rename( $source, $newname, $opti:="0"){
+    IfNotExist, %$source%, return, 0
+                   
+    StringReplace, $newname, $newname,:, % " -",All
+    StringReplace, $newname, $newname,<,(,All
+    StringReplace, $newname, $newname,>,),All
+    StringReplace, $newname, $newname,*,,All
+    StringReplace, $newname, $newname,/,,All
+    StringReplace, $newname, $newname,\,,All
+    StringReplace, $newname, $newname,?,,All
+    StringReplace, $newname, $newname,",',All
+    StringReplace, $newname, $newname,|,,All
+           
+    $OutDir := SplitPath($source, 2)
+     
+    if ($opti)
+    {      
+            RunWait, %comspec% /c "ren `"%$source%`" `"%$newname%`"",, Hide UseErrorLevel
+            if !ErrorLevel
+                    return 1
+    }
+     
+    if IsFile($source)
+            FileMove, %$source%, %$OutDir%\%$newname%, 1
+    else
+            FileMoveDir, %$source%, %$OutDir%\%$newname%, R
+     
+    return 1
+    }
+     
+     
+    IsFile(subcomandname:=""){
+            FileGetAttrib, Attributes_Check, % subcomandname
+            If (!InStr(Attributes_Check,"D"))
+                    return 1 ;es archivo
+            If (InStr(Attributes_Check,"D"))
+                    return 0 ;es carpeta
+    }      
+    SplitPath($source, $flags:="1"){
+    SplitPath, $source, $OutFileName, $OutDir, $OutExtension, $OutNameNoExt, $OutDrive
+            return $flags = "1" ? $OutFileName :  $flags = "2" ? $OutDir :  $flags = "3" ? $OutExtension : $flags = "4" ? $OutNameNoExt : $OutDrive
+    }
+
