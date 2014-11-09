@@ -1,0 +1,125 @@
+	
+
+    ;##############################################################
+    ;create MENU with SUBMENUS for "DIRECTORY(folders)" only
+    ;##############################################################
+    ;Key
+    $subkey = HKCR\Directory\shell
+     
+    ; Menu Name | Menu Icon | Menu Position
+    $menuname = Atributes|explorer.exe|Center ;TOP | BOTTOM
+     
+    ; Sub Menu Name | Icon | Command
+    $SubCommands = Solo Lectura|0|Attrib +R `"`%1`" , Oculto|0|Attrib +H `"`%1`"
+     
+     
+    ; Function
+    ContextMenu_Create_SubMenu($subkey, $menuname, $SubCommands)
+     
+    MsgBox, the menu has been created, right-click a folder to view. Click "OK" to delete the menu along with submenus
+     
+     
+    ;##############################################################
+    ;delete the menu with the all sub menus
+    ;##############################################################
+    ;Key
+    $subkey = HKCR\Directory\shell
+     
+    ; menu containing the submenus
+    $menuname = Atributes
+     
+    ;function
+    ContextMenu_Delete_SubMenu($subkey, $menuname)
+     
+     
+    MsgBox, the menu has been deleted
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+    ;##############################################################
+    ;FUNCTION
+    ;##############################################################
+    ContextMenu_Create_SubMenu($subkey:="HKCR\DesktopBackground\Shell", $menuname:="", $SubCommands:="") {
+    if ($menuname = "") OR ($SubCommands = "")
+            return 0
+     
+    StringReplace, $SubCommands, $SubCommands, % " , ", `,,All
+    StringReplace, $SubCommands, $SubCommands, % ", ", `,,All
+    StringReplace, $SubCommands, $SubCommands, % " ,", `,,All
+     
+    Loop, Parse, $menuname,|
+            if A_Index = 1
+                    $menuname = %A_LoopField%
+            else if A_Index = 2
+                    $menuicon = %A_LoopField% ; ICONO DEL MENU
+            else if A_Index = 3
+                    $Position = %A_LoopField% ; POSICION DEL MENU
+           
+    Loop, Parse, $SubCommands, `,
+            Loop, Parse, A_LoopField,|
+                    if A_Index = 1
+                            $NameSubCommands .= A_LoopField ";"
+    StringTrimRight, $NameSubCommands, $NameSubCommands, 1 ;SUB COMANDOS
+     
+    StringLeft, $key, $subkey, 4 ;KEY
+    StringTrimLeft, $subkey, $subkey, 5 ;SUBKEY
+     
+    RegWrite, REG_SZ, %$key%, %$subkey%\%$menuname%, Icon, %$menuicon%
+    RegWrite, REG_SZ, %$key%, %$subkey%\%$menuname%, Position, %$Position%
+    RegWrite, REG_SZ, %$key%, %$subkey%\%$menuname%, MUIVerb, %$menuname%
+    RegWrite, REG_SZ, %$key%, %$subkey%\%$menuname%, SubCommands, %$NameSubCommands%
+     
+    Loop, Parse, $SubCommands, % ","
+    {
+            Loop, Parse, A_LoopField,|
+                    if A_Index = 1
+                            $submenuname = %A_LoopField%
+           
+            Loop, Parse, A_LoopField,|
+                    if A_Index = 1
+                            RegWrite, REG_SZ, HKLM, SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\%$submenuname%,, %A_LoopField%
+                    else if A_Index = 2
+                            RegWrite, REG_SZ, HKLM, SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\%$submenuname%, icon, %A_LoopField%
+                    else if A_Index = 3
+                            RegWrite, REG_SZ, HKLM, SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\%$submenuname%\Command,, %A_LoopField%
+    }
+    return 1
+    }
+     
+     
+     
+     
+     
+    ContextMenu_Delete_SubMenu($subkey:="HKCR\DesktopBackground\Shell", $menuname:="") {
+    if ($menuname = "")
+            return 0
+     
+    StringLeft, $key, $subkey, 4 ;KEY
+    StringTrimLeft, $subkey, $subkey, 5 ;SUBKEY
+     
+    RegRead, $subcommands, %$key%, %$subkey%\%$menuname%, SubCommands
+    RegDelete, %$key%, %$subkey%\%$menuname%
+     
+    Loop, Parse, $subcommands, % ";"
+            RegDelete, HKLM, SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\%A_LoopField%
+    }
+
