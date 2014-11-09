@@ -1,0 +1,18 @@
+
+
+
+IsFile(subcomandname:=""){
+	FileGetAttrib, Attributes_Check, % subcomandname
+	If (!InStr(Attributes_Check,"D"))
+		return 1 ;es archivo
+	If (InStr(Attributes_Check,"D"))
+		return 0 ;es carpeta
+}	
+
+IsFolder(subcomandname:=""){
+	FileGetAttrib, Attributes_Check, % subcomandname
+	If (!InStr(Attributes_Check,"D"))
+		return 0
+	If (InStr(Attributes_Check,"D"))
+		return 1
+}	
