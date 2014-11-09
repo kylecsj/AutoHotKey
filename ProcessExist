@@ -1,0 +1,12 @@
+	
+
+    MsgBox, % ProcessExist("Explorer.exe")
+     
+     
+     
+    ;FUNCTION
+    ProcessExist($pidorname){
+            Process, Exist, % ($pidorname="") ? DllCall("GetCurrentProcessID") : $pidorname
+            return ErrorLevel ? 1 : 0
+    }
+
