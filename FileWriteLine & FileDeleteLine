@@ -1,0 +1,84 @@
+;#####################################
+;#####################################
+
+; Blank "Line 2"
+FileWriteLine( "", A_ScriptDir "\File.txt", 2)
+
+; Write in "Line 5"
+FileWriteLine("Line 25 (Modify)", A_ScriptDir "\File.txt", 5)
+
+; Delete "Line 9"
+FileDeleteLine(A_ScriptDir "\File.txt", 9)
+
+;#####################################
+;#####################################
+
+
+;#####################################
+;EXAMPLE: File.txt
+;#####################################
+; Line 1
+; Line 2
+; Line 3
+; Line 4
+; Line 5
+; Line 6
+; Line 7
+; Line 8
+; Line 9
+; Line 10
+
+
+
+;#####################################
+;FUNCTION(S)
+;#####################################
+FileWriteLine($text:="", $filename:="", $line:="1") {
+	IfNotExist, %$filename%, return, 0
+	if not IsFile($filename)
+		return 0
+	
+	FileSetAttrib, +H, %$filename%
+	Loop, Read, %$filename%
+	{
+		if (A_Index = $line) AND ($text = "")
+			read := ""
+		else if (A_Index = $line) AND ($text != "")
+			read = %$text%
+		else if (A_Index != $line)
+			read = %A_LoopReadLine%
+	
+		text .= "`n" read
+	}
+	FileDelete, %$filename%
+	StringReplace, text, text, `n
+	FileAppend, %text%, %$filename%
+	return ErrorLevel ? 0 : 1
+}
+
+FileDeleteLine($filename:="", $line:="1") {
+	IfNotExist, %$filename%, return, 0
+	if not IsFile($filename)
+		return 0
+	
+	FileSetAttrib, +H, %$filename%
+	Loop, Read, %$filename%
+	{
+		if A_Index = %$line%
+			continue
+		
+		text .= "`n" A_LoopReadLine
+	}
+	FileDelete, %$filename%
+	StringReplace, text, text, `n
+	FileAppend, %text%, %$filename%
+	return ErrorLevel ? 0 : 1
+}
+
+IsFile(subcomandname:=""){
+	FileGetAttrib, Attributes_Check, % subcomandname
+	If (!InStr(Attributes_Check,"D"))
+		return 1 ;es archivo
+	If (InStr(Attributes_Check,"D"))
+		return 0 ;es carpeta
+}	
