@@ -1,0 +1,12 @@
+;SET 20
+  ;MouseSpeed(20)
+;GET
+  MSGBOX, % MouseSpeed()
+
+
+MouseSpeed(SpeedNum:=""){
+	XL:=RegExReplace(SpeedNum, "[^0-9]")
+	if (XL!="")
+		return DllCall("SystemParametersInfo", UInt, 0x71, UInt, 0, UInt, XL > 20 ? 20 : XL, UInt, 0)
+	return Func("GetMouseSpeed")
+}
