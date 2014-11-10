@@ -1,0 +1,19 @@
+MsgBox, % Max("1;2")
+
+
+
+Max(values*) {
+	for k, v in values
+		x .= (k == values.MaxIndex() ? v : v ";")
+	Sort, x, d`; N R
+	RegExMatch(x,"[\d.-]*",z)
+	return z
+}
+
+Min(values*) {
+	for k, v in values
+		x .= (k == values.MaxIndex() ? v : v ";")
+	Sort, x, d`; N
+	RegExMatch(x,"\w*;*([\d.-]*)",z)
+	return z1
+}
