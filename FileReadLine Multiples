@@ -1,0 +1,65 @@
+MsgBox, % FileReadLine(A_ScriptFullPath, "7,18")
+
+
+FileReadLine($filename, $linenum:="") {
+	IfNotExist, %$filename%, return, 0
+	if IsFolder($filename)
+		return
+	
+	items := "", text := "", col := ""
+	
+	if not $linenum ;si no se especifica la linea a leer, leer todo el archivo
+	{
+		FileRead, FileRead, %$filename%
+		return FileRead
+	}
+
+	Loop, Parse, $linenum, `,
+		items++
+	
+	if (items < 4)
+	{
+		Loop, Parse, $linenum, `,
+		{
+			FileReadLine, FileReadLine, %$filename%, %A_LoopField%
+			text .= "`n" FileReadLine
+		}
+		StringReplace, text, text, `n
+		return text
+	}
+	
+	Loop, Parse, $linenum, `,
+		col .= ";" A_LoopField
+	StringReplace, col, col, % ";"
+	
+	Loop, Read, %$filename%
+	{
+		if A_Index in %$linenum%
+		{
+			text .= "`n" A_LoopReadLine
+		}
+		
+		if (A_Index = Max(col))
+			break
+	}
+	StringReplace, text, text, `n
+	return text
+}
+
+
+
+Max(values*) {
+	for k, v in values
+		x .= (k == values.MaxIndex() ? v : v ";")
+	Sort, x, d`; N R
+	RegExMatch(x,"[\d.-]*",z)
+	return z
+}
+
+IsFolder(subcomandname:=""){
+	FileGetAttrib, Attributes_Check, % subcomandname
+	If (!InStr(Attributes_Check,"D"))
+		return 0
+	If (InStr(Attributes_Check,"D"))
+		return 1
+}	
