@@ -1,41 +1,42 @@
 	
 
     ;EXAMPLE
-    MsgBox, % Rename(A_Desktop "\2009.txt", "2014.txt") ; file, newname
+    MsgBox, % Rename(A_Desktop "\a\*.*", "*.txt")
      
      
      
      
-    ; FUNCTIONS
-    Rename( $source, $newname, $opti:="0"){
-    IfNotExist, %$source%, return, 0
-                   
-    StringReplace, $newname, $newname,:, % " -",All
-    StringReplace, $newname, $newname,<,(,All
-    StringReplace, $newname, $newname,>,),All
-    StringReplace, $newname, $newname,*,,All
-    StringReplace, $newname, $newname,/,,All
-    StringReplace, $newname, $newname,\,,All
-    StringReplace, $newname, $newname,?,,All
-    StringReplace, $newname, $newname,",',All
-    StringReplace, $newname, $newname,|,,All
-           
-    $OutDir := SplitPath($source, 2)
-     
-    if ($opti)
-    {      
-            RunWait, %comspec% /c "ren `"%$source%`" `"%$newname%`"",, Hide UseErrorLevel
-            if !ErrorLevel
-                    return 1
-    }
-     
-    if IsFile($source)
-            FileMove, %$source%, %$OutDir%\%$newname%, 1
-    else
-            FileMoveDir, %$source%, %$OutDir%\%$newname%, R
-     
-    return 1
-    }
+    FileRename($filename,$newname, $flags:="0"){
+	IfNotExist, % $filename, return, 0
+		
+	StringReplace, $newname, $newname,:, % " -",All
+	StringReplace, $newname, $newname,<,(,All
+	StringReplace, $newname, $newname,>,),All
+	StringReplace, $newname, $newname,/,,All
+	StringReplace, $newname, $newname,\,,All
+	StringReplace, $newname, $newname,?,,All
+	StringReplace, $newname, $newname,",',All
+	StringReplace, $newname, $newname,|,,All
+	
+	SplitPath, $filename, , $filedir
+
+	if ($flags)
+		Run, %comspec% /c Ren "%$filename%" "%$newname%",, Hide UseErrorLevel
+		if not ErrorLevel
+			return 1
+		
+	if IsFile($filename)
+	{
+		FileMove, %$filename%, %$filedir%\%$newname%,1
+		if ErrorLevel
+			FileMove, %$filename%, %$newname%,1
+	} 
+	else
+		FileMoveDir, %$filename%, %$filedir%\%$newname%, R
+
+	
+	return ErrorLevel ? 0 : 1
+}
      
      
     IsFile(subcomandname:=""){
