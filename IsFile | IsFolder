@@ -1,18 +1,28 @@
 
 
 
-IsFile(subcomandname:=""){
-	FileGetAttrib, Attributes_Check, % subcomandname
-	If (!InStr(Attributes_Check,"D"))
-		return 1 ;es archivo
-	If (InStr(Attributes_Check,"D"))
-		return 0 ;es carpeta
-}	
-
-IsFolder(subcomandname:=""){
-	FileGetAttrib, Attributes_Check, % subcomandname
-	If (!InStr(Attributes_Check,"D"))
+IsFile($att){
+	
+	if !FileExist($att)
+		return -1
+	
+	FileGetAttrib, $att, %$att%
+	If (InStr($att,"D"))
 		return 0
-	If (InStr(Attributes_Check,"D"))
+	
+	return 1
+	
+}		
+
+IsFolder($att){
+	
+	if !FileExist($att)
+		return -1
+	
+	FileGetAttrib, $att, %$att%
+	If (InStr($att,"D"))
 		return 1
-}	
+	
+	return 0
+	
+}		
