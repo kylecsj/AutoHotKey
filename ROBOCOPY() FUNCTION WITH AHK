@@ -1,0 +1,75 @@
+/*
+#####################################################################
+ROBOCOPY - CMD (WIN_XP DOWNLOAD: http://norfipc.com/ftp/robocopy.zip /paste in %A_WinDir%)
+#####################################################################
+ROBOCOPY is one of the commands most powerful, useful and used in the Windows command line available
+ROBOCOPY es uno de los comandos disponibles más poderosos, útiles y empleados en la línea de comandos de Windows.
+SINTAX | SINTAXIS: ROBOCOPY(	[source], [destination], [copy options 'see below'], [hide :=0 ? '1/0']	| close := K ? 'C/K')
+
+#####################################################################
+REMARKS | OBSERVACIONES
+#####################################################################
+1- is not necessary that the destination folder exists, it automatically creates | no es necesario que exista la carpeta de destino, se crea automáticamente
+2- the copying file/folder must exist, otherwise return -1 | el archivo/carpeta a copiar debe existir, de lo contrario devuelve -1
+
+#####################################################################
+COPY OPTIONS (spanish: http://norfipc.com/comandos/como-usar-comando-robocopy-ejemplos.html)
+#####################################################################
+/E = allows you to copy empty subdirectories, otherwise use /S  (no use in files)
+/R:0 = Number of retries in case of an error.
+/W:0 = Time between retries.
+/MOV = Moves files and removes the origin after being copied.
+/MOVE = Move files and folders and removes the origin after being copied.
+/V = Show details during copying.
+/L = Only simulation
+/FP = Include full path of the files in the result.
+/NJH / /NJH = No shows the header in the console/No shows the final summary
+/Z = Copy files in restartable mode. writes a record in the incomplete file if the operation is interrupted, so that in another run Robocopy can continue where you left off.
+/MAX:0 /MIN:0 = Maximum/min file size to copy
+/MAXAGE:0 / /MINAGE:n0 = Maximum/min file age to copy
+/LOG:"log.txt" = Saves a report with the data from the copy made in a text file. AND MORE...
+*/
+
+;#####################################################################
+;EXAMPLE, IN THE DESKTOP | EJEMPLO, EN EL ESCRITORIO
+com = `"
+;#####################################################################
+;copy folder "a" to folder "foldera" with log| copiar carpeta "a" a la carpeta "foldera" con registro
+RoboCopy(A_Desktop "\a", A_Desktop "\foldera", "/E /W:0 /R:0 /V /LOG:" com A_Desktop "\robocopy.txt" com "&& cls && ECHO ROBOCOPYLOG IN DESKTOP, CLOSE THIS WINDOW", "K0")
+
+;copy ".txt" file to folder "txtfile" | copiar archivo ".txt" a la carpeta "txtfile"
+RoboCopy(A_Desktop "\a\a.txt", A_Desktop "\txtfile", "/W:0 /R:0 /V /LOG+:" com A_Desktop "\robocopy.txt" com)
+
+;copy all "*.bat" files to folder "batfiles" | copiar todos los archivos ".bat" a la carpeta "batfiles"
+RoboCopy(A_Desktop "\a\*.bat", A_Desktop "\batfiles", "/W:0 /R:0 /V /LOG+:" com A_Desktop "\robocopy.txt" com)
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#####################################################################
+;FUNCTION, ROBOCOPY - CMD (WINV+ |OR| WIN_XP DOWNLOAD: http://norfipc.com/ftp/robocopy.zip)
+;#####################################################################
+RoboCopy($source, $dest, $flags := "/E /W:0 /R:0 /V", $add := "C1") {
+	
+	if (!FileExist($source)) AND (!InStr(SplitPath($source, 1), "*"))
+		return -1
+	
+	coma = `"
+	mode := StringLeft($add, 1), $filename := SplitPath($source, 1), $directory := SplitPath($source, 2), x := FileCreateDir($dest), filetype := IsFile($source)
+	$source := (InStr($filename, "*") OR filetype ? (InStr($directory, " ") ? coma $directory coma : $directory) : (InStr($source, " ") ? coma $source coma : $source))
+	$dest := (InStr($filename, "*") OR filetype ? (InStr($dest, " ") ? coma $dest coma : $dest) " " (InStr($filename, " ") ? coma $filename coma : $filename) : coma $dest "\" $filename coma FileCreateDir($dest "\" $filename, 0))
+	$flags := (InStr($filename, "*") OR filetype ? StringReplace(StringReplace($flags, "/E", "", All), "/S", "", All) : $flags)
+	
+	;MsgBox, % $source
+	;MsgBox, % $dest " " $flags ", " (StringRight($add, 1) = 1 ? "Hide UseErrorLevel" : "UseErrorLevel")
+	Run, %Comspec% /%mode% "ROBOCOPY %$source% %$dest% %$flags%",, % StringRight($add, 1) = 1 ? "Hide UseErrorLevel" : "UseErrorLevel"
+}
