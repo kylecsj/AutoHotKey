@@ -56,7 +56,7 @@ RoboCopy(A_Desktop "\a\*.bat", A_Desktop "\batfiles", "/W:0 /R:0 /V /LOG+:" com 
 
 
 ;#####################################################################
-;FUNCTION, ROBOCOPY - CMD (WINV+ |OR| WIN_XP DOWNLOAD: http://norfipc.com/ftp/robocopy.zip)
+;FUNCTIONS, ROBOCOPY - CMD (WINV+ |OR| WIN_XP DOWNLOAD: http://norfipc.com/ftp/robocopy.zip)
 ;#####################################################################
 RoboCopy($source, $dest, $flags := "/E /W:0 /R:0 /V", $add := "C1") {
 	
@@ -72,4 +72,44 @@ RoboCopy($source, $dest, $flags := "/E /W:0 /R:0 /V", $add := "C1") {
 	;MsgBox, % $source
 	;MsgBox, % $dest " " $flags ", " (StringRight($add, 1) = 1 ? "Hide UseErrorLevel" : "UseErrorLevel")
 	Run, %Comspec% /%mode% "ROBOCOPY %$source% %$dest% %$flags%",, % StringRight($add, 1) = 1 ? "Hide UseErrorLevel" : "UseErrorLevel"
+}
+
+IsFile($att){
+	
+	if !FileExist($att)
+		return -1
+
+	FileGetAttrib, $att, %$att%
+	If (InStr($att,"D"))
+		return 0
+	
+	return 1
+	
+}	
+
+SplitPath($source, $flags:="1"){
+SplitPath, $source, $OutFileName, $OutDir, $OutExtension, $OutNameNoExt, $OutDrive
+	return $flags = "1" ? $OutFileName :  $flags = "2" ? $OutDir :  $flags = "3" ? $OutExtension : $flags = "4" ? $OutNameNoExt : $OutDrive
+}
+
+FileCreateDir($path, returnmode := "1") {
+	Loop, Parse, $path,|
+		if !FileExist(A_LoopField)
+			FileCreateDir, %A_LoopField%
+			return (returnmode ? (ErrorLevel ? 0 : 1) : "")
+}
+
+StringReplace(subcomandname:="", countoroptionsorkeys:="", aditionalcommand:="", subaditionalcommand:=""){
+	StringReplace, StringReplace, subcomandname, % countoroptionsorkeys, % aditionalcommand, % subaditionalcommand
+	return StringReplace
+}
+
+StringLeft(subcomandname:="", countoroptionsorkeys:=""){
+	StringLeft, StringLeft, subcomandname, % countoroptionsorkeys
+	return StringLeft
+}
+
+StringRight(subcomandname:="", countoroptionsorkeys:=""){
+	StringRight, StringRight, subcomandname, % countoroptionsorkeys
+	return StringRight
 }
