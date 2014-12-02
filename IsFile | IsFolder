@@ -1,28 +1,11 @@
-
-
-
 IsFile($att){
-	
-	if !FileExist($att)
-		return -1
-	
-	FileGetAttrib, $att, %$att%
-	If (InStr($att,"D"))
-		return 0
-	
-	return 1
-	
-}		
+	if (!InStr(FileExist($att), "D")) AND (FileExist($att))
+		return FileExist($att)
+	return 0
+}	
 
 IsFolder($att){
-	
-	if !FileExist($att)
-		return -1
-	
-	FileGetAttrib, $att, %$att%
-	If (InStr($att,"D"))
-		return 1
-	
+	if (InStr(FileExist($att), "D"))
+		return FileExist($att)
 	return 0
-	
-}		
+}	
