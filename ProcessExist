@@ -1,12 +1,14 @@
 	
 
-    MsgBox, % ProcessExist("Explorer.exe")
+    MsgBox, % ProcessExist("Explorer.exe") ;PID
+    MsgBox, % ProcessExist("Explorer2.exe") ;0
+    MsgBox, % ProcessExist() ;CURRENT PROCESS PID
      
      
-     
-    ;FUNCTION
-    ProcessExist($pidorname){
-            Process, Exist, % ($pidorname="") ? DllCall("GetCurrentProcessID") : $pidorname
-            return ErrorLevel ? 1 : 0
+    ProcessExist($pidorname := ""){
+            Process, Exist, % $pidorname ? $pidorname : DllCall("GetCurrentProcessID")
+            return ErrorLevel
     }
+
+
 
