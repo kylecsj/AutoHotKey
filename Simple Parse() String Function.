@@ -1,0 +1,20 @@
+;EXAMPLE:
+a := "111 | 222 | 333 | 444 # 999"
+MsgBox, % Parse(a,0) ;4
+MsgBox, % Parse(a,1) ;111
+MsgBox, % Parse(a,2) ;222
+MsgBox, % Parse(a,3) ;333
+MsgBox, % Parse(a,4) ;444 # 999
+MsgBox, % Parse(a,1, "#") ;111 | 222 | 333 | 444
+MsgBox, % Parse(a,2, "#") ;999
+
+
+
+Parse(str, count := 1, del := "|", omit := "`r", index := 0) {
+Loop, Parse, str, %del%, %omit%
+	if (!count)
+		index++
+	else if (A_Index = count)
+		return A_LoopField
+return index
+}
