@@ -1,3 +1,6 @@
+# INSTRUCCIONES: crear un archivo con el nombre "AutoHotKey.style.properties" y peguen este contenido dentro.
+# luego muevan ese archivo a: Mis documentos\AutoHotkey\SciTE\Styles
+# por ultimo abran el editor, se van a herramientas\settings y cambian el estilo por "autohotkey"
 
 # Caret, Highlights, etc
 selection.fore=$(selection.fore)
