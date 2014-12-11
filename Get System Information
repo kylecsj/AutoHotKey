@@ -1,0 +1,1212 @@
+;-------------------------------------------------------------------------------------------------------------
+; INICIO
+;-------------------------------------------------------------------------------------------------------------
+#NoEnv
+SetBatchLines -1
+ComObjError(false)
+
+;-------------------------------------------------------------------------------------------------------------
+; INTERFAZ
+;-------------------------------------------------------------------------------------------------------------
+Gui, po:Add, Button, x0 y210 w75 h25 gINFO_01, Placa Madre
+Gui, po:Add, Button, x0 y0 w75 h25 gINFO_02, General
+Gui, po:Add, Button, x0 y25 w75 h25 gINFO_03, Sistema
+Gui, po:Add, Button, x0 y75 w75 h25 gINFO_04, Procesador
+Gui, po:Add, Button, x0 y100 w75 h25 gINFO_05, Video
+Gui, po:Add, Button, x0 y245 w75 h25 gINFO_06, Usuario
+Gui, po:Add, Button, x0 y135 w75 h25 gINFO_07, BIOS
+Gui, po:Add, Button, x0 y270 w75 h25 gINFO_08, Escritorio
+Gui, po:Add, Button, x0 y330 w75 h25 gINFO_09, Red
+Gui, po:Add, Button, x0 y480 w75 h25 gINFO_10, Monitor
+Gui, po:Add, Button, x0 y355 w75 h25 gINFO_11, Audio
+Gui, po:Add, Button, x0 y160 w75 h25 gINFO_12, Bus
+Gui, po:Add, Button, x0 y380 w75 h25 gINFO_13, Discos
+Gui, po:Add, Button, x0 y295 w75 h25 gINFO_14, Seguridad
+Gui, po:Add, Button, x0 y455 w75 h25 gINFO_15, Mouse
+Gui, po:Add, Button, x0 y50 w75 h25 gINFO_16, Memoria
+Gui, po:Add, Button, x0 y185 w75 h25 gINFO_17, Caché
+Gui, po:Add, Button, x0 y430 w75 h25 gINFO_18, USB
+Gui, po:Add, Button, x0 y405 w75 h25 gINFO_19, CD-ROM
+Gui, po:Add, ListView, x75 y1 w880 h503 vINFO_LV, Descripción|Datos
+Gui, po:Show, w960 h510, %A_ScriptName% - %A_AhkVersion%
+
+gosub, INFO_02 ;General
+return
+
+INFO_0: ;LV_ModifyCol() | +Redraw
+INFO_00: ;LV_Delete() |  -Redraw
+poGuiClose: ;ExitApp
+Gui, po:Default ;GUI po
+Gui, ListView, INFO_LV ;ListView INFO_LV
+Loop, 99
+    X%A_Index% := ""
+if (A_ThisLabel = "poGuiClose") ;poGuiClose -->
+    ExitApp ;salir <--
+else { ;INFO_00 | INFO_0 -->
+    x := A_ThisLabel = "INFO_00" ? LV_Delete() : LV_ModifyCol() ;INFO_00 LV_Delete() | INFO_0 LV_ModifyCol()
+    GuiControl, % A_ThisLabel = "INFO_00" ? "-Redraw" : "+Redraw", INFO_LV ;INFO_00 = -Redraw | INFO_0 +Redraw
+} ;<--
+return
+
+
+;-------------------------------------------------------------------------------------------------------------
+; ETIQUETAS
+;-------------------------------------------------------------------------------------------------------------
+INFO_01: ;Placa Madre
+gosub, INFO_00
+for objitem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_BaseBoard") {
+  X1 .= objitem.Caption ","
+  X2 .= objitem.ConfigOptions ","
+  X3 .= objitem.CreationClassName ","
+  X4 .= objitem.Depth ","
+  X5 .= objitem.Description ","
+  X6 .= objitem.Height ","
+  X7 .= objitem.HostingBoard ","
+  X8 .= objitem.HotSwappable ","
+  X9 .= objitem.InstallDate ","
+  X10 .= objitem.Manufacturer ","
+  X11 .= objitem.Model ","
+  X12 .= objitem.Name ","
+  X13 .= objitem.OtherIdentifyingInfo ","
+  X14 .= objitem.PartNumber ","
+  X15 .= objitem.PoweredOn ","
+  X16 .= objitem.Product ","
+  X17 .= objitem.Removable ","
+  X18 .= objitem.Replaceable ","
+  X19 .= objitem.RequirementsDescription ","
+  X20 .= objitem.RequiresDaughterBoard ","
+  X21 .= objitem.SerialNumber ","
+  X22 .= objitem.SKU ","
+  X23 .= objitem.SlotLayout ","
+  X24 .= objitem.SpecialRequirements ","
+  X25 .= objitem.Status ","
+  X26 .= objitem.Tag ","
+  X27 .= objitem.Version ","
+  X28 .= objitem.Weight ","
+  X29 .= objitem.Width ","
+}
+ LV_Add(, "Board_Caption", tRMD(X1))
+ LV_Add(, "Board_ConfigOptions", tRMD(X2))
+ LV_Add(, "Board_CreationClassNameCaption", tRMD(X3))
+ LV_Add(, "Board_Depth", tRMD(X4))
+ LV_Add(, "Board_Description", tRMD(X5))
+ LV_Add(, "Board_Height", tRMD(X6))
+ LV_Add(, "Board_HostingBoard", tRMD(X7))
+ LV_Add(, "Board_HotSwappable", tRMD(X8))
+ LV_Add(, "Board_InstallDate", tRMD(X9))
+ LV_Add(, "Board_Manufacturer", tRMD(X10))
+ LV_Add(, "Board_Model", tRMD(X11))
+ LV_Add(, "Board_Name", tRMD(X12))
+ LV_Add(, "Board_OtherIdentifyingInfo", tRMD(X13))
+ LV_Add(, "Board_PartNumber", tRMD(X14))
+ LV_Add(, "Board_PoweredOn", tRMD(X15))
+ LV_Add(, "Board_Product", tRMD(X16))
+ LV_Add(, "Board_Removable", tRMD(X17))
+ LV_Add(, "Board_Replaceable", tRMD(X18))
+ LV_Add(, "Board_RequirementsDescription", tRMD(X19))
+ LV_Add(, "Board_RequiresDaughterBoard", tRMD(X20))
+ LV_Add(, "Board_SerialNumber", tRMD(X21))
+ LV_Add(, "Board_SKU", tRMD(X22))
+ LV_Add(, "Board_SlotLayout", tRMD(X23))
+ LV_Add(, "Board_SpecialRequirements", tRMD(X24))
+ LV_Add(, "Board_Status", tRMD(X25))
+ LV_Add(, "Board_Tag", tRMD(X26))
+ LV_Add(, "Board_Version", tRMD(X27))
+ LV_Add(, "Board_Weight", tRMD(X28))
+ LV_Add(, "Board_Width", tRMD(X29))
+gosub, INFO_0
+return
+
+
+INFO_02: ;General
+gosub, INFO_00
+for strCSItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_ComputerSystem") {
+  X1 .= strCSItem.AutomaticManagedPagefile ";"
+  X2 .= strCSItem.BootOptionOnLimit ";"
+  X3 .= strCSItem.NameFormat ";"
+  X4 .= strCSItem.AdminPasswordStatus ";"
+  X5 .= strCSItem.AutomaticResetBootOption ";"
+  X6 .= strCSItem.AutomaticResetCapability ";"
+  X7 .= strCSItem.BootROMSupported ";"
+  X8 .= strCSItem.BootupState ";"
+  X9 .= strCSItem.Caption ";"
+  X10 .= strCSItem.ChassisBootupState ";"
+  X11 .= strCSItem.CurrentTimeZone ";"
+  X12 .= strCSItem.DaylightInEffect ";"
+  X13 .= strCSItem.Description ";"
+  X14 .= strCSItem.Domain ";"
+  X15 .= strCSItem.DomainRole ";"
+  X16 .= strCSItem.EnableDaylightSavingsTime ";"
+  X17 .= strCSItem.FrontPanelResetStatus ";"
+  X18 .= strCSItem.InfraredSupported ";"
+  X19 .= strCSItem.KeyboardPasswordStatus ";"
+  X20 .= strCSItem.Manufacturer ";"
+  X21 .= strCSItem.Name ";"
+  X22 .= strCSItem.NetworkServerModeEnabled ";"
+  X23 .= strCSItem.NumberOfLogicalProcessors ";"
+  X24 .= strCSItem.NumberOfProcessors ";"
+  X25 .= strCSItem.OEMStringArray ";"
+  X26 .= strCSItem.PartOfDomain ";"
+  X27 .= strCSItem.PauseAfterReset ";"
+  X28 .= strCSItem.PowerOnPasswordStatus ";"
+  X29 .= strCSItem.PowerState ";"
+  X30 .= strCSItem.PowerSupplyState ";"
+  X31 .= strCSItem.PrimaryOwnerContact ";"
+  X32 .= strCSItem.PrimaryOwnerName ";"
+  X33 .= strCSItem.ResetCapability ";"
+  X34 .= strCSItem.ResetCount ";"
+  X35 .= strCSItem.ResetLimit ";"
+  X36.= strCSItem.Roles ";"
+  X37 .= strCSItem.Status ";"
+  X38 .= strCSItem.SupportContactDescription ";"
+  X39 .= strCSItem.SystemStartupDelay ";"
+  X40 .= strCSItem.SystemStartupOptions ";"
+  X41 .= strCSItem.SystemStartupSetting ";"
+  X42 .= strCSItem.SystemType ";"
+  X43 .= strCSItem.ThermalState ";"
+  X44 .= Round(strCSItem.TotalPhysicalMemory/(1024*1024),0) " MB" ";"
+  X45 .= strCSItem.UserName ";"
+  X46 .= strCSItem.WakeUpType ";"
+  X47 .= strCSItem.Workgroup ";"
+  X48 .= strCSItem.Model ";"
+}
+LV_Add(, "PC_AutomaticManagedPagefile", tRMD(X1))
+LV_Add(, "PC_BootOptionOnLimit", tRMD(X2))
+LV_Add(, "PC_NameFormat", tRMD(X3))
+LV_Add(, "PC_AdminPasswordStatus", tRMD(X4))
+LV_Add(, "PC_AutomaticResetBootOption", tRMD(X5))
+LV_Add(, "PC_AutomaticResetCapability", tRMD(X6))
+LV_Add(, "PC_BootROMSupported", tRMD(X7))
+LV_Add(, "PC_BootupState", tRMD(X8))
+LV_Add(, "PC_Caption", tRMD(X9))
+LV_Add(, "PC_ChassisBootupState", tRMD(X1O))
+LV_Add(, "PC_CurrentTimeZone", tRMD(X11))
+LV_Add(, "PC_DaylightInEffect", tRMD(X12))
+LV_Add(, "PC_Description", tRMD(X13))
+LV_Add(, "PC_Domain", tRMD(X14))
+LV_Add(, "PC_DomainRole", tRMD(X15))
+LV_Add(, "PC_EnableDaylightSavingsTime", tRMD(X16))
+LV_Add(, "PC_FrontPanelResetStatus", tRMD(X17))
+LV_Add(, "PC_InfraredSupported", tRMD(X18))
+LV_Add(, "PC_KeyboardPasswordStatus", tRMD(X19))
+LV_Add(, "PC_Manufacturer", tRMD(X20))
+LV_Add(, "PC_Name", tRMD(X21))
+LV_Add(, "PC_NetworkServerModeEnabled", tRMD(X22))
+LV_Add(, "PC_NumberOfLogicalProcessors", tRMD(X23))
+LV_Add(, "PC_NumberOfProcessors", tRMD(X24))
+LV_Add(, "PC_OEMStringArray", tRMD(X25))
+LV_Add(, "PC_PartOfDomain", tRMD(X26))
+LV_Add(, "PC_PauseAfterReset", tRMD(X27))
+LV_Add(, "PC_PowerOnPasswordStatus", tRMD(X28))
+LV_Add(, "PC_PowerState", tRMD(X29))
+LV_Add(, "PC_PowerSupplyState", tRMD(X30))
+LV_Add(, "PC_PrimaryOwnerContact", tRMD(X31))
+LV_Add(, "PC_PrimaryOwnerName", tRMD(X32))
+LV_Add(, "PC_ResetCapability", tRMD(X33))
+LV_Add(, "PC_ResetCount", tRMD(X34))
+LV_Add(, "PC_ResetLimit", tRMD(X35))
+LV_Add(, "PC_Roles", tRMD(X36))
+LV_Add(, "PC_Status", tRMD(X37))
+LV_Add(, "PC_SupportContactDescription", tRMD(X38))
+LV_Add(, "PC_SystemStartupDelay", tRMD(X39))
+LV_Add(, "PC_SystemStartupOptions", tRMD(X40))
+LV_Add(, "PC_SystemStartupSetting", tRMD(X41))
+LV_Add(, "PC_SystemType", tRMD(X42))
+LV_Add(, "PC_ThermalState", tRMD(X43))
+LV_Add(, "PC_TotalPhysicalMemory", tRMD(X44))
+LV_Add(, "PC_UserName", tRMD(X45))
+LV_Add(, "PC_WakeUpType", tRMD(X46))
+LV_Add(, "PC_Workgroup", tRMD(X47))
+LV_Add(, "PC_Model", tRMD(X48))
+;-----------------------
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_ComputerSystemProduct")
+{
+    X1 .= objItem.Caption ","
+    X2 .= objItem.Description ","
+    X3 .= objItem.IdentifyingNumber ","
+    X4 := objItem.Name ","
+    X5 .= objItem.SKUNumber ","
+    X6 .= objItem.UUID ","
+    X7 .= objItem.Vendor ","
+    X8 .= objItem.Version ","
+}
+LV_Add(, "PRODUCT_Caption" , tRMD(X1))
+LV_Add(, "PRODUCT_Description" , tRMD(X2))
+LV_Add(, "PRODUCT_IdentifyingNumber" , tRMD(X3))
+LV_Add(, "PRODUCT_Name", tRMD(X4))
+LV_Add(, "PRODUCT_SKUNumber" , tRMD(X5))
+LV_Add(, "PRODUCT_UUID" , tRMD(X6))
+LV_Add(, "PRODUCT_Vendor" , tRMD(X7))
+LV_Add(, "PRODUCT_Version" , tRMD(X8))
+gosub, INFO_0
+return
+
+
+INFO_03: ;Sistema
+gosub, INFO_00
+for objOSItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_OperatingSystem")
+{
+  X1 .= objOSItem.BootDevice ","
+  X2 .= objOSItem.BuildNumber ","
+  X3 .= objOSItem.BuildType ","
+  X4 .= objOSItem.Caption ","
+  X5 .= objOSItem.CountryCode ","
+  X6 .= objOSItem.CreationClassName ","
+  X7 .= objOSItem.CSDVersion ","
+  X8 .= objOSItem.CSName ","
+  X9 .= objOSItem.CurrentTimeZone ","
+  X10 .= objOSItem.Distributed ","
+  X11 .= objOSItem.EncryptionLevel ","
+  X12 .= objOSItem.InstallDate ","
+  X13 .= objOSItem.LargeSystemCache ","
+  X14 .= objOSItem.LastBootUpTime ","
+  X15 .= objOSItem.LocalDateTime ","
+  X16 .= objOSItem.Locale ","
+  X17 .= objOSItem.Manufacturer ","
+  X18 .= objOSItem.MaxNumberOfProcesses ","
+  X19 .= objOSItem.MaxProcessMemorySize ","
+  X20 .= objOSItem.Name ","
+  X21 .= objOSItem.NumberOfLicensedUsers ","
+  X22 .= objOSItem.NumberOfProcesses ","
+  X23 .= objOSItem.NumberOfUsers ","
+  X24 .= objOSItem.Organization ","
+  X25 .= objOSItem.OSArchitecture ","
+  X26 .= objOSItem.OSLanguage ","
+  X27 .= objOSItem.OSType ","
+  X28 .= objOSItem.Primary ","
+  X29 .= objOSItem.ProductType ","
+  X30 .= objOSItem.RegisteredUser ","
+  X31 .= objOSItem.SerialNumber ","
+  X32 .= objOSItem.ServicePackMajorVersion ","
+  X33 .= objOSItem.ServicePackMinorVersion ","
+  X34 .= objOSItem.SizeStoredInPagingFiles ","
+  X35 .= objOSItem.Status ","
+  X36 .= objOSItem.SuiteMask ","
+  X37 .= objOSItem.SystemDevice ","
+  X38 .= objOSItem.SystemDirectory ","
+  X39 .= objOSItem.SystemDrive ","
+  X40 .= objOSItem.TotalSwapSpaceSize ","
+  X41 .= Round(objOSItem.FreePhysicalMemory / 1024, 2) " MB"  ","
+  X42 .= Round(objOSItem.FreeSpaceInPagingFiles / 1024, 2) " MB" ","
+  X43 .= Round(objOSItem.TotalVirtualMemorySize / 1024, 2) " MB"  ","
+  X44 .= Round(objOSItem.TotalVisibleMemorySize / 1024, 2) " MB"  ","
+  X45 .= Round(((objOSItem.TotalVisibleMemorySize - objOSItem.FreePhysicalMemory) / 1024), 2) " MB"  ","
+  X46 .= Round(objOSItem.FreeVirtualMemory / 1024, 2) " MB" ","
+  X47 .= objOSItem.Version ","
+  X48 .= objOSItem.WindowsDirectory ","
+}
+ LV_Add(, "System_BootDevice", tRMD(X1))
+ LV_Add(, "System_BuildNumber", tRMD(X2))
+ LV_Add(, "System_BuildType", tRMD(X3))
+ LV_Add(, "System_Caption", tRMD(X4))
+ LV_Add(, "System_CountryCode", tRMD(X5))
+ LV_Add(, "System_CreationClassName", tRMD(X6))
+ LV_Add(, "System_CSDVersion", tRMD(X7))
+ LV_Add(, "System_CSName", tRMD(X8))
+ LV_Add(, "System_CurrentTimeZone", tRMD(X9))
+ LV_Add(, "System_Distributed", tRMD(X10))
+ LV_Add(, "System_EncryptionLevel", tRMD(X11))
+ LV_Add(, "System_InstallDate", tRMD(X12))
+ LV_Add(, "System_LargeSystemCache", tRMD(X13))
+ LV_Add(, "System_LastBootUpTime", tRMD(X14))
+ LV_Add(, "System_LocalDateTime", tRMD(X15))
+ LV_Add(, "System_Locale", tRMD(X16))
+ LV_Add(, "System_Manufacturer", tRMD(X17))
+ LV_Add(, "System_MaxNumberOfProcesses", tRMD(X18))
+ LV_Add(, "System_MaxProcessMemorySize", tRMD(X19))
+ LV_Add(, "System_Name", tRMD(X20))
+ LV_Add(, "System_NumberOfLicensedUsers", tRMD(X21))
+ LV_Add(, "System_NumberOfProcesses", tRMD(X22))
+ LV_Add(, "System_NumberOfUsers", tRMD(X23))
+ LV_Add(, "System_Organization", tRMD(X24))
+ LV_Add(, "System_OSArchitecture", tRMD(X25))
+ LV_Add(, "System_OSLanguage", tRMD(X26))
+ LV_Add(, "System_OSType", tRMD(X27))
+ LV_Add(, "System_Primary", tRMD(X28))
+ LV_Add(, "System_ProductType", tRMD(X29))
+ LV_Add(, "System_RegisteredUser", tRMD(X30))
+ LV_Add(, "System_SerialNumber", tRMD(X31))
+ LV_Add(, "System_ServicePackMajorVersion", tRMD(X32))
+ LV_Add(, "System_ServicePackMinorVersion", tRMD(X33))
+ LV_Add(, "System_SizeStoredInPagingFiles", tRMD(X34))
+ LV_Add(, "System_Status", tRMD(X35))
+ LV_Add(, "System_SuiteMask", tRMD(X36))
+ LV_Add(, "System_Device", tRMD(X37))
+ LV_Add(, "System_Directory", tRMD(X38))
+ LV_Add(, "System_Drive", tRMD(X39))
+ LV_Add(, "System_TotalSwapSpaceSize", tRMD(X40))
+ LV_Add(, "System_FreePhysicalMemory", tRMD(X41))
+ LV_Add(, "System_FreeSpaceInPagingFiles", tRMD(X42))
+ LV_Add(, "System_TotalVirtualMemorySize", tRMD(X43))
+ LV_Add(, "System_TotalVisibleMemorySize", tRMD(X44))
+ LV_Add(, "System_UsedVirtualMemory", tRMD(X45))
+ LV_Add(, "System_FreeVirtualMemory", tRMD(X46))
+ LV_Add(, "System_Version", tRMD(X47))
+ LV_Add(, "System_WindowsDirectory", tRMD(X48))
+gosub, INFO_0
+return
+
+
+INFO_04: ;Procesador
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_Processor")
+{
+  X1 .= objItem.Caption ","
+  X2 .= objItem.CreationClassName ","
+  X3 .= objItem.Description ","
+  X4 .= objItem.DeviceID ","
+  X5 .= objItem.ErrorDescription ","
+  X6 .= objItem.Manufacturer ","
+  X7 .= objItem.Name ","
+  X8 .= objItem.OtherFamilyDescription ","
+  X9 .= objItem.PNPDeviceID ","
+  X10 .= objItem.ProcessorId ","
+  X11 .= objItem.Role ","
+  X12 .= objItem.SocketDesignation ","
+  X13 .= objItem.Status ","
+  X14 .= objItem.Stepping ","
+  X15 .= objItem.SystemCreationClassName ","
+  X16 .= objItem.SystemName ","
+  X17 .= objItem.UniqueId ","
+  X18 .= objItem.Version ","
+}
+LV_Add(, "PROC_Caption", tRMD(X1))
+LV_Add(, "PROC_CreationClassName", tRMD(X2))
+LV_Add(, "PROC_Description", tRMD(X3))
+LV_Add(, "PROC_DeviceID", tRMD(X4))
+LV_Add(, "PROC_ErrorDescription", tRMD(X5))
+LV_Add(, "PROC_Manufacturer", tRMD(X6))
+LV_Add(, "PROC_Name", tRMD(X7))
+LV_Add(, "PROC_OtherFamilyDescription", tRMD(X8))
+LV_Add(, "PROC_PNPDeviceID", tRMD(X9))
+LV_Add(, "PROC_ProcessorId", tRMD(X10))
+LV_Add(, "PROC_Role", tRMD(X11))
+LV_Add(, "PROC_SocketDesignation", tRMD(X12))
+LV_Add(, "PROC_Status", tRMD(X13))
+LV_Add(, "PROC_Stepping", tRMD(X14))
+LV_Add(, "PROC_SystemCreationClassName", tRMD(X15))
+LV_Add(, "PROC_SystemName", tRMD(X16))
+LV_Add(, "PROC_UniqueId", tRMD(X17))
+LV_Add(, "PROC_Version", tRMD(X18))
+gosub, INFO_0
+return
+
+
+INFO_05: ;Video
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_VideoController")
+{
+  X1.= objItem.AcceleratorCapabilities ","
+  X2 .= objItem.AdapterCompatibility ","
+  X3 .= objItem.AdapterDACType ","
+  X4 .= objItem.AdapterRAM ","
+  X5 .= objItem.Availability ","
+  X6 .= objItem.CapabilityDescriptions ","
+  X7 .= objItem.Caption ","
+  X8 .= objItem.ColorTableEntries ","
+  X9 .= objItem.ConfigManagerErrorCode ","
+  X10 .= objItem.ConfigManagerUserConfig ","
+  X11 .= objItem.CreationClassName ","
+  X12 .= objItem.CurrentBitsPerPixel ","
+  X13 .= objItem.CurrentHorizontalResolution ","
+  X14 .= objItem.CurrentNumberOfColors ","
+  X15 .= objItem.CurrentNumberOfColumns ","
+  X16 .= objItem.CurrentNumberOfRows ","
+  X17 .= objItem.CurrentRefreshRate ","
+  X18 .= objItem.CurrentScanMode ","
+  X19 .= objItem.CurrentVerticalResolution ","
+  X20 .= objItem.Description ","
+  X21 .= objItem.DeviceID ","
+  X22 .= objItem.DeviceSpecificPens ","
+  X23 .= objItem.DitherType ","
+  X24 .= objItem.DriverDate ","
+  X25 .= objItem.DriverVersion ","
+  X26 .= objItem.ErrorCleared ","
+  X27 .= objItem.ErrorDescription ","
+  X28 .= objItem.ICMIntent ","
+  X29 .= objItem.ICMMethod ","
+  X30 .= objItem.InfFilename ","
+  X31 .= objItem.InfSection ","
+  X32 .= objItem.InstallDate ","
+  X33 .= objItem.InstalledDisplayDriver ","
+  X34 .= objItem.LastErrorCode ","
+  X35 .= objItem.MaxMemorySupported ","
+  X36 .= objItem.MaxMemorySupported ","
+  X37 .= objItem.MaxRefreshRate ","
+  X38 .= objItem.MinRefreshRate ","
+  X39 .= objItem.Monochrome ","
+  X40 .= objItem.Name ","
+  X41 .= objItem.NumberOfColorPlanes ","
+  X42 .= objItem.NumberOfVideoPages ","
+  X43 .= objItem.PNPDeviceID ","
+  X44 .= objItem.PowerManagementCapabilities ","
+  X45 .= objItem.PowerManagementSupported
+  X46 .= objItem.ProtocolSupported ","
+  X47 .= objItem.ReservedSystemPaletteEntries ","
+  X48 .= objItem.SpecificationVersion ","
+  X49 .= objItem.Status ","
+  X50 .= objItem.StatusInfo ","
+  X51 .= objItem.SystemCreationClassName ","
+  X52 .= objItem.SystemName ","
+  X53 .= objItem.SystemPaletteEntries ","
+  X54 .= objItem.TimeOfLastReset ","
+  X55 .= objItem.VideoArchitecture ","
+  X56 .= objItem.VideoMemoryType ","
+  X57 .= objItem.VideoMode ","
+  X58 .= objItem.VideoModeDescription ","
+  X59 .= objItem.VideoProcessor ","
+}
+LV_Add(, "VIDEO_AcceleratorCapabilities", tRMD(X1))
+LV_Add(, "VIDEO_AdapterCompatibility", tRMD(X2))
+LV_Add(, "VIDEO_AdapterDACType", tRMD(X3))
+LV_Add(, "VIDEO_AdapterRAM", tRMD(X4))
+LV_Add(, "VIDEO_Availability", tRMD(X5))
+LV_Add(, "VIDEO_CapabilityDescriptions", tRMD(X6))
+LV_Add(, "VIDEO_Caption", tRMD(X7))
+LV_Add(, "VIDEO_ColorTableEntries", tRMD(X8))
+LV_Add(, "VIDEO_ConfigManagerErrorCode", tRMD(X9))
+LV_Add(, "VIDEO_ConfigManagerUserConfig", tRMD(X10))
+LV_Add(, "VIDEO_CreationClassName", tRMD(X11))
+LV_Add(, "VIDEO_CurrentBitsPerPixel", tRMD(X12))
+LV_Add(, "VIDEO_CurrentHorizontalResolution", tRMD(X13))
+LV_Add(, "VIDEO_CurrentNumberOfColors", tRMD(X14))
+LV_Add(, "VIDEO_CurrentNumberOfColumns", tRMD(X15))
+LV_Add(, "VIDEO_CurrentNumberOfRows", tRMD(X16))
+LV_Add(, "VIDEO_CurrentRefreshRate", tRMD(X17))
+LV_Add(, "VIDEO_CurrentScanMode", tRMD(X18))
+LV_Add(, "VIDEO_CurrentVerticalResolution", tRMD(X19))
+LV_Add(, "VIDEO_Description", tRMD(X20))
+LV_Add(, "VIDEO_DeviceID", tRMD(X21))
+LV_Add(, "VIDEO_DeviceSpecificPens", tRMD(X22))
+LV_Add(, "VIDEO_DitherType", tRMD(X23))
+LV_Add(, "VIDEO_DriverDate", tRMD(X24))
+LV_Add(, "VIDEO_DriverVersion", tRMD(X25))
+LV_Add(, "VIDEO_ErrorCleared", tRMD(X26))
+LV_Add(, "VIDEO_ErrorDescription", tRMD(X27))
+LV_Add(, "VIDEO_ICMIntent", tRMD(X28))
+LV_Add(, "VIDEO_ICMMethod", tRMD(X29))
+LV_Add(, "VIDEO_InfFilename", tRMD(X30))
+LV_Add(, "VIDEO_InfSection", tRMD(X31))
+LV_Add(, "VIDEO_InstallDate", tRMD(X32))
+LV_Add(, "VIDEO_InstalledDisplayDriver", tRMD(X33))
+LV_Add(, "VIDEO_LastErrorCode", tRMD(X34))
+LV_Add(, "VIDEO_MaxMemorySupported", tRMD(X35))
+LV_Add(, "VIDEO_MaxNumberControlled", tRMD(X36))
+LV_Add(, "VIDEO_MaxRefreshRate", tRMD(X37))
+LV_Add(, "VIDEO_MinRefreshRate", tRMD(X38))
+LV_Add(, "VIDEO_Monochrome", tRMD(X39))
+LV_Add(, "VIDEO_Name", tRMD(X40))
+LV_Add(, "VIDEO_NumberOfColorPlanes", tRMD(X41))
+LV_Add(, "VIDEO_NumberOfVideoPages", tRMD(X42))
+LV_Add(, "VIDEO_PNPDeviceID", tRMD(X43))
+LV_Add(, "VIDEO_PowerManagementCapabilities", tRMD(X44))
+LV_Add(, "VIDEO_PowerManagementSupported", tRMD(X45))
+LV_Add(, "VIDEO_ProtocolSupported", tRMD(X46))
+LV_Add(, "VIDEO_ReservedSystemPaletteEntries", tRMD(X47))
+LV_Add(, "VIDEO_SpecificationVersion", tRMD(X48))
+LV_Add(, "VIDEO_Status", tRMD(X49))
+LV_Add(, "VIDEO_StatusInfo", tRMD(X50))
+LV_Add(, "VIDEO_SystemCreationClassName", tRMD(X51))
+LV_Add(, "VIDEO_SystemName", tRMD(X52))
+LV_Add(, "VIDEO_SystemPaletteEntries", tRMD(X53))
+LV_Add(, "VIDEO_TimeOfLastReset", tRMD(X54))
+LV_Add(, "VIDEO_VideoArchitecture", tRMD(X55))
+LV_Add(, "VIDEO_VideoMemoryType", tRMD(X56))
+LV_Add(, "VIDEO_VideoMode", tRMD(X57))
+LV_Add(, "VIDEO_VideoModeDescription", tRMD(X58))
+LV_Add(, "VIDEO_VideoProcessor", tRMD(X59))
+gosub, INFO_0
+return
+
+
+INFO_06: ;Usuario
+gosub, INFO_00
+for objSession in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_ComputerSystem")
+    X1 .= objSession.UserName ","
+LV_Add(, "USER_UserName", tRMD(X1))
+gosub, INFO_0
+return
+
+
+INFO_07: ;BIOS
+gosub, INFO_00
+for objBiosItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_BIOS")
+{
+  X1 .= objBiosItem.BIOSVersion  ","
+  X2 .= objBiosItem.BuildNumber  ","
+  X3 .= objBiosItem.Caption  ","
+  X4 .= objBiosItem.CurrentLanguage  ","
+  X5 .= objBiosItem.Description  ","
+  X6 .= objBiosItem.InstallableLanguages  ","
+  X7 .= objBiosItem.InstallDate  ","
+  X8 .= objBiosItem.ListOfLanguages  ","
+  X9 .= objBiosItem.Manufacturer  ","
+  X10 .= objBiosItem.Name  ","
+  X11 .= objBiosItem.PrimaryBIOS  ","
+  X12 .= objBiosItem.ReleaseDate  ","
+  X13 .= objBiosItem.SerialNumber  ","
+  X14 .= objBiosItem.SMBIOSBIOSVersion  ","
+  X15 .= objBiosItem.SMBIOSMajorVersion  ","
+  X16 .= objBiosItem.SMBIOSMinorVersion  ","
+  X17 .= objBiosItem.SMBIOSPresent  ","
+  X18 .= objBiosItem.SoftwareElementID  ","
+  X19 .= objBiosItem.SoftwareElementState  ","
+  X20 .= objBiosItem.Status  ","
+  X21 .= objBiosItem.TargetOperatingSystem  ","
+  X22 .= objBiosItem.Version  ","
+  X23 .= objBiosItem.BiosCharacteristics  ","
+  X24 .= objBiosItem.InstallableLanguages ","
+  X25 .= objBiosItem.InstallDate  ","
+  X26 .= objBiosItem.PrimaryBIOS ","
+  X27 .= objBiosItem.ReleaseDate  ","
+  X28 .= objBiosItem.SMBIOSMajorVersion "," 
+  X29 .= objBiosItem.SMBIOSMinorVersion 
+  X30 .= objBiosItem.SMBIOSPresent "," 
+  X31 .= objBiosItem.SoftwareElementState ","
+  X32 .= objBiosItem.TargetOperatingSystem ","
+}
+LV_Add(, "BIOS_Version", tRMD(X1 ))
+LV_Add(, "BIOS_BuildNumber", tRMD(X2 ))
+LV_Add(, "BIOS_Caption", tRMD(X3 ))
+LV_Add(, "BIOS_CurrentLanguage", tRMD(X4 ))
+LV_Add(, "BIOS_Description", tRMD(X5 ))
+LV_Add(, "BIOS_InstallableLanguages", tRMD(X6 ))
+LV_Add(, "BIOS_InstallDate", tRMD(X7 ))
+LV_Add(, "BIOS_ListOfLanguages", tRMD(X8 ))
+LV_Add(, "BIOS_Manufacturer", tRMD(X9 ))
+LV_Add(, "BIOS_Name", tRMD(X10 ))
+LV_Add(, "BIOS_PrimaryBIOS", tRMD(X11 ))
+LV_Add(, "BIOS_ReleaseDate", tRMD(X12 ))
+LV_Add(, "BIOS_SerialNumber2", tRMD(X13 ))
+LV_Add(, "BIOS_SMBIOSBIOSVersion", tRMD(X14 ))
+LV_Add(, "BIOS_SMBIOSMajorVersion", tRMD(X15 ))
+LV_Add(, "BIOS_SMBIOSMinorVersion", tRMD(X16 ))
+LV_Add(, "BIOS_SMBIOSPresent", tRMD(X17 ))
+LV_Add(, "BIOS_SoftwareElementID", tRMD(X18 ))
+LV_Add(, "BIOS_SoftwareElementState", tRMD(X19 ))
+LV_Add(, "BIOS_Status", tRMD(X20 ))
+LV_Add(, "BIOS_TargetOperatingSystem", tRMD(X21 ))
+LV_Add(, "BIOS_Version", tRMD(X22 ))
+LV_Add(, "BIOS_BiosCharacteristics", tRMD(X23 ))
+LV_Add(, "BIOS_InstallableLanguages", tRMD(X24))
+LV_Add(, "BIOS_InstallDate", tRMD(X25 ))
+LV_Add(, "BIOS_PrimaryBIOS", tRMD(X26))
+LV_Add(, "BIOS_ReleaseDate", tRMD(X27 ))
+LV_Add(, "BIOS_SMBIOSMajorVersion", tRMD(X28) )
+LV_Add(, "BIOS_SMBIOSMinorVersion", tRMD(X29))
+LV_Add(, "BIOS_SMBIOSPresent", tRMD(X30) )
+LV_Add(, "BIOS_SoftwareElementState", tRMD(X31))
+LV_Add(, "BIOS_TargetOperatingSystem", tRMD(X32))
+gosub, INFO_0
+return
+
+
+INFO_08: ;Escritorio
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_Desktop")
+{
+    X1 .= objItem.BorderWidth  ","
+    X2 .= objItem.Caption  ","
+    X3 .= objItem.CoolSwitch  ","
+    X4 .= objItem.CursorBlinkRate  ","
+    X5 .= objItem.Description  ","
+    X6 .= objItem.DragFullWindows  ","
+    X7 .= objItem.GridGranularity  ","
+    X8 .= objItem.IconSpacing  ","
+    X9 .= objItem.IconTitleFaceName  ","
+    X10 .= objItem.IconTitleSize  ","
+    X11 .= objItem.IconTitleWrap  ","
+    X12 .= objItem.Name  ","
+    X13 .= objItem.Pattern  ","
+    X14 .= objItem.ScreenSaverActive  ","
+    X15 .= objItem.ScreenSaverExecutable  ","
+    X16 .= objItem.ScreenSaverSecure  ","
+    X17 .= objItem.ScreenSaverTimeout  ","
+    X18 .= objItem.SettingID  ","
+    X19 .= objItem.Wallpaper  ","
+    X20 .= objItem.WallpaperStretched  ","
+    X21 .= objItem.WallpaperTiled ","
+}
+LV_Add(, "Desktop_BorderWidth", tRMD(X1))
+LV_Add(, "Desktop_Caption", tRMD(X2 ))
+LV_Add(, "Desktop_CoolSwitch", tRMD(X3 ))
+LV_Add(, "Desktop_CursorBlinkRate", tRMD(X4 ))
+LV_Add(, "Desktop_Description", tRMD(X5 ))
+LV_Add(, "Desktop_DragFullWindows", tRMD(X6 ))
+LV_Add(, "Desktop_GridGranularity", tRMD(X7 ))
+LV_Add(, "Desktop_IconSpacing", tRMD(X8 ))
+LV_Add(, "Desktop_IconTitleFaceName", tRMD(X9 ))
+LV_Add(, "Desktop_IconTitleSize", tRMD(X10 ))
+LV_Add(, "Desktop_IconTitleWrap", tRMD(X11 ))
+LV_Add(, "Desktop_Name", tRMD(X12 ))
+LV_Add(, "Desktop_Pattern", tRMD(X13 ))
+LV_Add(, "Desktop_ScreenSaverActive", tRMD(X14 ))
+LV_Add(, "Desktop_ScreenSaverExecutable", tRMD(X15 ))
+LV_Add(, "Desktop_ScreenSaverSecure", tRMD(X16))
+LV_Add(, "Desktop_ScreenSaverTimeout", tRMD(X17 ))
+LV_Add(, "Desktop_SettingID", tRMD(X19 ))
+LV_Add(, "Desktop_Wallpaper", tRMD(X19 ))
+LV_Add(, "Desktop_WallpaperStretched", tRMD(X20 ))
+LV_Add(, "Desktop_WallpaperTiled", tRMD(X21))
+gosub, INFO_0
+return
+
+
+INFO_09: ;Red
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration")
+{ ;WHERE IPEnabled = True
+    X1 .= objItem.MACAddress ","
+    X2 .= objItem.Caption ","
+    X3 .= objItem.DatabasePath ","
+    X4 .= objItem.Description ","
+    X5 .= objItem.DHCPServer ","
+    X6 .= objItem.DNSDomain ","
+    X7 .= objItem.DNSDomainSuffixSearchOrder ","
+    X8 .= objItem.DNSHostName ","
+    X9 .= objItem.DNSServerSearchOrder ","
+    X10 .= objItem.IPAddress ","
+    X11 .= objItem.IPSecPermitIPProtocols ","
+    X12 .= objItem.IPSecPermitTCPPorts ","
+    X13 .= objItem.IPSecPermitUDPPorts ","
+    X14 .= objItem.IPSubnet ","
+    X15 .= objItem.IPXAddress ","
+    X16 .= objItem.IPXNetworkNumber ","
+    X17 .= objItem.IPXVirtualNetNumber ","
+    X18 .= objItem.MACAddress ","
+    X19 .= objItem.ServiceName ","
+    X20 .= objItem.SettingID ","
+    X21 .= objItem.WINSHostLookupFile ","
+    X22 .= objItem.WINSPrimaryServer ","
+    X23 .= objItem.WINSScopeID ","
+    X24 .= objItem.WINSSecondaryServer ","
+}
+LV_Add(, "Network_MacAdress", tRMD(X1))
+LV_Add(, "Network_Caption", tRMD(X2))
+LV_Add(, "Network_DatabasePath", tRMD(X3))
+LV_Add(, "Network_Description", tRMD(X4))
+LV_Add(, "Network_DHCPServer", tRMD(X5))
+LV_Add(, "Network_DNSDomain", tRMD(X6))
+LV_Add(, "Network_DNSDomainSuffixSearchOrder", tRMD(X7))
+LV_Add(, "Network_DNSHostName", tRMD(X8))
+LV_Add(, "Network_DNSServerSearchOrder", tRMD(X9))
+LV_Add(, "Network_IPAddress", tRMD(X10))
+LV_Add(, "Network_IPSecPermitIPProtocols", tRMD(X11))
+LV_Add(, "Network_IPSecPermitTCPPorts", tRMD(X12))
+LV_Add(, "Network_IPSecPermitUDPPorts", tRMD(X13))
+LV_Add(, "Network_IPSubnet", tRMD(X14))
+LV_Add(, "Network_IPXAddress", tRMD(X15))
+LV_Add(, "Network_IPXNetworkNumber", tRMD(X16))
+LV_Add(, "Network_IPXVirtualNetNumber", tRMD(X17))
+LV_Add(, "Network_MACAddress", tRMD(X18))
+LV_Add(, "Network_ServiceName", tRMD(X19))
+LV_Add(, "Network_SettingID", tRMD(X20))
+LV_Add(, "Network_WINSHostLookupFile", tRMD(X21))
+LV_Add(, "Network_WINSPrimaryServer", tRMD(X22))
+LV_Add(, "Network_WINSScopeID", tRMD(X23))
+LV_Add(, "Network_WINSSecondaryServer", tRMD(X24))
+gosub, INFO_0
+return
+
+
+INFO_10: ;Monitor
+gosub, INFO_00
+SysGet, MonitorCount, MonitorCount
+SysGet, MonitorPrimary, MonitorPrimary
+SysGet, MonitorName, MonitorName
+SysGet, Monitor, Monitor
+SysGet, MonitorWorkArea, MonitorWorkArea
+LV_Add(, "MonitorCount", MonitorCount)
+LV_Add(, "MonitorPrimary", MonitorPrimary)
+LV_Add(, "MonitorName", MonitorName)
+LV_Add(, "Monitor", Monitor)
+LV_Add(, "MonitorWorkArea", MonitorWorkArea)
+gosub, INFO_0
+return
+
+
+INFO_11: ;Audio
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_SoundDevice")
+{
+  X1 .= objItem.Name ","
+  X2 .= objItem.Caption ","
+  X3 .= objItem.CreationClassName ","
+  X4 .= objItem.Description ","
+  X5 .= objItem.DeviceID ","
+  X6 .= objItem.ErrorDescription ","
+  X7 .= objItem.Manufacturer ","
+  X8 .= objItem.PNPDeviceID ","
+  X9 .= objItem.ProductName ","
+  X10 .= objItem.Status ","
+  X11 .= objItem.SystemCreationClassName ","
+  X12 .= objItem.SystemName ","
+}
+ LV_Add(, "Sound_Name", tRMD(X1))
+ LV_Add(, "Sound_Caption", tRMD(X2))
+ LV_Add(, "Sound_CreationClassName", tRMD(X3))
+ LV_Add(, "Sound_Description", tRMD(X4))
+ LV_Add(, "Sound_DeviceID", tRMD(X5))
+ LV_Add(, "Sound_ErrorDescription", tRMD(X6))
+ LV_Add(, "Sound_ManuFacturer", tRMD(X7))
+ LV_Add(, "Sound_PNPDeviceID", tRMD(X8))
+ LV_Add(, "Sound_ProductName", tRMD(X9))
+ LV_Add(, "Sound_Status", tRMD(X10))
+ LV_Add(, "Sound_SystemCreationClassName", tRMD(X11))
+ LV_Add(, "Sound_SystemName", tRMD(X12))
+gosub, INFO_0
+return
+
+
+INFO_12: ;Bus
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_Bus")
+{
+  X1 .= objItem.Caption ","
+  X2 .= objItem.CreationClassName ","
+  X3 .= objItem.Description ","
+  X4 .= objItem.DeviceID ","
+  X5 .= objItem.ErrorDescription ","
+  X6 .= objItem.Name ","
+  X7 .= objItem.PNPDeviceID ","
+  X8 .= objItem.Status ","
+  X9 .= objItem.SystemCreationClassName ","
+  X10 .= objItem.SystemName ","
+}
+ LV_Add(, "BUS_Caption", tRMD(X1))
+ LV_Add(, "BUS_CreationClassName", tRMD(X2))
+ LV_Add(, "BUS_Description", tRMD(X3))
+ LV_Add(, "BUS_DeviceID", tRMD(X4))
+ LV_Add(, "BUS_ErrorDescription", tRMD(X5))
+ LV_Add(, "BUS_Name", tRMD(X6))
+ LV_Add(, "BUS_PNPDeviceID", tRMD(X7))
+ LV_Add(, "BUS_Status", tRMD(X8))
+ LV_Add(, "BUS_SystemCreationClassName", tRMD(X9))
+ LV_Add(, "BUS_SystemName", tRMD(X10))
+gosub, INFO_0
+return
+
+
+INFO_13: ;Discos
+gosub, INFO_00
+DriveGet, List, List
+Loop, parse, List
+{
+    DriveSpaceFree, space, %A_LoopField%:
+    DriveGet, Capacity, Capacity, %A_LoopField%:
+    space := Round(space / (1024 * 1024), 2), Capacity := Round(Capacity / (1024 * 1024), 2)
+    LV_Add(, A_LoopField ":", "[" Capacity ", " (Capacity - space) "](" space ")")
+}
+gosub, INFO_0
+return
+
+
+INFO_14: ;Seguridad
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\SecurityCenter2").ExecQuery("SELECT * FROM AntiVirusProduct")
+{
+    X1 .= objItem.displayName ","
+    X2 .= objItem.instanceGuid ","
+    X3 .= objItem.pathToSignedProductExe ","
+    X4 .= objItem.pathToSignedReportingExe ","
+    X5 .= ((SubStr(DecTo(objItem.productState, 16), 3, 2) = 10) ? "Habilitado" : "Deshabilitado") ","
+    X6 .= ((SubStr(DecTo(objItem.productState, 16), 5, 2) = 00) ? "Actualizado" : "Desactualizado") ","
+}
+LV_Add(, "AV_displayName", tRMD(X1))
+LV_Add(, "AV_instanceGuid", tRMD(X2))
+LV_Add(, "AV_pathToSignedProductExe", tRMD(X3))
+LV_Add(, "AV_pathToSignedReportingExe", tRMD(X4))
+LV_Add(, "AV_ProtectionState", tRMD(X5))
+LV_Add(, "AV_UpdateState", tRMD(X6))
+;--------------------------------
+for objItem in ComObjGet("winmgmts:\\.\root\SecurityCenter2").ExecQuery("SELECT * FROM AntiSpywareProduct")
+{
+    X1 .= objItem.displayName ","
+    X2 .= objItem.instanceGuid ","
+    X3 .= objItem.pathToSignedProductExe ","
+    X4 .= objItem.pathToSignedReportingExe ","
+    X5 .= ((SubStr(DecTo(objItem.productState, 16), 3, 2) = 10) ? "Habilitado" : "Deshabilitado") ","
+    X6 .= ((SubStr(DecTo(objItem.productState, 16), 5, 2) = 00) ? "Actualizado" : "Desactualizado") ","
+}
+LV_Add(, "AM_displayName", tRMD(X1))
+LV_Add(, "AM_instanceGuid", tRMD(X2))
+LV_Add(, "AM_pathToSignedProductExe", tRMD(X3))
+LV_Add(, "AM_pathToSignedReportingExe", tRMD(X4))
+LV_Add(, "AM_ProtectionState", tRMD(X5))
+LV_Add(, "AM_UpdateState", tRMD(X6))
+;--------------------------------
+for objItem in ComObjGet("winmgmts:\\.\root\SecurityCenter2").ExecQuery("SELECT * FROM FirewallProduct")
+{
+  X1 .= objItem.displayName  ","
+  X2 .= GuidobjItem.instanceGuid ","
+  X3 .= objItem.pathToSignedProductExe ","
+  X4 .= objItem.pathToSignedReportingExe ","
+  X5 .= ((SubStr(DecTo(objItem.productState, 16), 3, 2) = 10) ? "Habilitado" : "Deshabilitado") "`n" ","
+  X6 .= ((SubStr(DecTo(objItem.productState, 16), 5, 2) = 00) ? "Actualizado" : "Desactualizado") ","
+}
+LV_Add(, "Firewall_DisplayName", tRMD(X1 ))
+LV_Add(, "Firewall_InstanceGuid", tRMD(X2))
+LV_Add(, "Firewall_ProductExe", tRMD(X3))
+LV_Add(, "Firewall_ReportingExe", tRMD(X4))
+LV_Add(, "Firewall_ProductProtectionState", tRMD(X5))
+LV_Add(, "Firewall_ProductUpdateState", tRMD(X6))
+;----------------------------------------------------------
+RegRead, X1, HKEY_LOCAL_MACHINE, SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System, EnableLUA ;UAC
+RegRead, X2, HKEY_LOCAL_MACHINE, SYSTEM\CurrentControlSet\Services\wuauserv, Start ;WIN UPDATE
+RegRead, X3, HKEY_LOCAL_MACHINE, SYSTEM\CurrentControlSet\Services\WinDefend, Start ;WINDOWS DEFENDER SERVICIO
+RegRead, X4, HKEY_LOCAL_MACHINE, SYSTEM\CurrentControlSet\Services\MpsSvc, Start ;FIREWALL DE WINDOWS SERVICIO
+RegRead, X5, HKEY_LOCAL_MACHINE, SYSTEM\CurrentControlSet\Services\wscsvc, Start ;CENTRO DE SEGURIDAD SERVICIO
+LV_Add(, "UAC", tRMD(X1))
+LV_Add(, "Windows Update", tRMD(X2))
+LV_Add(, "Windows Defender", tRMD(X3))
+LV_Add(, "Firewall De Windows", tRMD(X4))
+LV_Add(, "Centro De Seguridad", tRMD(X5))
+gosub, INFO_0
+return
+
+
+INFO_15: ;Mouse
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_PointingDevice")
+{
+    X1 .= objItem.Description ","
+    X2 .= objItem.DeviceID ","
+    X3 .= objItem.DeviceInterface ","
+    X4 .= objItem.DoubleSpeedThreshold ","
+    X5 .= objItem.Handedness ","
+    X6 .= objItem.HardwareType ","
+    X7 .= objItem.InfFileName ","
+    X8 .= objItem.InfSection ","
+    X9 .= objItem.Manufacturer ","
+    X10 .= objItem.Name ","
+    X11 .= objItem.NumberOfButtons ","
+    X12 .= objItem.PNPDeviceID ","
+    X13 .= objItem.PointingType ","
+    X14 .= objItem.QuadSpeedThreshold ","
+    X15 .= objItem.Resolution ","
+    X16 .= objItem.SampleRate ","
+    X17 .= objItem.Synch ","
+}
+LV_Add(, "Mouse_Description", tRMD(X1))
+LV_Add(, "Mouse_DeviceID", tRMD(X2))
+LV_Add(, "Mouse_DeviceInterface", tRMD(X3))
+LV_Add(, "Mouse_DoubleSpeedThreshold", tRMD(X4))
+LV_Add(, "Mouse_Handedness", tRMD(X5))
+LV_Add(, "Mouse_HardwareType", tRMD(X6))
+LV_Add(, "Mouse_INFFileName", tRMD(X7))
+LV_Add(, "Mouse_INFSection", tRMD(X8))
+LV_Add(, "Mouse_Manufacturer", tRMD(X9))
+LV_Add(, "Mouse_Name", tRMD(X10))
+LV_Add(, "Mouse_NumberOfButtons", tRMD(X11))
+LV_Add(, "Mouse_PNPDeviceID", tRMD(X12))
+LV_Add(, "Mouse_PointingType", tRMD(X13))
+LV_Add(, "Mouse_QuadSpeedThreshold", tRMD(X14))
+LV_Add(, "Mouse_Resolution", tRMD(X15))
+LV_Add(, "Mouse_SampleRate", tRMD(X16))
+LV_Add(, "Mouse_Synch", tRMD(X17))
+;-------------------------------------------------
+DllCall("SystemParametersInfo", UInt, 0x70, UInt, 0, UIntP, Mouse_Speed, UInt, 0)
+LV_Add(, "Velocidad Del Mouse", Mouse_Speed)
+gosub, INFO_0
+return
+
+
+INFO_16: ;Memoria
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_PhysicalMemory")
+{
+  X1 .= objItem.Caption ","
+  X2 .= objItem.BankLabel ","
+  X3 .= Round(objItem.Capacity / (1024 * 1024), 2) " MB" ","
+  X4 .= objItem.CreationClassName ","
+  X5 .= objItem.DataWidth ","
+  X6 .= objItem.Description ","
+  X7 .= objItem.DeviceLocator ","
+  X8 .= objItem.FormFactor ","
+  X9 .= objItem.HotSwappable ","
+  X10 .= objItem.InstallDate ","
+  X11 .= objItem.InterleaveDataDepth ","
+  X12 .= objItem.InterleavePosition ","
+  X13 .= objItem.Manufacturer ","
+  X14 .= objItem.MemoryType ","
+  X15 .= objItem.Model ","
+  X16 .= objItem.Name ","
+  X17 .= objItem.OtherIdentifyingInfo ","
+  X18 .= objItem.PartNumber ","
+  X19 .= objItem.PositionInRow ","
+  X20 .= objItem.PositionInRow ","
+  X21 .= objItem.Removable ","
+  X22 .= objItem.Replaceable ","
+  X23 .= objItem.SerialNumber ","
+  X24 .= objItem.SKU ","
+  X25 .= objItem.Speed ","
+  X26 .= objItem.Status ","
+  X27 .= objItem.Tag ","
+  X28 .= objItem.TotalWidth ","
+  X29 .= objItem.TypeDetail ","
+  X30 .= objItem.Version "," 
+}
+ LV_Add(, "MEM_Caption", tRMD(X1))
+ LV_Add(, "MEM_BankLabel", tRMD(X2))
+ LV_Add(, "MEM_Capacity", tRMD(X3))
+ LV_Add(, "MEM_CreationClassName", tRMD(X4))
+ LV_Add(, "MEM_DataWidth", tRMD(X5))
+ LV_Add(, "MEM_Description", tRMD(X6))
+ LV_Add(, "MEM_DeviceLocator", tRMD(X7))
+ LV_Add(, "MEM_FormFactor", tRMD(X8))
+ LV_Add(, "MEM_HotSwappable", tRMD(X9))
+ LV_Add(, "MEM_InstallDate", tRMD(X10))
+ LV_Add(, "MEM_InterleaveDataDepth", tRMD(X11))
+ LV_Add(, "MEM_InterleavePosition", tRMD(X12))
+ LV_Add(, "MEM_Manufacturer", tRMD(X13))
+ LV_Add(, "MEM_MemoryType", tRMD(X14))
+ LV_Add(, "MEM_Model", tRMD(X15))
+ LV_Add(, "MEM_Name", tRMD(X16))
+ LV_Add(, "MEM_OtherIdentifyingInfo", tRMD(X17))
+ LV_Add(, "MEM_PartNumber", tRMD(X18))
+ LV_Add(, "MEM_PositionInRow", tRMD(X19))
+ LV_Add(, "MEM_PoweredOn", tRMD(X20))
+ LV_Add(, "MEM_Removable", tRMD(X21))
+ LV_Add(, "MEM_Replaceable", tRMD(X22))
+ LV_Add(, "MEM_SerialNumber", tRMD(X23))
+ LV_Add(, "MEM_SKU", tRMD(X24))
+ LV_Add(, "MEM_Speed", tRMD(X25))
+ LV_Add(, "MEM_Status", tRMD(X26))
+ LV_Add(, "MEM_Tag", tRMD(X27))
+ LV_Add(, "MEM_TotalWidth", tRMD(X28))
+ LV_Add(, "MEM_TypeDetail", tRMD(X29))
+ LV_Add(, "MEM_Version", tRMD(X30) )
+gosub, INFO_0
+return
+
+
+INFO_17: ;Caché
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_CacheMemory")
+{
+  X1 .= objItem.Caption  ","
+  X2 .= objItem.Name ","
+  X3 .= objItem.Location ","
+  X4 .= objItem.CreationClassName ","
+  X5 .= objItem.Description ","
+  X6 .= objItem.DeviceID ","
+  X7 .= objItem.ErrorDescription ","
+  X8 .= objItem.ErrorMethodology ","
+  X9 .= objItem.OtherErrorDescription ","
+  X10 .= objItem.PNPDeviceID ","
+  X11 .= objItem.Purpose ","
+  X12 .= objItem.Status ","
+  X13 .= objItem.SystemCreationClassName ","
+  X14 .= objItem.SystemName ","
+}
+ LV_Add(, "CACHE_Caption", tRMD(X1 ))
+ LV_Add(, "CACHE_Name", tRMD(X2))
+ LV_Add(, "CACHE_Location", tRMD(X3))
+ LV_Add(, "CACHE_CreationClassName", tRMD(X4))
+ LV_Add(, "CACHE_Description", tRMD(X5))
+ LV_Add(, "CACHE_DeviceID", tRMD(X6))
+ LV_Add(, "CACHE_ErrorDescription", tRMD(X7))
+ LV_Add(, "CACHE_ErrorMethodology", tRMD(X8))
+ LV_Add(, "CACHE_OtherErrorDescription", tRMD(X9))
+ LV_Add(, "CACHE_PNPDeviceID", tRMD(X10))
+ LV_Add(, "CACHE_Purpose", tRMD(X11))
+ LV_Add(, "CACHE_Status", tRMD(X12))
+ LV_Add(, "CACHE_SystemCreationClassName", tRMD(X13))
+ LV_Add(, "CACHE_SystemName", tRMD(X14))
+gosub, INFO_0
+return
+
+
+INFO_18: ;USB
+gosub, INFO_00
+for objItem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_USBController")
+{
+  X1 .= objItem.Availability ","
+  X2 .= objItem.Caption ","
+  X3 .= objItem.ConfigManagerErrorCode ","
+  X4 .= objItem.ConfigManagerUserConfig ","
+  X5 .= objItem.CreationClassName ","
+  X6 .= objItem.Description ","
+  X7 .= objItem.DeviceID ","
+  X8 .= objItem.ErrorCleared ","
+  X9 .= objItem.ErrorDescription ","
+  X10 .= objItem.InstallDate ","
+  X11 .= objItem.LastErrorCode ","
+  X12 .= objItem.Manufacturer ","
+  X13 .= objItem.MaxNumberControlled ","
+  X14 .= objItem.Name ","
+  X15 .= objItem.PNPDeviceID ","
+  X16 .= objItem.PowerManagementCapabilities ","
+  X17 .= objItem.PowerManagementSupported ","
+  X18 .= objItem.ProtocolSupported ","
+  X19 .= objItem.Status ","
+  X20 .= objItem.StatusInfo ","
+  X21 .= objItem.SystemCreationClassName ","
+  X22 .= objItem.SystemName ","
+  X23 .= objItem.TimeOfLastReset ","
+}
+ LV_Add(, "USB_Availability", tRMD(X1))
+ LV_Add(, "USB_Caption", tRMD(X2))
+ LV_Add(, "USB_ConfigManagerErrorCode", tRMD(X3))
+ LV_Add(, "USB_ConfigManagerUserConfig", tRMD(X4))
+ LV_Add(, "USB_CreationClassName", tRMD(X5))
+ LV_Add(, "USB_Description", tRMD(X6))
+ LV_Add(, "USB_DeviceID", tRMD(X7))
+ LV_Add(, "USB_ErrorCleared", tRMD(X8))
+ LV_Add(, "USB_ErrorDescription", tRMD(X9))
+ LV_Add(, "USB_InstallDate", tRMD(X10))
+ LV_Add(, "USB_LastErrorCode", tRMD(X11))
+ LV_Add(, "USB_Manufacturer", tRMD(X12))
+ LV_Add(, "USB_MaxNumberControlled", tRMD(X13))
+ LV_Add(, "USB_Name", tRMD(X14))
+ LV_Add(, "USB_PNPDeviceID", tRMD(X15))
+ LV_Add(, "USB_PowerManagementCapabilities", tRMD(X16))
+ LV_Add(, "USB_PowerManagementSupported", tRMD(X17))
+ LV_Add(, "USB_ProtocolSupported", tRMD(X18))
+ LV_Add(, "USB_Status", tRMD(X19))
+ LV_Add(, "USB_StatusInfo", tRMD(X20))
+ LV_Add(, "USB_SystemCreationClassName", tRMD(X21))
+ LV_Add(, "USB_SystemName", tRMD(X22))
+ LV_Add(, "USB_TimeOfLastReset", tRMD(X23))
+gosub, INFO_0
+return
+
+
+INFO_19: ;CD-ROM
+gosub, INFO_00
+for objitem in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_CDROMDrive")
+{
+ X1 .= objitem.Availability ","
+ X2 .= objitem._Capabilities ","
+ X3 .= objitem.CapabilityDescriptions ","
+ X4 .= objitem.Caption ","
+ X5 .= objitem.CompressionMethod ","
+ X6 .= objitem.ConfigManagerErrorCode ","
+ X7 .= objitem.ConfigManagerUserConfig ","
+ X8 .= objitem.CreationClassName ","
+ X9 .= objitem.DefaultBlockSize ","
+ X10 .= objitem.Description ","
+ X11 .= objitem.DeviceID ","
+ X12 .= objitem.Drive ","
+ X13 .= objitem.DriveIntegrity ","
+ X14 .= objitem.ErrorCleared ","
+ X15 .= objitem.ErrorDescription ","
+ X16 .= objitem.ErrorMethodology ","
+ X17 .= objitem._FileSystemFlags ","
+ X18 .= objitem.FileSystemFlagsEx ","
+ X19 .= objitem.Id ","
+ X20 .= objitem.InstallDate ","
+ X21 .= objitem.LastErrorCode ","
+ X22 .= objitem.Manufacturer ","
+ X23 .= objitem.MaxBlockSize ","
+ X24 .= objitem.MaximumComponentLength ","
+ X25 .= objitem.MaxMediaSize ","
+ X26 .= objitem.MediaLoaded ","
+ X27 .= objitem.MediaType ","
+ X28 .= objitem.MfrAssignedRevisionLevel ","
+ X29 .= objitem.MinBlockSize ","
+ X30 .= objitem.Name ","
+ X31 .= objitem.NeedsCleaning ","
+ X32 .= objitem.NumberOfMediaSupported ","
+ X33 .= objitem.PNPDeviceID ","
+ X34 .= objitem._PowerManagementCapabilities ","
+ X35 .= objitem.PowerManagementSupported ","
+ X36 .= objitem.RevisionLevel ","
+ X37 .= objitem.SCSIBus ","
+ X38 .= objitem._SCSILogicalUnit ","
+ X39 .= objitem._SCSIPort ","
+ X40 .= objitem._SCSITargetId ","
+ X41 .= objitem._SerialNumber ","
+ X42 .= objitem.Size ","
+ X43 .= objitem.Status ","
+ X44 .= objitem._StatusInfo ","
+ X45 .= objitem.SystemCreationClassName ","
+ X46 .= objitem.SystemName ","
+ X47 .= objitem.TransferRate ","
+ X48 .= objitem.VolumeName ","
+ X49 .= objitem.VolumeSerialNumber ","
+}
+LV_Add(, " CDROM_Availability", tRMD(X1))
+LV_Add(, " CDROM_Capabilities", tRMD(X2))
+LV_Add(, " CDROM_CapabilityDescriptions", tRMD(X3))
+LV_Add(, " CDROM_Caption", tRMD(X4))
+LV_Add(, " CDROM_CompressionMethod", tRMD(X5))
+LV_Add(, " CDROM_ConfigManagerErrorCode", tRMD(X6))
+LV_Add(, " CDROM_ConfigManagerUserConfig", tRMD(X7))
+LV_Add(, " CDROM_CreationClassName", tRMD(X8))
+LV_Add(, " CDROM_DefaultBlockSize", tRMD(X9))
+LV_Add(, " CDROM_Description", tRMD(X10))
+LV_Add(, " CDROM_DeviceID", tRMD(X11))
+LV_Add(, " CDROM_Drive", tRMD(X12))
+LV_Add(, " CDROM_DriveIntegrity", tRMD(X13))
+LV_Add(, " CDROM_ErrorCleared", tRMD(X14))
+LV_Add(, " CDROM_ErrorDescription", tRMD(X15))
+LV_Add(, " CDROM_ErrorMethodology", tRMD(X16))
+LV_Add(, " CDROM_FileSystemFlags", tRMD(X17))
+LV_Add(, " CDROM_FileSystemFlagsEx", tRMD(X18))
+LV_Add(, " CDROM_Id", tRMD(X19))
+LV_Add(, " CDROM_InstallDate", tRMD(X20))
+LV_Add(, " CDROM_LastErrorCode", tRMD(X21))
+LV_Add(, " CDROM_Manufacturer", tRMD(X22))
+LV_Add(, " CDROM_MaxBlockSize", tRMD(X23))
+LV_Add(, " CDROM_MaximumComponentLength", tRMD(X24))
+LV_Add(, " CDROM_MaxMediaSize", tRMD(X25))
+LV_Add(, " CDROM_MediaLoaded", tRMD(X26))
+LV_Add(, " CDROM_MediaType", tRMD(X27))
+LV_Add(, " CDROM_MfrAssignedRevisionLevel", tRMD(X28))
+LV_Add(, " CDROM_MinBlockSize", tRMD(X29))
+LV_Add(, " CDROM_Name", tRMD(X30))
+LV_Add(, " CDROM_NeedsCleaning", tRMD(X31))
+LV_Add(, " CDROM_NumberOfMediaSupported", tRMD(X32))
+LV_Add(, " CDROM_PNPDeviceID", tRMD(X33))
+LV_Add(, " CDROM_PowerManagementCapabilities", tRMD(X34))
+LV_Add(, " CDROM_PowerManagementSupported", tRMD(X35))
+LV_Add(, " CDROM_RevisionLevel", tRMD(X36))
+LV_Add(, " CDROM_SCSIBus", tRMD(X37))
+LV_Add(, " CDROM_SCSILogicalUnit", tRMD(X38))
+LV_Add(, " CDROM_SCSIPort", tRMD(X39))
+LV_Add(, " CDROM_SCSITargetId", tRMD(X40))
+LV_Add(, " CDROM_SerialNumber", tRMD(X41))
+LV_Add(, " CDROM_Size", tRMD(X42))
+LV_Add(, " CDROM_Status", tRMD(X43))
+LV_Add(, " CDROM_StatusInfo", tRMD(X44))
+LV_Add(, " CDROM_SystemCreationClassName", tRMD(X45))
+LV_Add(, " CDROM_SystemName", tRMD(X46))
+LV_Add(, " CDROM_TransferRate", tRMD(X47))
+LV_Add(, " CDROM_VolumeName", tRMD(X48))
+LV_Add(, " CDROM_VolumeSerialNumber", tRMD(X49))
+gosub, INFO_0
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------
+; FUNCIONES
+;-------------------------------------------------------------------------------------------------------------
+tRMD(str) {
+  return StringTrimRight(str, 1)
+}
+StringTrimRight(input, count) {
+  return SubStr(input, 1, (StrLen(input) - count)) 
+}
+DecTo(n, to) {
+    hex := "0123456789ABCDEF"
+    while (n > 0)
+    {
+        rem := mod(n, to)
+        n /= to
+        y := SubStr(hex, rem + 1, 1)
+        result = %y%%result%
+    }
+    return, "0" . result
+}
