@@ -1,4 +1,6 @@
+###############################################################
 ACTUALIZACION 28/06/2015
+###############################################################
 Funciones Agregadas:
 	• WinTitleAnimate()
 	• WinMinimizeToTray()
@@ -38,6 +40,7 @@ Funciones Agregadas:
 	• IsMenu()
 	• SelectMenuItem()
 	• GetMenuItemList()
+	
 Mejoras:
 	• WinCenter()
 	• WinMinimizeAllUndo()
@@ -45,6 +48,8 @@ Mejoras:
 	• Send()
 	• WinActivate()
 	• WinClose()
+	
 Correcciones:
 	• ProcessName()
 	• ProcessPath()
+###############################################################
