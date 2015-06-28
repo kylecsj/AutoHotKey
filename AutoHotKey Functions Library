@@ -725,9 +725,13 @@ DirGetInfo(Dirname, ValidatePath := 0) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: NÚMEROS & OPERACIONES MATEMÁTICAS ::::::::::::::::::::::::::::::::::
+Links:
+	• http://ahkscript.org/boards/viewtopic.php?t=3925
+	• https://dl.dropboxusercontent.com/u/186419968/html/BaseConversion/index.html
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+*/
 ;obtiene el mayor numero
 ;EJEMPLO: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max( "5,2,8,-44,7" )
 Max(n*) {
@@ -746,16 +750,210 @@ Min(n*) {
 	return _
 }
 
+;----------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------
+
 ;convertir a hexadecimal
+;Sintaxis: Hex( [número hexadecimal], [max prefijo 0], [¿mayúscula?] )
 Hex(num, max := 0, may := 0) {
 	return max = 0 ? Format("0x{:" (may ? "X" : "x") "}", num)
 		: Format("0x{:" 0 LTrim(max,0) (may ? "X" : "x") "}", num)
 }
 
 ;convertir a Unsigned Integer
+;Sintaxis: Int( [número entero], [¿Signed?] )
 Int(num, Signed := 0) {
 	return Format("{:" (Signed ? "d" : "u") "}", num)
 }
+
+;convertir a RGB
+RGB(Color) {
+	Color := (Color & 255) << 16 | (Color & 65280) | (Color >> 16), Color := SubStr(Color, 1)
+	return Hex( Color,, 1 )
+}
+
+;----------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------
+
+;convertir entero a hexadecimal
+IntToHex(int) {
+    HEX_INT := 8
+    while (HEX_INT--) {
+        n := (int >> (HEX_INT * 4)) & 0xf
+        h .= n > 9 ? chr(0x37 + n) : n
+        if (HEX_INT == 0 && HEX_INT//2 == 0)
+            h .= " "
+    }
+    return "0x" h
+}
+
+;convertir binario a octal
+BinToOct(Bin) {
+    i := Oct := Dec := 0
+    while (Bin != 0) {
+		if (i = 0) {
+			z := 1
+		} else {
+			x := 2
+			Loop, % (i - 1)
+				x *= 2
+			z := x
+		}
+        Dec += Mod(Bin, 10) * z
+        i++
+        Bin /= 10
+    }
+    i := 1
+    while (Dec != 0) {
+        Oct += Mod(Dec, 8) * i
+        Dec /= 8
+        i *= 10
+    }
+    return Oct
+}
+
+;convertir binario a decimal
+BinToDec(Bin) {
+    i := Dec := 0
+    while (Bin != 0) {
+        rem := Mod(Bin, 10)
+		Bin /= 10
+		if (i = 0) {
+			z := 1
+		} else {
+			x := 2
+			Loop, % (i - 1)
+				x *= 2
+			z := x
+		}
+        Dec += rem * z
+		i++
+    }
+    return Dec
+}
+
+;convertir decimal a binario
+DecToBin(Dec) {
+    Bin := !(i:=1)
+    while (Dec != 0) {
+        rem := Mod(Dec, 2)
+        Dec /= 2
+        Bin += rem * i
+        i *= 10
+	}
+    return Bin
+}
+
+;convertir decimal a hexadecimal
+DecToHex(Dec) {
+    VarSetCapacity(s, 66, 0)
+    value := DllCall("msvcrt.dll\_wcstoui64", "Str", 119, "UInt", 0, "UInt", Dec, "CDECL Int64")
+    DllCall("msvcrt.dll\_i64tow", "Int64", value, "Str", s, "UInt", 16, "CDECL")
+    return s
+}
+
+;convertir decimal a octal
+DecToOct(Dec) {
+    Oct := !(i:=1)
+    while (Dec > 0) {
+        rem := Mod(Dec, 8)
+        Dec /= 8
+        Oct += rem * i
+        i *= 10
+    }
+    return Oct
+}
+
+;convertir octal a decimal
+OctToDec(Oct) {
+    i := Dec := 0
+    while (Oct != 0) {
+        rem := Mod(Oct, 10)
+        Oct /= 10
+		if (i = 0) {
+			z := 1
+		} else {
+			x := 8
+			Loop, % (i - 1)
+				x *= 8
+			z := x
+		}
+        Dec += rem * z
+        i++
+    }
+    return Dec
+}
+
+;convertir octal a binario
+OctToBin(Oct) {
+    i := Dec := Bin := 0
+    while (Oct != 0) {
+		if (i = 0) {
+			z := 1
+		} else {
+			x := 8
+			Loop, % (i - 1)
+				x *= 8
+			z := x
+		}
+        Dec += Mod(Oct, 10) * z
+        i++
+        Oct /= 10
+    }
+    i := 1
+    while (Dec != 0) {
+        Bin += Mod(Dec, 2) * i
+        Dec /= 2
+        i *= 10
+    }
+    return Bin
+}
+
+;convertir hexadecimal a decimal
+HexToDec(Hex) {
+    VarSetCapacity(s, 66, 0)
+    value := DllCall("msvcrt.dll\_wcstoui64", "Str", 77, "UInt", 0, "UInt", Hex, "CDECL Int64")
+    DllCall("msvcrt.dll\_i64tow", "Int64", value, "Str", s, "UInt", 10, "CDECL")
+    return s
+}
+
+;convertir hexadecimal a cadena de carácteres
+HexToStr(Hex) {
+    Loop, Parse, % Hex, %A_Space%, %A_Tab%
+        char .= Chr(DllCall("msvcrt.dll\_wcstoui64", "Str", A_LoopField, "Uint", 0, "UInt", 16, "CDECL Int64"))
+    return char
+}
+
+;convertir hexadecimal a RGB
+HexToRGB(Hex) {
+    H := InStr(Hex, "0x") ? Hex : (InStr(Hex, "#") ? "0x" SubStr(Hex, 2) : "0x" Hex)
+    return (H & 0xFF0000) >> 16 "," (H & 0xFF00) >> 8 "," (H & 0xFF)
+}
+
+;convertir RGB a hexadecimal
+;Sintaxis: RGBToHex( [rojo], [verde], [azul], [prefijo 1(#)|2(0x)|0] )
+RGBToHex(R, G, B, H := 1) {
+    H := ((H = 1) ? "#" : ((H = 2) ? "0x" : ""))
+    VarSetCapacity(Hex, 17 << !!A_IsUnicode, 0)
+    DllCall("Shlwapi.dll\wnsprintf", "Str", Hex, "Int", 17, "Str", "%016I64X", "UInt64", (R << 16) + (G << 8) + B, "Int")
+    return H SubStr(Hex, StrLen(Hex) - 6 + 1)
+}
+
+;convertir cadena de carácteres a hexadecimal
+StrToHex(Str) {
+    Loop, Parse, % Str
+        VarSetCapacity(s, 65, 0)
+        , DllCall("msvcrt.dll\_i64tow", "Int64", Asc(A_LoopField), "Str", s, "UInt", 16, "CDECL")
+        , hex .= "0x" s " "
+    return SubStr(hex, 1, (StrLen(hex) - 1))
+}
+
+
+
+
+
+
+
 
 
 
@@ -1465,23 +1663,43 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 ProcessPath(ProcessName, ByRef ProcessEName := "") {
 	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
 	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
-	FileNameSize := VarSetCapacity(ModuleFileName, 260 * 2, 0) / 2
-	DllCall("Psapi.dll\GetModuleFileNameExW", "Ptr", hProcess, "UInt", 0, "Str", ModuleFileName, "UInt", FileNameSize)
+	FileNameSize := VarSetCapacity(ModuleFileName, (260 + 1) * 2, 0) / 2
+	if !DllCall("Psapi.dll\GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize)
+		DllCall("Kernel32.dll\K32GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize)
 	return ModuleFileName, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-		, ProcessEName := IsByRef( ProcessEName ) ? ProcessEName( ProcessId ) : ""
+		, ProcessEName := IsByRef( ProcessEName ) ? ProcessName( ProcessId ) : ""
 }
 
 ;recupera el nombre del archivo ejecutable del proceso
-ProcessEName(ProcessName) {
+ProcessName(ProcessName) {
 	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
 	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
-	nSize := VarSetCapacity(lpBaseName, 260 * 2, 0) / 2
-	if !DllCall("Kernel32.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
-		DllCall("Psapi.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
+	nSize := VarSetCapacity(lpBaseName, (260 + 1) * 2, 0) / 2
+	if !DllCall("Psapi.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
+		DllCall("Kernel32.dll\K32GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
 	return lpBaseName, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
 }
-ProcessName(ProcessName) {
-	return ProcessEName( ProcessName )
+ProcessEName(ProcessName) {
+	return ProcessName( ProcessName )
+}
+
+;establece el tamaño de conjunto de trabajo máximo y mínimo para el proceso especificado
+;Sintaxis: ProcessSetWorkingSetSize( [Proceso], [Min], [Max] )
+ProcessSetWorkingSetSize(ProcessName, Min := -1, Max := -1) {
+	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
+	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0100, "UInt", 0, "UInt", ProcessId)
+	return i := DllCall("Kernel32.dll\SetProcessWorkingSetSize", "Ptr", hProcess, "UPtr", Min, "UPtr", Max)
+		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess), ErrorLevel := !i
+}
+
+;obtiene el tamaño de conjunto de trabajo máximo y mínimo para el proceso especificado
+;Sintaxis: ProcessGetWorkingSetSize( [Proceso], [Min (salida)], [Max (salida)] )
+ProcessGetWorkingSetSize(ProcessName, ByRef Min := "", ByRef Max := "") {
+	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
+	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId), i := {}
+	r := DllCall("Kernel32.dll\GetProcessWorkingSetSize", "Ptr", hProcess, "UPtrP", Min, "UPtrP", Max)
+	i.Min := Min, i.Max := Max
+	return r ? i : 0, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess), ErrorLevel := !r
 }
 
 ;Habilitar/Deshabilitar privilegios para el proceso
@@ -1676,6 +1894,11 @@ NetGetString() {
 
 
 
+
+
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1702,7 +1925,7 @@ BlockInput( OnOff ) {
 ;ESTADOS:
 	;0~100 = porcentaje
 	;Normal, Paused, Indeterminate, Error = estado
-SetTaskbarProgress(State, hWnd := "") {
+SetTaskbarProgress(State, hWnd := "") { ;http://ahkscript.org/boards/viewtopic.php?p=48329#p48329
 	static ppv
 	if !ppv
 		DllCall("ole32.dll\OleInitialize", "PtrP", 0)
@@ -1715,7 +1938,7 @@ SetTaskbarProgress(State, hWnd := "") {
 	if InVar( State, "0,N,P,E,I,Normal,Paused,Error,Indeterminate" )
 		return DllCall(NumGet(NumGet(ppv+0)+10*A_PtrSize), "Ptr", ppv, "Ptr", hWnd, "UInt", s%State%)
 	return DllCall(NumGet(NumGet(ppv+0)+9*A_PtrSize), "Ptr", ppv, "Ptr", hWnd, "Int64", State * 10, "Int64", 1000)
-}
+} ;https://msdn.microsoft.com/en-us/library/dd391698(v=vs.85).aspx
 
 ;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
 ;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
@@ -1984,7 +2207,7 @@ ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/b
 
 ;potapapeles
 ;Sintaxis: Clipboard( [texto], [¿copiar seleccionado al portapapeles? (segundos a esperar)] )
-Clipboard(String := "", Selected := "") {
+Clipboard(String := "", Selected := 0) {
 	if Selected {
 		Temp := ClipboardAll
 		Clipboard(), Send( "^c" ), ClipWait( Selected > 0 ? Selected : 1 )
@@ -1992,8 +2215,7 @@ Clipboard(String := "", Selected := "") {
 	}
 	if (String = "") {
 		DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd)
-		return DllCall("User32.dll\EmptyClipboard")
-			, DllCall("User32.dll\CloseClipboard")
+		return DllCall("User32.dll\EmptyClipboard"), DllCall("User32.dll\CloseClipboard")
 	}
 	return Clipboard := String
 }
@@ -2091,9 +2313,11 @@ Exist(ByRef Filename) {
 		, ErrorLevel := !i
 }
 
-IniRead(Filename, Section := "", Key := "") {
+;leer archivo ini
+;Sintaxis: IniRead( [archivo], [seccion], [clave] )
+IniRead(Filename, Section := "", Key := "", OutputVar := " ") {
 	if (Key != "") AND (Section != "")
-		IniRead, OutputVar, %Filename%, %Section%, %Key%, %A_Space% ;OutputVar
+		IniRead, OutputVar, %Filename%, %Section%, %Key%, %OutputVar% ;OutputVar
 	else if (Key = "") AND (Section != "")
 		IniRead, OutputVar, %Filename%, %Section% ;OutputVarSection
 	else if (Key = "") AND (Section = "")
@@ -2149,6 +2373,67 @@ ExecScript(Script, Params := "", AhkPath := "", Name := "") {
 	DllCall("ConnectNamedPipe", "UPtr", Pipe[2], "UPtr", 0), FileOpen(Pipe[2], "h", "UTF-8").Write( Script )
 	return Exec, DllCall("CloseHandle", "UPtr", Pipe[2])
 }
+
+;reiniciar explorador de windows
+RestartWindowsExplorer() {
+	if ProcessClose( "explorer.exe*", 5 )
+		return Run( A_WinDir "\explorer.exe" )
+	return 0, ErrorLevel := 1
+}
+
+;muestra el menú inicio
+ShowStartMenu() {
+	return DllCall("User32.dll\PostMessageW", "Ptr", IsWindow(), "UInt", 0x112, "UInt", 0xF130, "Ptr", 0)
+}
+
+;muestra el escritorio y establece foco en él
+;Sintaxis: ShowDesktop( [¿esperar? (segundos)] )
+ShowDesktop(Wait := -1) {
+	hDesktop := DllCall("User32.dll\GetShellWindow")
+	ComObjCreate( "shell.application" ).ToggleDesktop()
+	return WinActivate( hDesktop, Wait, 1 )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2452,9 +2737,35 @@ RegCopyTree(Key, Dest) {
 
 
 
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;dialogo para elegir color
+;Sintaxis: ColorSelect( [defecto], [ID ventana propietaria], [¿mostrar todos los colores? 0|1] )
+;EJEMPLO: MsgBox % "Color: " (i:=ColorSelect(255,,1)) "`nRGB: " RGB(i) "`nHex: " Hex(i) "`n`nErrorLevel: " ErrorLevel
+ColorSelect(Color := "", hWnd := 0, FullOpen := "") {
+	VarSetCapacity(CUSTOM, 16 * A_PtrSize, 0)
+	Loop, 16
+		NumPut( IniRead( A_Temp "\defaultusercolorpalette.ini", "Color", A_Index, 0 )
+			, CUSTOM, (A_Index - 1) * 4, "UInt")
+	lStructSize := VarSetCapacity(CHOOSECOLOR, 9 * A_PtrSize, 0)
+	NumPut( lStructSize, CHOOSECOLOR, 0, "UInt" )
+	NumPut( hWnd, CHOOSECOLOR, A_PtrSize, "Ptr" )
+	NumPut( Color = "" ? IniRead( A_Temp "\defaultusercolorpalette.ini", "Default", "Color", 0 )
+		: Color, CHOOSECOLOR, 3 * A_PtrSize, "Ptr" )
+	NumPut( &CUSTOM, CHOOSECOLOR, 4 * A_PtrSize, "PtrP" )
+	NumPut( 0x1|0x100|(FullOpen=0?0x4:FullOpen?0x2:0x0), CHOOSECOLOR, 5 * A_PtrSize, "UInt" )
+	i := DllCall("comdlg32.dll\ChooseColorW", "UPtr", &CHOOSECOLOR, "UInt")
+	Loop, 16
+		IniWrite( NumGet(custom, (A_Index - 1) * 4, "UInt")
+			, A_Temp "\defaultusercolorpalette.ini", "Color", A_Index)
+	return Color := NumGet(CHOOSECOLOR, 3 * A_PtrSize, "UInt")
+		, i:=i?IniWrite( Color, A_Temp "\defaultusercolorpalette.ini", "Default", "Color" ):""
+		, ErrorLevel := !i
+}
+
 ;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones para el Edit]] )
 ;ErrorLevel es:
 	;0 = el usuario precionó Aceptar
@@ -2500,7 +2811,7 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "") {
 		Gui, %_InputBoxHWND%:Destroy
 		return "", ErrorLevel := 3
 	}
-	
+
 	;devuelve el resultado
 	return _InputBoxResult, ErrorLevel := _InputBoxErrorLevel
 		, _InputBoxErrorLevel := _InputBoxId := _InputBoxInfoText := ""
@@ -3024,9 +3335,27 @@ IL_GetSize(ImageList, ByRef Width := "", ByRef Height := "") {
 
 
 
+
+
+
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: CONTROL ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;enviar pulsaciones de teclas a un control
+;Sintaxis: ControlSend( [ID], [Control], [Teclas], [Repeticiones], [retraso (ms)] )
+ControlSend( hWnd, Control, Keys, Count := 1, Delay := -2 ) {
+	if !(ok := 0) AND (Count <= 1) {
+		ControlSend, %Control%, %Keys%, ahk_id %hWnd%
+		return !ErrorLevel, Sleep( Delay )
+	}
+	Loop, %Count%
+		ok += ControlSend( hWnd, Control, Keys,, A_Index = Count ? -2 : Delay )
+	return ok, ErrorLevel := ok = Count ? 0 : 1
+}
+
 ControlHide(hWnd, ControlId*) {
 	Loop, % ControlId.MaxIndex()
 		Control, Hide,, ControlId[ A_Index ], ahk_id %hWnd%
@@ -3037,16 +3366,6 @@ ControlShow(hWnd, ControlId*) {
 	Loop, % ControlId.MaxIndex()
 		Control, Show,, ControlId[ A_Index ], ahk_id %hWnd%
 	return !ErrorLevel
-}
-
-ControlSend( hWnd, Control, Keys, Count := 1, Delay := 0 ) {
-	ok := 0
-	Loop, %Count% {
-		ControlSend, %Control%, %Keys%, ahk_id %hWnd%
-		ok := ErrorLevel ? ok : ok + 1
-		Sleep( Delay > 0 ? Delay : 0 )
-	}
-	return ok, ErrorLevel := ok = Count ? 0 : 1
 }
 
 ControlSendRaw( hWnd, Control, Keys, Count := 1, Delay := 0) {
@@ -3121,7 +3440,7 @@ ControlGetText(Control, hWnd) {
 
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-; ::::::::::::::::::::::::::::::::::::::::::::: MOUSE Y TECLADO ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: MOUSE/CURSOR Y TECLADO ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;Envia pulsaciones de teclado clics del ratón a la ventana activa.
 ;se aplica a: Send, SendInput, SendRaw
@@ -3231,12 +3550,68 @@ MouseGetPos(ByRef x := "", ByRef y := "", ByRef  Win := "", ByRef Control := "",
 	i := {}, i.x := x, i.y := y, i.Win := i.hWnd := Win, i.Control := i.ctrl := Control, i.Mode := Mode
 	return i
 }
-CursorGetPos(ByRef x := "",ByRef y := "") { ;recupera la posición del cursor, en coordenadas de pantalla
-	VarSetCapacity( lpPoint, 8 + A_PtrSize, 0 ), i := {} ;Ejemplo: MsgBox % "x: " CursorGetPos(, y).x "`ny: " y
-	error := DllCall("User32.dll\GetCursorPos", "Ptr", &lpPoint)
+
+;recupera la posición del cursor, en coordenadas de pantalla
+;Sintaxis: CursorGetPos( [x], [y], [ventana (out)], [control (out)] )
+CursorGetPos(ByRef x := "",ByRef y := "", ByRef Win := "", ByRef Control := "") {
+	VarSetCapacity( lpPoint, 8 + A_PtrSize, 0 ), i := {}
+	r := DllCall("User32.dll\GetCursorPos", "Ptr", &lpPoint)
 	x := i.x := NumGet( lpPoint, 0, "Int"), y := i.y := NumGet( lpPoint, 4, "Int")
-	return i, ErrorLevel := !error
+	if IsByRef( Win ) OR IsByRef( Control ) {
+		VarSetCapacity( POINT, 8 + A_PtrSize, 0 )
+		NumPut( x, POINT, 0, "Int" ), NumPut( y, POINT, 4, "Int" )
+		Win := DllCall("User32.dll\WindowFromPoint", "Int64", NumGet(POINT, 0, "Int64"))
+		Control := IsByRef( Control ) ? WinGetClass( Win ) : ""
+	}
+	return i, ErrorLevel := !r
 }
+
+;muestra/oculta el cursor
+;Sintaxis: CursorShow( [Estado (0|1)], [Modo (0|1)], [Reestablecer (segundos)] )
+;REESTABLECER: tiempo fuera en el que el cursor se muestra/oculta (dependiedo el estado espesificado)
+;EJEMPLO: CursorShow( 0,, 5 ), ExitApp()
+CursorShow(State, Mode := 0, TimeOut := 0) {
+	;--------------------------------------------------------------------------------------------------------------
+	static hCursor, hCursorImage, Cursor
+	;--------------------------------------------------------------------------------------------------------------
+	if (TimeOut > 0) { ;alternar: State=0|1, Mode=0|1, TimeOut>0
+		if !CursorShow( State, Mode )
+			return 0, ErrorLevel := 1
+		Sleep( TimeOut * 1000 )
+		return i := CursorShow( !State, Mode ), ErrorLevel := !i
+	} ;--------------------------------------------------------------------------------------------------------------
+	if Mode ;solo afecta a las ventanas creadas por el script: State=0|1, Mode=1, TimeOut=0
+		Loop {
+			NewDisplayCounter := DllCall("User32.dll\ShowCursor", "Int", State)
+			if State AND (NewDisplayCounter >= 0)
+				return 1, ErrorLevel := 0
+			else if !State AND (NewDisplayCounter <= -1)
+				return 1, ErrorLevel := 0
+			if (NewDisplayCounter = OldDisplayCounter)
+				return 0, ErrorLevel := 1
+			OldDisplayCounter := NewDisplayCounter
+		}
+	;--------------------------------------------------------------------------------------------------------------
+	if State ;restaura los cursores: State=1, Mode=0, TimeOut=0
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x57, "UInt", 0, "UInt", 0, "UInt", 0)
+	VarSetCapacity( AndMask, 32 * 4, 0xFF ), VarSetCapacity( XorMask, 32 * 4, 0 ), i := 0
+	Loop, Parse, % "32650,32512,32515,32649,32651,32513,32641,32648,32640,32646,32643,32645,32642,32644,32516,32514", `,
+	{
+		if !Cursor {
+			hCursor := hCursorImage := []
+			hCursor[A_Index] := DllCall("User32.dll\CreateCursor", "Ptr", 0, "Int", 0, "Int", 0
+				, "Int", DllCall("User32.dll\GetSystemMetrics", "Int", 13)
+				, "Int", DllCall("User32.dll\GetSystemMetrics", "Int", 14)
+				, "Ptr", &AndMask, "Ptr", &XorMask)
+			hCursorImage[A_Index] := DllCall("User32.dll\CopyImage", "Ptr", hCursor[A_Index], "UInt", 2, "Int", 0, "Int", 0, "UInt", 0)
+		}
+		i += DllCall("User32.dll\SetSystemCursor", "Ptr", hCursorImage[A_Index], "UInt", A_LoopField)
+	}
+	return Cursor := i, ErrorLevel := !i
+} ;--------------------------------------------------------------------------------------------------------------
+
+
+
 
 
 
@@ -3401,22 +3776,21 @@ SysGlobalMemoryStatusEx() { ;https://msdn.microsoft.com/en-us/library/windows/de
 }
 
 ;sistema operativo: información de la versión
-SysGetVersion() {
-	if Get( A_ThisFunc, i )
-		return i
-	VarSetCapacity(RTL_OSVIEX, 284, 0), NumPut(284, RTL_OSVIEX, 0, "UInt")
-	DllCall("ntdll.dll\RtlGetVersion", "Ptr", &RTL_OSVIEX), i := {}
-	i.OSVersionInfoSize := NumGet(RTL_OSVIEX, 0, "UInt")
-	i.MajorVersion := NumGet(RTL_OSVIEX, 4, "UInt")
-	i.MinorVersion := NumGet(RTL_OSVIEX, 8, "UInt")
-	i.BuildNumber := NumGet(RTL_OSVIEX, 12, "UInt")
-	i.PlatformId := NumGet(RTL_OSVIEX, 16, "UInt")
-	i.CSDVersion := StrGet(&RTL_OSVIEX + 20, 128, "UTF-16") ;SP
-	i.ServicePackMajor := NumGet(RTL_OSVIEX, 276, "UShort")
-	i.ServicePackMinor := NumGet(RTL_OSVIEX, 278, "UShort")
-	i.SuiteMask := NumGet(RTL_OSVIEX, 280, "UShort")
-	i.ProductType := NumGet(RTL_OSVIEX,       282, "UChar" )
-	return Set( A_ThisFunc, i )
+SysGetVersion() { ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff561910%28v=vs.85%29.aspx
+	if !Get( A_ThisFunc, i )
+		VarSetCapacity(RTL_OSVIEX, 284, 0), NumPut(284, RTL_OSVIEX, 0, "UInt")
+		DllCall("ntdll.dll\RtlGetVersion", "Ptr", &RTL_OSVIEX), i := {}
+		;i.OSVersionInfoSize := NumGet(RTL_OSVIEX, 0, "UInt")
+		i.MajorVersion := NumGet(RTL_OSVIEX, 4, "UInt")
+		i.MinorVersion := NumGet(RTL_OSVIEX, 8, "UInt")
+		i.BuildNumber := NumGet(RTL_OSVIEX, 12, "UInt")
+		i.PlatformId := NumGet(RTL_OSVIEX, 16, "UInt")
+		i.CSDVersion := StrGet(&RTL_OSVIEX + 20, 128, "UTF-16") ;SP
+		i.ServicePackMajor := NumGet(RTL_OSVIEX, 276, "UShort")
+		i.ServicePackMinor := NumGet(RTL_OSVIEX, 278, "UShort")
+		i.SuiteMask := NumGet(RTL_OSVIEX, 280, "UShort")
+		i.ProductType := NumGet(RTL_OSVIEX, 282, "UChar" )
+	return i ? i : Set( A_ThisFunc, i )
 }
 
 ;recupera la ruta completa de una carpeta WIN_V+
@@ -3843,20 +4217,37 @@ A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
   ::::::::::::::::::::::::::::::::::::::::::::: VENTANAS ::::::::::::::::::::::::::::::::::
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 NOTA: las funciones solo aceptan el ID de la ventana (mas rápido), para el titulo o ahk_xxx usar WinExist( .. )
-EJEMPLO: WinCenter( WinExist("Calculadora") )
+EJEMPLO: WinCenter( WinExist("ahk_exe notepad.exe") )
 */
-WinMinimizeAll() {
-	WinMinimizeAll
-	return 1
+;comprueba si la ventana no responde
+WinHugh(hWnd) {
+	return i := DllCall("User32.dll\IsHungAppWindow", "Ptr", hWnd)
+		, ErrorLevel := !i
 }
 
-;recupera una lista con todas las ventanas
-WinEnum() {
-	List := {}
-	WinGet, win, List
-	Loop, %win%
-		List.InsertAt(A_Index, win%A_Index%)
-	return List
+;redibujar la ventana
+;Sintaxis: WinRedraw( [ID], [¿Forzar?] )
+WinRedraw(hWnd, Force := 0) {
+	if Force
+		return i := DllCall("User32.dll\UpdateWindow", "Ptr", hWnd), ErrorLevel := !i
+	RDW_INVALIDATE := 0x0001, RDW_UPDATENOW := 0x0100
+	return i := DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", RDW_INVALIDATE|RDW_UPDATENOW)
+		, ErrorLevel := !i
+}
+
+;minimiza todas las ventanas
+;NOTA: usar ShowDesktop() para obtener el foco en el escritorio
+WinMinimizeAll() {
+	if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
+		return ComObjCreate( "shell.application" ).MinimizeAll()
+	return DllCall("User32.dll\PostMessageW", "Ptr", hWindow, "UInt", 0x0111, "UInt", 419, "Ptr", 0)
+}
+
+;restaura todas las ventanas
+WinMinimizeAllUndo() {
+	if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
+		return ComObjCreate( "shell.application" ).UndoMinimizeALL()
+	return DllCall("User32.dll\PostMessageW", "Ptr", hWindow, "UInt", 0x0111, "UInt", 416, "Ptr", 0)
 }
 
 ;centrar ventana
@@ -3937,12 +4328,13 @@ WinGetClass(hWnd) {
 }
 
 ;recupera el PID/ThreadId/ProcessName del proceso de la ventana
-;Sintaxis: WinGetPID( [ID], [ThreadId (salida)], [Proceso (salida)] )
-WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "") {
+;Sintaxis: WinGetPID( [ID], [ThreadId (salida)], [Proceso (salida)], [Proceso Ruta (salida)] )
+WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "", ByRef ProcessPath := "") {
 	VarSetCapacity( lpdwProcessId, A_PtrSize * 2, 0 )
 	ThreadId := DllCall("User32.dll\GetWindowThreadProcessId", "Ptr", hWnd, "Ptr", &lpdwProcessId)
 	return ProcessId := NumGet( lpdwProcessId, 0, "Ptr" )
 		, ProcessName := IsByRef( ProcessName ) ? ProcessName( ProcessId ) : ""
+		, ProcessPath := IsByRef( ProcessPath ) ? ProcessPath( ProcessId ) : ""
 		, ErrorLevel := !ThreadId
 }
 
@@ -3982,11 +4374,10 @@ WinClose(hWnd, Seconds := -1, Force := 0) {
 		hThread := DllCall("Kernel32.dll\OpenThread", "UInt", 0x0001, "UInt", 0, "UInt", WinThreadId)
 		return i := DllCall("Kernel32.dll\TerminateThread", "Ptr", hThread, "UInt", 0)
 			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hThread)
-			, WinWaitClose( hWnd, Seconds ), ErrorLevel := !i
+			, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
 	}
 	return i := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", 0x0002, "Ptr", 0, "Ptr", 0, "UInt", 0x0002, "UInt", 5000, "UPtrP", 0)
-		, WinWaitClose( hWnd, Seconds )
-		, ErrorLevel := !i
+		, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
 }
 WinKill(hWnd, Seconds := -1) {
 	return WinClose( hWnd, Seconds, 1 ) ? 1
@@ -4032,6 +4423,13 @@ WinMinimize(hWnd, Force := 0) {
 WinMax(hWnd) {
 	return i := DllCall("User32.dll\IsZoomed", "Ptr", hWnd)
 		, ErrorLevel := !i
+}
+
+;devuelve 1 si la ventana: existe, no esta maximizada/minimizada, es visible
+WinNormal(hWnd) {
+	if WinMin( hWnd ) OR WinMax( hWnd ) OR !IsWindow( hWnd ) OR !WinVisible( hWnd )
+		return 0, ErrorLevel := 1
+	return 1, ErrorLevel := 0
 }
 
 ;maximiza la ventana
@@ -4106,6 +4504,11 @@ IsWindow(hWnd*) {
 		, ErrorLevel := !i
 }
 
+;comprueba si la ventana está activa
+IsWinActive(hWnd) {
+	return IsWindow() = hWnd ? 1 : 0
+}
+
 ;activa la ventana
 ;NOTA: si la ventana está minimizada, las restaura a su tamaño y posicion original
 ;Sintaxis: WinActivate( [ID], [¿Esperar? (segundos)], [¿Forzar?] )
@@ -4116,14 +4519,14 @@ WinActivate(hWnd, WaitActive := -1, Force := 0) {
 		CurrentThreadId := ProcessExist( -2 )
 		WinGetPID( hWnd, WinThreadId )
 		DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 1)
-		return DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
+		return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
 			, DllCall("User32.dll\BringWindowToTop", "Ptr", hWnd)
 			, DllCall("User32.dll\SetFocus", "Ptr", hWnd)
 			, DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 0)
-			, WinWaitActive(hWnd, WaitActive)
+			, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
 	}
-	return DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
-		, WinWaitActive(hWnd, WaitActive)
+	return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
+		, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
 }
 
 ;esperar a que una ventana se active
@@ -4133,7 +4536,7 @@ WinWaitActive(hWnd, Seconds := 0) {
 		return 0
 	GetTickCount( StartTime )
 	Loop {
-		if (hWnd = IsWindow())
+		if IsWinActive( hWnd )
 			return 1, ErrorLevel := 0
 		ElapsedTime := (GetTickCount() - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -4149,7 +4552,7 @@ WinWaitNotActive(hWnd, Seconds := 0) {
 		return 0
 	GetTickCount( StartTime )
 	Loop {
-		if (hWnd != IsWindow())
+		if !IsWinActive( hWnd )
 			return 1, ErrorLevel := 0
 		ElapsedTime := (GetTickCount() - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -4189,17 +4592,17 @@ WinEnabled(hWnd) {
 }
 
 ;habilita la ventana
+;Sintaxis: WinEnable( [ID], [¿Activar?], [¿Esperar? (seg)] )
 WinEnable(hWnd, Activate := 0, WaitActive := -1) {
-	i := DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 1)
-	return i
+	return i := DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 1)
 		, a := Activate ? WinActivate( hWnd ) : ""
-		, WinWaitActive( hWnd, WaitActive )
-		, ErrorLevel := !i
+		, ErrorLevel := !i, WinWaitActive( hWnd, WaitActive )
 }
 
 ;deshabilita la ventana
 WinDisable(hWnd) {
-	return !DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 0)
+	return i := !DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 0)
+		, ErrorLevel := !i
 }
 
 WinSetTransparent( hWnd, Transparent ) {
