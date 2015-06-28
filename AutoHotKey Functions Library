@@ -1,6 +1,6 @@
 /*
 FUNCIONES  AUTOHOTKEY UNICODE 32 & 64 BITS.
---------------------------------------------------------------------------
+-------------------------------------------------------------------------
 SO: WXP, WV, W7 & W8 ~ 32 & 64 Bits.
 Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, registro, control, mouse & teclado, sistema,
@@ -4043,6 +4043,17 @@ A_ScreenWidth() {
 	return DllCall("User32.dll\GetSystemMetrics", "Int", 0)
 }
 
+;tamaño de la zona de trabajo en el monitor de pantalla principal.
+;el área de trabajo es la parte de la pantalla que no está oculta por la barra de tareas o las barras de herramientas de escritorio de aplicaciones.
+A_MonitorWorkArea() {
+	VarSetCapacity(RECT, 16, 0), i := {}
+	r := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0030, "UInt", 0, "Ptr", &RECT, "UInt", 0)
+	i.x := x := NumGet(RECT, 0, "Int"), i.y := y := NumGet(RECT, 4, "Int")
+	i.w := i.Width := Width := NumGet(RECT,  8, "Int") - x
+	i.h := i.Height := Height := NumGet(RECT, 12, "Int") - y
+	return i, ErrorLevel := !r
+}
+
 ;alto del monitor actual
 A_ScreenHeight() {
 	return DllCall("User32.dll\GetSystemMetrics", "Int", 1)
@@ -4225,15 +4236,57 @@ WinHugh(hWnd) {
 		, ErrorLevel := !i
 }
 
-;redibujar la ventana
-;Sintaxis: WinRedraw( [ID], [¿Forzar?] )
-WinRedraw(hWnd, Force := 0) {
-	if Force
-		return i := DllCall("User32.dll\UpdateWindow", "Ptr", hWnd), ErrorLevel := !i
-	RDW_INVALIDATE := 0x0001, RDW_UPDATENOW := 0x0100
-	return i := DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", RDW_INVALIDATE|RDW_UPDATENOW)
+;comprueba si la ventana está habilitada
+WinEnabled(hWnd) {
+	return DllCall("User32.dll\IsWindowEnabled", "UInt", hWnd)
+}
+IsWinEnabled(hWnd) {
+	return WinEnabled( hWnd )
+}
+
+;comprueba si la ventana existe
+;NOTAS: 
+	;dejar vacio para obtener el ID de la ventana activa
+	;si existe, devuelve el ID
+IsWindow(hWnd*) {
+	if !hWnd.MaxIndex() ;devuelve el ID de la ventana activa
+		return DllCall("User32.dll\GetForegroundWindow")
+	return (i := DllCall("User32.dll\IsWindow", "Ptr", hWnd[1])) ? hWnd[1] : 0
 		, ErrorLevel := !i
 }
+
+;comprueba si la ventana es visible
+WinVisible(hWnd) {
+	return i := DllCall("User32.dll\IsWindowVisible", "Ptr", hWnd)
+		, ErrorLevel := !i
+}
+
+;comprueba si la ventana está minimizada
+WinMin(hWnd) {
+	return i := DllCall("User32.dll\IsIconic", "Ptr", hWnd)
+		, ErrorLevel := !i
+}
+
+;comprueba si la ventana está maximizada
+WinMax(hWnd) {
+	return i := DllCall("User32.dll\IsZoomed", "Ptr", hWnd)
+		, ErrorLevel := !i
+}
+
+;devuelve 1 si la ventana: existe, no esta maximizada/minimizada, es visible
+WinNormal(hWnd) {
+	if WinMin( hWnd ) OR WinMax( hWnd ) OR !IsWindow( hWnd ) OR !WinVisible( hWnd )
+		return 0, ErrorLevel := 1
+	return 1, ErrorLevel := 0
+}
+
+;comprueba si la ventana está activa
+IsWinActive(hWnd) {
+	return IsWindow() = hWnd ? 1 : 0
+}
+
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
 
 ;minimiza todas las ventanas
 ;NOTA: usar ShowDesktop() para obtener el foco en el escritorio
@@ -4250,12 +4303,60 @@ WinMinimizeAllUndo() {
 	return DllCall("User32.dll\PostMessageW", "Ptr", hWindow, "UInt", 0x0111, "UInt", 416, "Ptr", 0)
 }
 
-;centrar ventana
-WinCenter(hWnd) {
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
+
+;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha
+;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [obviar barra de tareas], [¿centrar?] )
+;EJEMPLO:
+	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist( "ahk_exe notepad.exe" ), WinActivate( i, 1 )
+	;MsgBox % "Centrar Ventana: " WinCenter( i ) " - " i
+	;MsgBox % "Centrar Ventana (Omitir Barra De Tareas): " WinCenter( i,, 1 )
+	;MsgBox % "Centrar Ventana, Arriba: " WinCenter( i, "Top" )
+	;MsgBox % "Centrar Ventana, Derecha: " WinCenter( i, "Right" )
+	;MsgBox % "Posicionar Ventana Abajo: " WinCenter( i, "Bottom",, 0 )
+	;MsgBox % "Posicionar Ventana A La Izquierda: " WinCenter( i, "Left",, 0 )
+	;MsgBox % "Posicionar Ventana, Arriba-Derecha: " WinCenter( i, "Top" ) WinCenter( i, "Right",, 0 )
+WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 	if WinMax( hWnd )
 		return 0, ErrorLevel := 3
-	WinGetPos( hWnd,,, Width, Height )
-	return WinMove( hWnd, (A_ScreenWidth/2) - (Width/2), (A_ScreenHeight/2) - (Height/2) )
+	WinGetPos( hWnd,,, width, height )
+	ypos := (Mode = "T") OR (Mode = "Top") ? 0
+		: (Mode = "B") OR (Mode = "Bottom") ? A_MonitorWorkArea().h - height
+		: (Center?((ByWorkArea?A_MonitorWorkArea().h:A_ScreenHeight)/2) - (height/2):"")
+	xpos := (Mode = "L") OR (Mode = "Left") ? 0
+		: (Mode = "R") OR (Mode = "Right") ? A_MonitorWorkArea().w - width
+		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2) - (width/2):"")
+	return i := WinMove( hWnd, xpos, ypos )
+		ErrorLevel := !i
+}
+
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
+
+;redibujar la ventana
+;Sintaxis: WinRedraw( [ID], [¿Forzar?] )
+WinRedraw(hWnd, Force := 0) {
+	if Force
+		return i := DllCall("User32.dll\UpdateWindow", "Ptr", hWnd), ErrorLevel := !i
+	RDW_INVALIDATE := 0x0001, RDW_UPDATENOW := 0x0100
+	return i := DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", RDW_INVALIDATE|RDW_UPDATENOW)
+		, ErrorLevel := !i
+}
+
+;Permite producir efectos especiales al mostrar u ocultar ventanas
+;Sintaxis: WinAnimate( [ID], [El tiempo que toma para reproducir la animación , en milisegundos], [Tipo de animación] )
+;TIPOS DE ANIMACIÓN (se pueden combinar):
+	;S = Mostrar | H = Ocultar | C = Centrar
+	;1 = Desvanecer | 2 = Diapositiva (combinar con 3/4 y/o 5/6)
+	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
+	;5 = Arriba Abajo | 6 = Abajo Arriba
+WinAnimate(hwnd, dwTime := 200, dwFlags := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
+	Flags_List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
+	For k, v In Flags_List
+		If InStr(dwFlags, k)
+			Flags += v
+	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", dwTime, "UInt", Flags)
 }
 
 ;mover ventana
@@ -4268,6 +4369,110 @@ WinMove(hWnd, x := "", y := "", Width := "", Height := "", bRepaint := 1) {
 	return i := DllCall("User32.dll\MoveWindow", "Ptr", hWnd, "Int", x, "Int", y, "Int", Width, "Int", Height, "Int", bRepaint)
 		, ErrorLevel := !i
 }
+
+;cerrar ventana
+;Sintaxis: WinClose( [ID], [Segundos a esperar], [¿Forzar?] )
+;NOTA: espesificar 0 segundos para esperar indefinidamente
+WinClose(hWnd, Seconds := -1, Force := 0) {
+	if Force {
+		WinGetPID( hWnd, WinThreadId )
+		hThread := DllCall("Kernel32.dll\OpenThread", "UInt", 0x0001, "UInt", 0, "UInt", WinThreadId)
+		return i := DllCall("Kernel32.dll\TerminateThread", "Ptr", hThread, "UInt", 0)
+			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hThread)
+			, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
+	}
+	return i := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", 0x0002, "Ptr", 0, "Ptr", 0, "UInt", 0x0002, "UInt", 5000, "UPtrP", 0)
+		, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
+}
+WinKill(hWnd, Seconds := -1) {
+	return WinClose( hWnd, Seconds, 1 ) ? 1
+		: DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", 1)
+}
+
+;minimiza la ventana
+;Sintaxis: WinMinimize( [ID], [¿Forzar?] )
+WinMinimize(hWnd, Force := 0) {
+	if Force
+		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF020, "Ptr", 0)
+	SW_FORCEMINIMIZE := 11, SW_MINIMIZE := 6
+	nCmdShow := Force = 2 ? SW_FORCEMINIMIZE : SW_MINIMIZE
+	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
+		, ErrorLevel := !i
+}
+
+;maximiza la ventana
+;Sintaxis: WinMaximize( [ID], [¿Forzar?] )
+WinMaximize(hWnd, Force := 0) {
+	if Force
+		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF030, "Ptr", 0)
+	nCmdShow := SW_MAXIMIZE := 3
+	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
+		, ErrorLevel := !i
+}
+
+;restaura la ventana a su tamaño y posicion original
+;Sintaxis: WinRestore( [ID], [¿Forzar?] )
+WinRestore(hWnd, Force := 0) {
+	if Force
+		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF120, "Ptr", 0)
+	nCmdShow := SW_RESTORE := 9
+	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
+		, ErrorLevel := !i
+}
+
+;oculta la ventana
+WinHide(hWnd) {
+	nCmdShow := SW_HIDE := 0
+	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
+		, ErrorLevel := !i
+}
+
+;habilita la ventana
+;Sintaxis: WinEnable( [ID], [¿Activar?], [¿Esperar? (seg)] )
+WinEnable(hWnd, Activate := 0, WaitActive := -1) {
+	return i := DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 1)
+		, a := Activate ? WinActivate( hWnd ) : ""
+		, ErrorLevel := !i, WinWaitActive( hWnd, WaitActive )
+}
+
+;deshabilita la ventana
+WinDisable(hWnd) {
+	return i := !DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 0)
+		, ErrorLevel := !i
+}
+
+;muestra la ventana
+;Sintaxis: WinShow( [ID], [¿Activar?], [¿Esperar? (segundos)] )
+WinShow(hWnd, Activate := 0, WaitActive := -1) {
+	nCmdShow := SW_SHOW := 5
+	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
+		, a := Activate ? WinActivate( hWnd ) : ""
+		, WinWaitActive( hWnd, WaitActive )
+		, ErrorLevel := !i
+}
+
+;activa la ventana
+;NOTA: si la ventana está minimizada, las restaura a su tamaño y posicion original
+;Sintaxis: WinActivate( [ID], [¿Esperar? (segundos)], [¿Forzar?] )
+WinActivate(hWnd, WaitActive := -1, Force := 0) {
+	if WinMin( hWnd )
+		WinRestore( hWnd )
+	if Force {
+		CurrentThreadId := ProcessExist( -2 )
+		WinGetPID( hWnd, WinThreadId )
+		DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 1)
+		return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
+			, DllCall("User32.dll\BringWindowToTop", "Ptr", hWnd)
+			, DllCall("User32.dll\SetFocus", "Ptr", hWnd)
+			, DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 0)
+			, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
+	}
+	return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
+		, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
+}
+
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
 
 ;obtener posicion de la ventana
 ;Sintaxis: WinGetPos( [ID], [xpos], [ypos], [ancho], [alto], [modo] )
@@ -4338,6 +4543,9 @@ WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "", ByRef ProcessPath
 		, ErrorLevel := !ThreadId
 }
 
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
+
 ;establecer el titulo de la ventana espesificada
 ;Sintaxis: WinSetTitle( [ID], [Titulo] )
 WinSetTitle(hWnd, NewTitle) {
@@ -4348,131 +4556,6 @@ WinSetTitle(hWnd, NewTitle) {
 WinSetBottom( hWnd ) {
 	WinSet, Bottom,, ahk_id %hWnd%
 	return !ErrorLevel
-}
-
-;Permite producir efectos especiales al mostrar u ocultar ventanas
-;Sintaxis: WinAnimate( [ID], [El tiempo que toma para reproducir la animación , en milisegundos], [Tipo de animación] )
-;TIPOS DE ANIMACIÓN (se pueden combinar):
-	;S = Mostrar | H = Ocultar | C = Centrar
-	;1 = Desvanecer | 2 = Diapositiva (combinar con 3/4 y/o 5/6)
-	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
-	;5 = Arriba Abajo | 6 = Abajo Arriba
-WinAnimate(hwnd, dwTime := 200, dwFlags := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
-	Flags_List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
-	For k, v In Flags_List
-		If InStr(dwFlags, k)
-			Flags += v
-	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", dwTime, "UInt", Flags)
-}
-
-;cerrar ventana
-;Sintaxis: WinClose( [ID], [Segundos a esperar], [¿Forzar?] )
-;NOTA: espesificar 0 segundos para esperar indefinidamente
-WinClose(hWnd, Seconds := -1, Force := 0) {
-	if Force {
-		WinGetPID( hWnd, WinThreadId )
-		hThread := DllCall("Kernel32.dll\OpenThread", "UInt", 0x0001, "UInt", 0, "UInt", WinThreadId)
-		return i := DllCall("Kernel32.dll\TerminateThread", "Ptr", hThread, "UInt", 0)
-			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hThread)
-			, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
-	}
-	return i := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", 0x0002, "Ptr", 0, "Ptr", 0, "UInt", 0x0002, "UInt", 5000, "UPtrP", 0)
-		, ErrorLevel := !i, WinWaitClose( hWnd, Seconds )
-}
-WinKill(hWnd, Seconds := -1) {
-	return WinClose( hWnd, Seconds, 1 ) ? 1
-		: DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", 1)
-}
-
-;espera a que la ventana no exista
-;Sintaxis: WinWaitClose( [ID], [segundos], [¿cerrar?] )
-;CERRAR: cerrar ventana si han pasado los segundos y sigue existiendo.
-	;1 = cerrar | 2 = forzar cierre
-WinWaitClose(hWnd, Seconds := 0, Close := 0) {
-	if (Seconds = -1)
-		return 0
-	GetTickCount( StartTime )
-	Loop {
-		if !IsWindow( hWnd )
-			return 1, ErrorLevel := 0
-		ElapsedTime := (GetTickCount() - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
-			return Close ? (i := WinClose( hWnd,, Close = 2 ? 1 : 0 )) : 0, ErrorLevel := Close ? !i : 1
-		Sleep( 100 )
-	}
-}
-
-;comprueba si la ventana está minimizada
-WinMin(hWnd) {
-	return i := DllCall("User32.dll\IsIconic", "Ptr", hWnd)
-		, ErrorLevel := !i
-}
-
-;minimiza la ventana
-;Sintaxis: WinMinimize( [ID], [¿Forzar?] )
-WinMinimize(hWnd, Force := 0) {
-	if Force
-		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF020, "Ptr", 0)
-	SW_FORCEMINIMIZE := 11, SW_MINIMIZE := 6
-	nCmdShow := Force = 2 ? SW_FORCEMINIMIZE : SW_MINIMIZE
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
-		, ErrorLevel := !i
-}
-
-;comprueba si la ventana está maximizada
-WinMax(hWnd) {
-	return i := DllCall("User32.dll\IsZoomed", "Ptr", hWnd)
-		, ErrorLevel := !i
-}
-
-;devuelve 1 si la ventana: existe, no esta maximizada/minimizada, es visible
-WinNormal(hWnd) {
-	if WinMin( hWnd ) OR WinMax( hWnd ) OR !IsWindow( hWnd ) OR !WinVisible( hWnd )
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
-}
-
-;maximiza la ventana
-;Sintaxis: WinMaximize( [ID], [¿Forzar?] )
-WinMaximize(hWnd, Force := 0) {
-	if Force
-		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF030, "Ptr", 0)
-	nCmdShow := SW_MAXIMIZE := 3
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
-		, ErrorLevel := !i
-}
-
-;restaura la ventana a su tamaño y posicion original
-;Sintaxis: WinRestore( [ID], [¿Forzar?] )
-WinRestore(hWnd, Force := 0) {
-	if Force
-		DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0x112, "UInt", 0xF120, "Ptr", 0)
-	nCmdShow := SW_RESTORE := 9
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
-		, ErrorLevel := !i
-}
-
-;oculta la ventana
-WinHide(hWnd) {
-	nCmdShow := SW_HIDE := 0
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
-		, ErrorLevel := !i
-}
-
-;comprueba si la ventana es visible
-WinVisible(hWnd) {
-	return i := DllCall("User32.dll\IsWindowVisible", "Ptr", hWnd)
-		, ErrorLevel := !i
-}
-
-;muestra la ventana
-;Sintaxis: WinShow( [ID], [¿Activar?], [¿Esperar? (segundos)] )
-WinShow(hWnd, Activate := 0, WaitActive := -1) {
-	nCmdShow := SW_SHOW := 5
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
-		, a := Activate ? WinActivate( hWnd ) : ""
-		, WinWaitActive( hWnd, WaitActive )
-		, ErrorLevel := !i
 }
 
 ;cambia el icono de la ventana
@@ -4493,40 +4576,67 @@ WinSetParent(hWndChild, hWndNewParent) {
 		, ErrorLevel := !i
 }
 
-;comprueba si la ventana existe
-;NOTAS: 
-	;dejar vacio para obtener el ID de la ventana activa
-	;si existe, devuelve el ID
-IsWindow(hWnd*) {
-	if !hWnd.MaxIndex() ;devuelve el ID de la ventana activa
-		return DllCall("User32.dll\GetForegroundWindow")
-	return (i := DllCall("User32.dll\IsWindow", "Ptr", hWnd[1])) ? hWnd[1] : 0
+WinSetTransparent( hWnd, Transparent ) {
+	WinSet, Transparent, %Transparent%, ahk_id %hWnd%
+	return !ErrorLevel
+}
+
+WinSetRegion( hWnd, Region ) {
+	WinSet, Region, %Region%, ahk_id %hWnd%
+	return !ErrorLevel
+}
+
+;establece la ventana siempre al frente
+;Sintaxis: WinSetAlwaysOnTop( [ID], [0|1] )
+WinSetAlwaysOnTop(hWnd, State := 1) {
+	return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", State ? -1 : -2, "Int", 0, "Int", 0 "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+}
+
+;registrar eventos para una ventana
+;Sintaxis: WinSetEventHook( [ID], [Funcion], [Evento menor], [Evento mayor] )
+;Sintaxis (eliminar): WinSetEventHook( [hEvent] )
+;EVENTOS: https://msdn.microsoft.com/en-us/library/windows/desktop/dd318066%28v=vs.85%29.aspx
+;EJEMPLO:
+	;WinSetEventHook( WinExist("ahk_exe notepad.exe"), "WinEventProc", EVENT_OBJECT_LOCATIONCHANGE := 0x800B )
+	;WinEventProc(hWinEventHook, Event, hWnd, idObject, idChild, dwEventThread, dwmsEventTime) {
+	;	if !hWnd
+	;		return
+	;	MsgBox % "Título: " WinGetTitle( hWnd )
+	;		. "`nClase: " WinGetClass( hWnd )
+	;		. "`nEvento: " Event
+	;	return
+	;}
+WinSetEventHook(hWnd, Func := "", EventMin := "", EventMax := "") {
+	if !Func ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd373640%28v=vs.85%29.aspx
+		return i := DllCall("User32.dll\UnhookWinEvent", "Ptr", hWnd), ErrorLevel := !i
+	if !IsWindow( hWnd ) OR !IsFunc( Func )
+		return 0, ErrorLevel := 2
+	WINEVENT_OUTOFCONTEXT := 0x0, WINEVENT_SKIPOWNPROCESS := 0x2
+	EventMax := EventMax ? EventMax : EventMin, WinGetPID( hWnd, WinThreadId )
+	return i := DllCall("User32.dll\SetWinEventHook", "UInt", EventMin, "UInt", EventMax, "Ptr", 0, "Ptr", RegisterCallback( Func )
+		, "UInt", 0, "UInt", WinThreadId, "UInt", WINEVENT_OUTOFCONTEXT|WINEVENT_SKIPOWNPROCESS)
 		, ErrorLevel := !i
 }
 
-;comprueba si la ventana está activa
-IsWinActive(hWnd) {
-	return IsWindow() = hWnd ? 1 : 0
-}
+;--------------------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------
 
-;activa la ventana
-;NOTA: si la ventana está minimizada, las restaura a su tamaño y posicion original
-;Sintaxis: WinActivate( [ID], [¿Esperar? (segundos)], [¿Forzar?] )
-WinActivate(hWnd, WaitActive := -1, Force := 0) {
-	if WinMin( hWnd )
-		WinRestore( hWnd )
-	if Force {
-		CurrentThreadId := ProcessExist( -2 )
-		WinGetPID( hWnd, WinThreadId )
-		DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 1)
-		return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
-			, DllCall("User32.dll\BringWindowToTop", "Ptr", hWnd)
-			, DllCall("User32.dll\SetFocus", "Ptr", hWnd)
-			, DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", 0)
-			, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
+;espera a que la ventana no exista
+;Sintaxis: WinWaitClose( [ID], [segundos], [¿cerrar?] )
+;CERRAR: cerrar ventana si han pasado los segundos y sigue existiendo.
+	;1 = cerrar | 2 = forzar cierre
+WinWaitClose(hWnd, Seconds := 0, Close := 0) {
+	if (Seconds = -1)
+		return 0
+	GetTickCount( StartTime )
+	Loop {
+		if !IsWindow( hWnd )
+			return 1, ErrorLevel := 0
+		ElapsedTime := (GetTickCount() - StartTime) / 1000
+		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+			return Close ? (i := WinClose( hWnd,, Close = 2 ? 1 : 0 )) : 0, ErrorLevel := Close ? !i : 1
+		Sleep( 100 )
 	}
-	return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
-		, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
 }
 
 ;esperar a que una ventana se active
@@ -4577,69 +4687,9 @@ WinWait(hWnd, Seconds := 0) {
 	}
 }
 
-;establece la ventana siempre al frente
-;Sintaxis: WinSetAlwaysOnTop( [ID], [0|1] )
-WinSetAlwaysOnTop(hWnd, State := 1) {
-	return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", State ? -1 : -2, "Int", 0, "Int", 0 "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-}
 
-;comprueba si la ventana está habilitada
-IsWinEnabled(hWnd) {
-	return WinEnabled( hWnd )
-}
-WinEnabled(hWnd) {
-	return DllCall("User32.dll\IsWindowEnabled", "UInt", hWnd)
-}
 
-;habilita la ventana
-;Sintaxis: WinEnable( [ID], [¿Activar?], [¿Esperar? (seg)] )
-WinEnable(hWnd, Activate := 0, WaitActive := -1) {
-	return i := DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 1)
-		, a := Activate ? WinActivate( hWnd ) : ""
-		, ErrorLevel := !i, WinWaitActive( hWnd, WaitActive )
-}
 
-;deshabilita la ventana
-WinDisable(hWnd) {
-	return i := !DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", 0)
-		, ErrorLevel := !i
-}
-
-WinSetTransparent( hWnd, Transparent ) {
-	WinSet, Transparent, %Transparent%, ahk_id %hWnd%
-	return !ErrorLevel
-}
-
-WinSetRegion( hWnd, Region ) {
-	WinSet, Region, %Region%, ahk_id %hWnd%
-	return !ErrorLevel
-}
-
-;registrar eventos para una ventana
-;Sintaxis: WinSetEventHook( [ID], [Funcion], [Evento menor], [Evento mayor] )
-;Sintaxis (eliminar): WinSetEventHook( [hEvent] )
-;EVENTOS: https://msdn.microsoft.com/en-us/library/windows/desktop/dd318066%28v=vs.85%29.aspx
-;EJEMPLO:
-	;WinSetEventHook( WinExist("ahk_exe notepad.exe"), "WinEventProc", EVENT_OBJECT_LOCATIONCHANGE := 0x800B )
-	;WinEventProc(hWinEventHook, Event, hWnd, idObject, idChild, dwEventThread, dwmsEventTime) {
-	;	if !hWnd
-	;		return
-	;	MsgBox % "Título: " WinGetTitle( hWnd )
-	;		. "`nClase: " WinGetClass( hWnd )
-	;		. "`nEvento: " Event
-	;	return
-	;}
-WinSetEventHook(hWnd, Func := "", EventMin := "", EventMax := "") {
-	if !Func ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd373640%28v=vs.85%29.aspx
-		return i := DllCall("User32.dll\UnhookWinEvent", "Ptr", hWnd), ErrorLevel := !i
-	if !IsWindow( hWnd ) OR !IsFunc( Func )
-		return 0, ErrorLevel := 2
-	WINEVENT_OUTOFCONTEXT := 0x0, WINEVENT_SKIPOWNPROCESS := 0x2
-	EventMax := EventMax ? EventMax : EventMin, WinGetPID( hWnd, WinThreadId )
-	return i := DllCall("User32.dll\SetWinEventHook", "UInt", EventMin, "UInt", EventMax, "Ptr", 0, "Ptr", RegisterCallback( Func )
-		, "UInt", 0, "UInt", WinThreadId, "UInt", WINEVENT_OUTOFCONTEXT|WINEVENT_SKIPOWNPROCESS)
-		, ErrorLevel := !i
-}
 
 
 
