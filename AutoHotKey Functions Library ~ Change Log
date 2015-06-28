@@ -1,5 +1,5 @@
 ###############################################################
-ACTUALIZACION 28/06/2015
+ACTUALIZACION 28/06/2015 - AHK1.1.22.02
 ###############################################################
 Funciones Agregadas:
 	• WinTitleAnimate()
@@ -53,3 +53,410 @@ Correcciones:
 	• ProcessName()
 	• ProcessPath()
 ###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+ACTUALIZACION 26/06/2015 - AHK1.1.22.02
+###############################################################
+Funciones Agregadas:
+	• WinSetEventHook()
+	• AttachCursorControl()
+	• AttachCursorControl_Internal()
+	• Exist()
+	• Reload()
+	• Wait()
+	• GetActiveObjects()
+	• NetGetState()
+	• NetGetFileSize()
+	• NetGetString()
+	• ProcessGetSID()
+	• StrMergeArray()
+	• StrSplitP()
+	• StrNormalize()
+	• Start()
+	
+Mejoras:
+	• Sleep()
+	• WinGetPID()
+	• WinGetStyle()
+	• WinGetExStyle()
+	• WinActivate()
+	• WinShow()
+	• SysGetVersion()
+	• SysGlobalMemoryStatusEx()
+	• CursorGetPos()
+	• ControlSend()
+	• IniRead()
+	• ReplaceLiteralVar()
+	• FileAppendLine()
+	• FileSave()
+	• FileSelect()
+	• FileRecycle()
+	• FileVersionCompare()
+	• FileRename()
+	• FileDelete()
+	• FileRDelete()
+	• FileSDelete()
+	
+Correcciones:
+	• FileGetAttrib()
+	• ValidatePath()
+	• TrayTip()
+	• ToolTip()
+	• WinGetPID()
+	• SetTimer()
+	• WaitForSingleObject()
+	• ReplaceLiteralVar()
+	• Run()
+	• RunWait()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+ACTUALIZACION 21/06/2015 - AHK1.1.22.02
+###############################################################
+Funciones Agregadas:
+	• Base32Encode()
+	• Base64Encode()
+	• Base32Decode()
+	• Base64Decode()
+	• ProcessSetPrivilege()
+	• RunAsAdmin()
+	• Download()
+	• ExitAppTimer()
+	• Clipboard()
+	• ClipWait()
+	• ExecScript()
+	• InputBox()
+	• ControlGetHwnd()
+	• ControlHide()
+	• ControlShow()
+	• ControlSendRaw()
+	• ControlFocus()
+	• ControlSetText()
+	• ControlGetText()
+	
+Mejoras:
+	• GetLastError()
+	• RegWrite()
+	• GuiControlMove()
+	
+Correcciones:
+	• ProcessSuspend()
+	• ProcessResume()
+	• ExitApp()
+	• GetFullPathName()
+	• GetWorkingDir()
+	• EnvGet()
+	• EnvUpdate()
+	• RegImport()
+	• RegExport()
+	• MsgBox()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+ACTUALIZACION 15/06/2015 - AHK1.1.22.02
+###############################################################
+Funciones Agregadas:
+	• Get()
+	• Set()
+	• A_Args()
+	• A_Quote()
+	• A_Tab()
+	• A_Space()
+	• A_LastError()
+	• A_TickCount()
+	• A_OSType()
+	• A_OSVersion()
+	• A_Cursor()
+	• A_Time()
+	• A_SendTo()
+	• A_Recent()
+	• A_IPAddress1()
+	• A_IPAddress2()
+	• A_IPAddress3()
+	• A_IPAddress4()
+	• A_IsAdmin()
+	• A_ScriptName()
+	• A_ScriptDir()
+	• A_ScriptFullPath()
+	• A_ScreenHeight()
+	• A_ScreenWidth()
+	• A_MyVideo()
+	• A_MyPictures()
+	• A_MyMusic()
+	• A_DocumentsCommon()
+	• A_MyDocuments()
+	• A_StartupCommon()
+	• A_Startup()
+	• A_StartMenuCommon()
+	• A_StartMenu()
+	• A_DesktopCommon()
+	• A_Desktop()
+	• A_AppDataCommon()
+	• A_AppData()
+	• A_ProgramsCommon()
+	• A_Programs()
+	• A_ProgramFiles()
+	• A_Language()
+	• A_ComSpec()
+	• A_WorkingDir()
+	• A_Temp()
+	• A_WinDir()
+	• A_SysWinDir()
+	• A_SysDir()
+	• A_SysDir64()
+	• A_ComputerName()
+	• A_UserDomain()
+	• A_UserName()
+	• A_DefaultUserProfile()
+	• A_Profiles()
+	• A_AllUsersProfile()
+	• A_UserProfile()
+	• SHGetFolderPath()
+	• SHGetKnownFolderPath()
+	
+Mejoras:
+	• GuiButtonStyle()
+	
+Correcciones:
+	• MsgBox()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+ACTUALIZACION 26/05/2015 - AHK1.1.22.01
+###############################################################
+Funciones Agregadas:
+	• Min()
+	• Max()
+	• Int()
+	• Hex()
+	• Between()
+	• ValidateName()
+	• ValidatePath()
+	• StrSPath()
+	• AttachEditControlText()
+	• SB_GetText()
+	• LV_SetExStyle()
+	• LV_Set()
+	• IL_Destroy()
+	• IL_Remove()
+	• IL_Create()
+	• IL_Duplicate()
+	• IL_GetCount()
+	• IL_GetSize()
+	• KeyWait()
+	• MouseTrails()
+	• MouseScrollLines()
+	• MouseDoubleClick()
+	• MouseSwap()
+	• MouseGetPost()
+	• WinEnabled()
+	• WinSetTransparent()
+	• WinSetParent()
+	• WinSetAlwaysOnTop()
+	• WinSetRegion()
+	
+Mejoras:
+	• StrSplit()
+	• IsNumber()
+	• ProcessExist()
+	
+Correcciones:
+	• SendMessage()
+	• PostMessage()
+	• DirCreate()
+	• ReplaceLiteralVar()
+	• ProcessExist()
+	• MouseSetCursor()
+	• MouseSpeed()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+ACTUALIZACION 14/05/2015 - AHK1.1.22.00
+###############################################################
+Funciones Agregadas:
+	• DriveSpaceFree()
+	• DriveEject()
+	• MonGetName()
+	• MonGetCount()
+	• MonGetPrimary()
+	• MonSet()
+	• MonGet()
+	• WinWaitNotActive()
+	• MouseSetCursor()
+	• MouseSpeed()
+	• GuiControlSetFont()
+	• SetWorkingDir()
+	• SetDesktopBackground()
+	• InVar()
+	• InStr2()
+	• DirExist()
+	• FileGetInfo()
+	• FileGetInfo2()
+	• DirGetInfo()
+	• FileFNPath()
+	• RegFNKey()
+	
+Mejoras:
+	• DriveGetInfo()
+	• WinWaitClose()
+	• WinWait()
+	• WinWaitActive()
+	• GuiButtonStyle()
+	• ProcessWaitClose()
+	• ProcessWait()
+	• ProcessClose()
+	
+Correcciones:
+	• Send()
+	• DriveGetInfo()
+	• WinSetIcon()
