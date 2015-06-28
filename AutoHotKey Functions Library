@@ -8,7 +8,8 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					operaciones matemáticas, Menús, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.02 || Viernes, 26 de junio de 2015
+Actualizado: AHK-U1.1.22.02 || Viernes, 28 de junio de 2015
+Historial De Cambios: Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4359,6 +4360,61 @@ WinAnimate(hwnd, dwTime := 200, dwFlags := "S1") { ;https://msdn.microsoft.com/e
 	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", dwTime, "UInt", Flags)
 }
 
+;minimizar ventana al área de notificacion con animación
+;Sintaxis: WinMinimizeToTray( [ID], [¿Mostrar?] )
+;EJEMPLO: ver WinTitleAnimate()
+WinMinimizeToTray(hWnd, Show := 0) {
+	static Array := []
+	if Show {
+		if (Show = 2)
+			MenuIcon( "Tray" )
+		WinShow( hWnd )
+		return WinTitleAnimate( hWnd, Array[hWnd].x, Array[hWnd].y, Array[hWnd].w, Array[hWnd].h )
+			, WinMove( hWnd, Array[hWnd].x, Array[hWnd].y )
+	}
+	MenuIcon( "Tray", 1 ), Array[hWnd] := WinGetPos( hWnd )
+	hTray := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
+	WinGetPos( hTray, txpos, typos, twsize, thsize)
+	ControlGetPos, nxpos, nypos, nwsize, nhsize, TrayNotifyWnd1, ahk_id %hTray%
+	SW:=A_ScreenWidth,SH:=A_ScreenHeight,xpos:=SW-nhsize,ypos:=SH-nhsize,P:=((typos>(SH/3))?("B"):(txpos>(SW/3))
+	? ("R"):((txpos<(SW/3))&&(thsize<(SH/3)))?("T"):("L")),((P="L")?(xpos:=nxpos+twsize):(P="T")?(ypos:=nypos+thsize):) 
+	return WinTitleAnimate( hWnd, xpos, ypos, nhsize, nhsize, "M" )
+		, WinHide( hWnd )
+}
+
+;permite producir una animacion para el titulo de la ventana
+;Sintaxis: WinTitleAnimate( [ID], [x], [y], [ancho], [alto], [Opciones] )
+;OPCIONES: puede incluir una, dos o las tres
+	;Hide / H = ocultar ventana antes de producir el efecto
+	;Move / M = mover ventana
+	;Show / S = mostrar ventana al terminar la animación
+;EJEMPLO:
+	;MenuIcon( "Tray" )
+	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist("ahk_exe notepad.exe"), WinActivate(i,1)
+	;WinMove(i,,,300,300), WinCenter(i,"Bottom"), WinCenter(i,"Right",, 0), Sleep(500), WinTitleAnimate(i,0,0,,,"HMS")
+	;Sleep(1000), WinTitleAnimate(i,50,50,,, "HMS"), Sleep(1000), WinMinimizeToTray(i), Sleep(1000)
+	;WinMinimizeToTray(i,2), Sleep(1000), ExitApp()
+WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
+	;desde: posicion actual
+	VarSetCapacity( FRECT, 16, 0 )
+	WinGetPos( hWnd, fxpos, fypos, fwsize, fhsize)
+	NumPut( fxpos, FRECT, 0, "Int" ), NumPut( fypos, FRECT, 4, "Int" )
+	NumPut( fwsize + fxpos, FRECT, 8, "Int" ), NumPut( fhsize + fypos, FRECT, 12, "Int" )
+	;hacia: posicion nueva
+	VarSetCapacity( TRECT, 16, 0 )
+	NumPut( x = "" ? fxpos : x, TRECT, 0, "Int" ), NumPut( y = "" ? fypos : y, TRECT, 4, "Int" )
+	NumPut( W = "" ? fwsize+fxpos : W+X, TRECT, 8, "Int" ), NumPut( H = "" ? fhsize+fypos : H+Y, TRECT, 12, "Int" )
+	;opciones
+	if InStr( Flag, "H" )
+		WinHide( hWnd )
+	if InStr( Flag, "M" )
+		WinMove( hWnd, x = "" ? fxpos : x, y = "" ? fypos : y )
+	;---
+	return i := DllCall("User32.dll\DrawAnimatedRects", "Ptr", hWnd, "Int", 0x3, "Ptr", &FRECT, "Ptr", &TRECT)
+		, x := InStr( Flag, "S" ) ? WinShow( hWnd ) : ""
+		, ErrorLevel := !i
+}
+
 ;mover ventana
 ;Sintaxis: WinMove( [ID], [x], [y], [ancho], [alto], [¿redibujar?] )
 WinMove(hWnd, x := "", y := "", Width := "", Height := "", bRepaint := 1) {
@@ -4532,7 +4588,7 @@ WinGetClass(hWnd) {
 	return lpClassName, ErrorLevel := !i
 }
 
-;recupera el PID/ThreadId/ProcessName del proceso de la ventana
+;recupera el PID/ThreadId/ProcessName/ProcessPath del proceso de la ventana
 ;Sintaxis: WinGetPID( [ID], [ThreadId (salida)], [Proceso (salida)], [Proceso Ruta (salida)] )
 WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "", ByRef ProcessPath := "") {
 	VarSetCapacity( lpdwProcessId, A_PtrSize * 2, 0 )
@@ -4559,7 +4615,7 @@ WinSetBottom( hWnd ) {
 }
 
 ;cambia el icono de la ventana
-;Sintaxis: Icon( [ID], [Icono/DLL/Ejecutable], [Índice (DLL)] )
+;Sintaxis: WinSetIcon( [ID], [Icono/DLL/Ejecutable], [Índice (DLL)] )
 WinSetIcon(hWnd, lpszExeFileName, nIconIndex := 0) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632643%28v=vs.85%29.aspx
 	WM_SETICON := 0x0080, ICON_SMALL := 0, ICON_BIG := 1
 	if !(hIcon := DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Str", lpszExeFileName, "UInt", nIconIndex))
@@ -4840,10 +4896,10 @@ MenuColor(MenuName, Color, Single := 1) {
 ;Sintaxis (Tray): MenuColor( [Menú], [Icono], [Indice] )
 ;Sintaxis (Otros): MenuColor( [Menú], [Item], [Icono], [Indice], [Ancho] )
 ;NOTAS: 
-	;Tray: para ocultar el icono del área de notificacion: obviar el parametro 2 (Icono)
+	;Tray: para ocultar el icono del área de notificacion: omitir el parametro 2 (Icono)
 	;Tray: para mostrar el icono del área de notificacion: establecer el parametro 2 en 1
 	;Otros: para quitar el icono de un item: obviar el parametro 3 (Icono)
-MenuIcon(MenuName, MenuItemName, Icon := 0, IconNumber := 1, IconWidth := "") {
+MenuIcon(MenuName, MenuItemName := "", Icon := 0, IconNumber := 1, IconWidth := "") {
 	if (MenuName = "Tray") {
 		if MenuItemName {
 			if (MenuItemName = 1)
@@ -4866,7 +4922,7 @@ MenuIcon(MenuName, MenuItemName, Icon := 0, IconNumber := 1, IconWidth := "") {
 }
 
 ;clic(s) por defecto para mostrar el menú (área de notificacion)
-;Sintaxis: MenuColor( [1|2] )
+;Sintaxis: MenuClick( [1|2] )
 MenuClick(ClickCount) {
 	try Menu, Tray, Click, %ClickCount%
 	catch
@@ -4875,7 +4931,7 @@ MenuClick(ClickCount) {
 }
 
 ;item por defecto del menu (resaltado en negrita)
-;Sintaxis: MenuColor( [Menú], [Item] )
+;Sintaxis: MenuDefault( [Menú], [Item] )
 MenuDefault(MenuName, MenuItemName) {
 	try Menu, %MenuName%, Default, %MenuItemName%
 	catch
@@ -4970,7 +5026,7 @@ MenuCheck(MenuName, MenuItemName, Check := 1) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SONIDO ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Silencio
+;Silenciar
 ;Sintáxis: Mute( [Opcion] )
 ;OPCIONES:
 	;0 = restaurar
