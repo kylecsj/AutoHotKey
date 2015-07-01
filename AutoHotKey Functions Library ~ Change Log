@@ -20,6 +20,7 @@ Mejoras:
 	• Start()
 
 Correcciones:
+	• BlockInput()
 	• GetMenuItemList()
 	• StrSplit()
 	• ControlGetHwnd(): ControlGetText()
