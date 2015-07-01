@@ -6,6 +6,7 @@ Funciones Agregadas:
 	• WinTaskBarRemove()
 	• RegOpenKey()
 	• SaveScreenshot()
+	• GuiControlColor()
 
 Mejoras:
 	• MsgBox()
