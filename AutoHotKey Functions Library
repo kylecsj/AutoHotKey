@@ -1655,15 +1655,15 @@ ProcessExist(ProcessName) {
 	if (ProcessName = -2)
 		return DllCall("Kernel32.dll\GetCurrentThreadId")
 	;---------------------------------------------------------------------------------------------------------------------
-	dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 556 : 568, 0), NumPut(dwSize, lppe, 0, "UInt")
+	dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
 	hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-	DllCall("Kernel32.dll\Process32FirstW", "Ptr", hSnapshot, "Ptr", &lppe)
+	DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
 	Loop {
 		ProcessId := NumGet(lppe, 8, "UInt")
-		ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260 * 2, "UTF-16")
+		ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260, "CP0")
 		if (ProcessId = ProcessName) OR (ProcessExe = ProcessName)
 			return ProcessId, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := ProcessId
-		if !DllCall("Kernel32.dll\Process32NextW", "Ptr", hSnapshot, "UInt", &lppe)
+		if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
 			return 0, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := 0
 	}
 }
@@ -1749,15 +1749,15 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
 	if InStr(ProcessName, "*") { ;terminar procesos que coincidan con el mismo nombre
 		ProcessName := StrReplace(ProcessName, "*")
-		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 556 : 568, 0), NumPut(dwSize, lppe, 0, "UInt")
+		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
 		hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-		if DllCall("Kernel32.dll\Process32FirstW", "Ptr", hSnapshot, "Ptr", &lppe)
+		if DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
 			Loop {
 				ProcessId := NumGet(lppe, 8, "UInt")
-				ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260 * 2, "UTF-16")
+				ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260, "CP0")
 				if (ProcessExe = ProcessName)
 					hList .= ProcessClose( ProcessId, WaitClose, SubProcess, uExitCode ) "`n"
-				if !DllCall("Kernel32.dll\Process32NextW", "Ptr", hSnapshot, "UInt", &lppe)
+				if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
 					return RTrim(hList, "`n"), DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
 			}
 	}
@@ -1768,14 +1768,14 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 		ProcessId := ProcessName
 	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
 	if SubProcess { ;termina el proceso junto con todos sus subprocesos
-		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 556 : 568, 0), NumPut(dwSize, lppe, 0, "UInt")
+		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
 		hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-		DllCall("Kernel32.dll\Process32FirstW", "Ptr", hSnapshot, "Ptr", &lppe)
+		DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
 		Loop {
 			Process_ID := NumGet(lppe, 8, "UInt"), Parent := NumGet(lppe, A_PtrSize = 4 ? 24 : 32, "UInt")
 			if (Process_ID != ProcessId) AND (Parent = ProcessId)
 				hList .= ProcessClose( Process_ID, WaitClose,, uExitCode ) "`n"
-			if !DllCall("Kernel32.dll\Process32NextW", "Ptr", hSnapshot, "UInt", &lppe)
+			if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
 				return SubProcess = 1 ? hList ProcessClose(ProcessId, WaitClose,, uExitCode) : RTrim(hList, "`n")
 					, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
 		}
