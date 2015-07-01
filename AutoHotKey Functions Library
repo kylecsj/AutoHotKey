@@ -2016,7 +2016,7 @@ BlockInput( OnOff ) {
 	if !OnOff {
 		Suspend, Off
 		RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
-		SetTimer( "BlockInput_Function_Label", "Delete" )
+		SetTimer( "BlockInput_Function_Label", 0 )
 		return DllCall("User32.dll\BlockInput", "Int", 0)
 	}
 	Suspend, On
