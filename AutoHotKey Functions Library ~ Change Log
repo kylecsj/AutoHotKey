@@ -1,4 +1,61 @@
 ###############################################################
+ACTUALIZACION 01/07/2015 - AHK1.1.22.02
+###############################################################
+Funciones Agregadas:
+	• MenuSelect() / WinMenuSelectItem()
+	• WinTaskBarRemove()
+	• RegOpenKey()
+	• SaveScreenshot()
+
+Mejoras:
+	• MsgBox()
+	• InputBox()
+	• SelectMenuItem() --> MenuSelectItem()
+	• InVar()
+	• InStr2() --> Contains()
+	• Between()
+	• StrSplit()
+	• Run()
+	• RunWait()
+	• Start()
+
+Correcciones:
+	• GetMenuItemList()
+	• StrSplit()
+	• ControlGetHwnd(): ControlGetText()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 28/06/2015 - AHK1.1.22.02
 ###############################################################
 Funciones Agregadas:
