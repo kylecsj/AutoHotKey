@@ -562,7 +562,7 @@ RunWait(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
 Start(Target, Param*) {
 	Loop, % Param.MaxIndex()
 		_ .= (A_Index = 1 ? "" : " ") Chr(34) Param[A_Index] Chr(34)
-	return Run( Chr(34) Target Chr(34) _ )
+	return Run( Chr(34) Target Chr(34) " " _ )
 }
 
 
