@@ -118,6 +118,26 @@ FileVersionCompare(version1, version2) {
 	return 0
 }
 
+;comparar el tamaño de varios archivos
+;RESULTADO:
+	;0: todos tienen el mismo tamaño
+	;1: el primer tamaño (1º archivo) es mayor al segundo (2º archivo)
+	;2: el primer tamaño (1º archivo) es menor al segundo (2º archivo)
+	;3+: devuelve la posicion de larchivo con el tamaño diferente
+FileSizeCompare(Files*) {
+	if !(Files.MaxIndex() >= 2)
+		return 0, ErrorLevel := 1
+	Loop, % Files.MaxIndex() {
+		CurrentFileSize := FileGetSize( Files[A_Index] )
+		FirstFileSize := A_Index = 1 ? CurrentFileSize : FirstFileSize
+		SecondFileSize := A_Index = 2 ? CurrentFileSize : SecondFileSize
+		if (A_Index > 1) && (CurrentFileSize != LastFileSize)
+			return FirstFileSize>SecondFileSize?1:(FirstFileSize<SecondFileSize?2:A_Index)
+		LastFileSize := CurrentFileSize
+	}
+	return ErrorLevel := 0
+}
+
 ;obtener tamaño del archivo
 ;Sintáxis: FileGetSize( [archivo], [KB|MB|GB] )
 FileGetSize(lpFileName, Units := 0) {
@@ -630,6 +650,9 @@ Start(Target, Param*) {
 
 
 
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: CARPETAS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -849,6 +872,28 @@ Min(n*) {
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
 
+;if [value] between [low] [high]
+;comprueba si un número esta contenido entre otros dos valores (inclusive)
+;Sintaxis: Between( [número], [valor menor], [valor mayor], [valor a excluir] ) 
+Between(value, low, high, nval := "") {
+    return value>=low&&value<=high?(nval=""?1:value!=nval):0
+}
+
+;si el número es par devuelve 1, caso contrario 0 (impar)
+IsEven(num) {
+	return !(num&1)
+}
+
+;determina si es Número
+;Sintaxis: IsNumber( [número], [carácteres no permitidos separados por coma] )
+;EJEMPLO: MsgBox % IsNumber(-23.02) "`n" IsNumber("*1") "`n" IsNumber(-1) "`n" IsNumber(0xF,"*") "`n" IsNumber(+1)
+IsNumber( num, IfChars := "*,x" ) {
+	return contains(num,IfChars)||(num+1)=""?0:1
+}
+
+;----------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------
+
 ;convertir a hexadecimal
 ;Sintaxis: Hex( [número hexadecimal], [max prefijo 0], [¿mayúscula?] )
 Hex(num, max := 0, may := 0) {
@@ -1044,6 +1089,24 @@ StrToHex(Str) {
     return SubStr(hex, 1, (StrLen(hex) - 1))
 }
 
+;Convierte una cadena que representa un número decimal o hexadecimal a un entero
+StrToInt(String, Flags := 0) {
+	DllCall("shlwapi.dll\StrToIntEx", "Ptr", &String, "Int", Flags, "Int*", Ret)
+	return Ret
+}
+
+;Convierte una cadena que representa un valor decimal o hexadecimal a un entero de 64 bits
+StrToInt64(String, Flags := 0) {
+	DllCall("shlwapi.dll\StrToInt64Ex", "Ptr", &String, "Int", Flags, "Int64*", Ret)
+	return Ret
+}
+
+
+
+
+
+
+
 
 
 
@@ -1115,14 +1178,11 @@ StrToHex(Str) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* AutoHotKey v2
-
-StrReplace(HayStack, SearchText, ReplaceText := "", ByRef OutputVarCount := "", Limit := -1) {
-	StrReplace, String, %HayStack%, %SearchText%, %ReplaceText%, OutputVarCount, %Limit%
+;eliminar caracteres iniciales y finales de una cadena
+StrTrim( String, OmitChars := "" ) {
+	DllCall("Shlwapi.dll\StrTrimW", "Str", String, "Str", OmitChars = "" ? A_Space A_Tab : OmitChars)
 	return String
 }
-
-*/
 
 StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093%28v=vs.85%29.aspx
     len := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", String, "Int", StrLen(String), "Ptr", 0, "Int", 0)
@@ -1174,28 +1234,28 @@ StrLen2(IpString) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms
 }
 
 ;quitar caracteres de izquierda a derecha
-;Sintaxis : StrTrimLeft( [Var], [Limite], [resto que se quitó] )
+;Sintaxis : StrTrimLeft( [Var], [Limite] )
 StrTrimLeft(String, Length := 1, ByRef OutStr2 := "") {
 	OutString := SubStr(String, (Length + 1))
 	return OutString, OutStr2 := IsByRef( OutStr2 ) ? StrLeft( String, Length ) : ""
 }
 
 ;quitar caracteres de derecha a izquierda
-;Sintaxis : StrTrimRight( [Var], [Limite], [resto que se quitó] )
+;Sintaxis : StrTrimRight( [Var], [Limite] )
 StrTrimRight(String, Length := 1, ByRef OutStr2 := "") {
 	OutString := SubStr(String, 1, (StrLen(String) - Length))
 	return OutString, OutStr2 := IsByRef( OutStr2 ) ? StrRight( String, Length ) : ""
 }
 
 ;obtener caracteres de izquierda a derecha
-;Sintaxis : StrLeft( [Var], [Limite], [resto que se quitó] )
+;Sintaxis : StrLeft( [Var], [Limite] )
 StrLeft(String, Length := 1, ByRef OutStr2 := "") {
 	OutString := SubStr(String, 1, Length)
 	return OutString, OutStr2 := IsByRef( OutStr2 ) ? StrTrimLeft( String, Length ) : ""
 }
 	
 ;obtener caracteres de derecha a izquierda
-;Sintaxis : StrRight( [Var], [Limite], [resto que se quitó] )
+;Sintaxis : StrRight( [Var], [Limite] )
 StrRight(String, Length := 1, ByRef OutStr2 := "") {
 	OutString := SubStr(String, -(Length - 1))
 	return OutString, OutStr2 := IsByRef( OutStr2 ) ? StrTrimRight( String, Length ) : ""
@@ -1213,31 +1273,12 @@ InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 
 ;If [var] contains [ .. ]
 ;comprueba si el contenido de la variable coincide exactamente o parcialmente con los elementos espesificados
-;Sintaxis: InVar( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
+;Sintaxis: Contains( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
 Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
 		if InStr( Haystack, A_LoopField, CaseSensitive )
 			return 1
 	return 0
-}
-
-;if [value] between [low] [high]
-;comprueba si un número esta contenido entre otros dos valores (inclusive)
-;Sintaxis: Between( [número], [valor menor], [valor mayor], [valor a excluir] ) 
-Between(value, low, high, nval := "") {
-    return value>=low&&value<=high?(nval=""?1:value!=nval):0
-}
-
-InStr2(Haystack, Needle, Delimiter := ",", OmitChars := "") {
-	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
-		if InStr( Haystack, A_LoopField ) 
-			return 1
-	return 0
-}
-
-;si el número es par devuelve 1, caso contrario 0 (impar)
-IsEven(num) {
-	return ((num & 1) != 0) ? 0 : 1
 }
 
 ;obtener un nombre válido para un archivo
@@ -1312,13 +1353,6 @@ IsUpper(String) {
 	return 0
 }
 
-;determina si es Número (negativo o positivo)
-;NOTA: +1, -1, .1, 0.2, *1, 0x0d04, etc. son considerados numeros validos 
-IsNumber( num ) {
-	n := num + 1
-	return n = "" ? 0 : n ? n : 1
-}
-
 ;Convierte la ruta especificada a su forma larga .
 StrLPath(lpszShortPath) {
 	lpszShortPath := RegExReplace(RegExReplace(RegExReplace(lpszShortPath, "^\s+"), "\s+$"), "\\+$")
@@ -1341,18 +1375,6 @@ StrDownload(URL) {
 	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 	i.Open("GET", URL), i.Send()
 	return i.ResponseText
-}
-
-;Convierte una cadena que representa un número decimal o hexadecimal a un entero
-StrToInt(String, Flags := 0) {
-	DllCall("shlwapi.dll\StrToIntEx", "Ptr", &String, "Int", Flags, "Int*", Ret)
-	return Ret
-}
-
-;Convierte una cadena que representa un valor decimal o hexadecimal a un entero de 64 bits
-StrToInt64(String, Flags := 0) {
-	DllCall("shlwapi.dll\StrToInt64Ex", "Ptr", &String, "Int", Flags, "Int64*", Ret)
-	return Ret
 }
 
 ;reemplaza variables literales.
@@ -1698,9 +1720,9 @@ WaitForSingleObject(ProcessName, Seconds := 0) { ;https://msdn.microsoft.com/en-
 ;Sintaxis: ProcessPriority( [Nombre o PID], [Prioridad] )
 ;Nota: dejar vacio el segundo parametro para recuperar la prioridad
 ProcessPriority(ProcessName, dwPriorityClass := 0, Spa := 0) {
-	r32 := "Normal", r64 := "Low", r128 := "High" , r256 := "RealTime", r16384 := "BelowNormal", r32768 := "AboveNormal"
-	rn32 := "Normal", rn64 := "Baja", rn128 := "Alta" , rn256 := "Tiempo real", rn16384 := "Debajo de lo normal", rn32768 := "Arriba de lo normal"
-	rNormal := rN := 32, rLow := rL := 64, rHigh := rH := 128 , rRealTime := rR := 256, rBelowNormal := rB := 16384, rAboveNormal := rA := 32768
+	static r32 := "Normal", r64 := "Low", r128 := "High" , r256 := "RealTime", r16384 := "BelowNormal", r32768 := "AboveNormal"
+	, rn32 := "Normal", rn64 := "Baja", rn128 := "Alta" , rn256 := "Tiempo real", rn16384 := "Debajo de lo normal", rn32768 := "Arriba de lo normal"
+	, rNormal := rN := 32, rLow := rL := 64, rHigh := rH := 128 , rRealTime := rR := 256, rBelowNormal := rB := 16384, rAboveNormal := rA := 32768
 	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
 	if !dwPriorityClass {
 		hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId)
@@ -1841,7 +1863,6 @@ ProcessResume(ProcessName) {
 	
 ;obtiene el SID, opcional también el nombre de usuario y dominio del proceso
 ;Sintaxis: ProcessGetSID( [proceso], [nombre de usuario (salida)], [dominio (salida)] )
-;NOTA: devuelve el SID
 ProcessGetSID(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
 	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
 	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x00020000, "UInt", 0, "UInt", ProcessId)
@@ -2186,15 +2207,12 @@ ComVarDel(cv) { ;Called when the object is being freed.
 }
 
 ;establece datos en un Array
-;NOTA: funcion reservada para las demás funciones en las que se necesite guardar datos
-;			para agilizar el resultado la próxima ves que se la llame.
+;NOTA: funcion reservada para las demás funciones
 ;Sintaxis: Set( [Var], [Valor] )
 Set(Var, Value := "") {
 	static Array := []
-	if InVar( Var, "?,*,!" )
-		return Var = "?" ? Array[Value] 
-			: Var = "*" ? Array := Value
-			: Var = "!" ? Array : ""
+	if InVar( Var, "?,!" )
+		return Var = "?" ? Array[Value] : Var = "!" ? Array : ""
 	if (Value = "")
 		return Array.Delete(Var)
 	return Value, Array[Var] := Value
@@ -2270,6 +2288,8 @@ Sleep(Delay := 0) {
 	if (Delay >= -1)
 		Sleep, %Delay%
 }
+
+;esperar (ms), mayor precision, mayor uso de CPU
 Wait(Delay := 0) {
 	static Frequency
 	if !Frequency
@@ -3166,7 +3186,7 @@ AttachCursorControl_Internal(Control, hCursor) {
 
 GuiControlGetHwnd(ControlId) {
 	GuiControlGet, hWnd, HWND, %ControlId%
-	return hWnd
+	return hWnd ? hWnd : ControlId
 }
 
 ;Sintaxis: GuiControlMove( [control], [X|Y|W|H], [¿redibujar?] )
@@ -3564,10 +3584,6 @@ ControlGetText(Control, hWnd) {
 
 
 
-
-
-
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: MOUSE/CURSOR Y TECLADO ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3712,9 +3728,7 @@ CursorShow(State, Mode := 0, TimeOut := 0) {
 	if Mode ;solo afecta a las ventanas creadas por el script: State=0|1, Mode=1, TimeOut=0
 		Loop {
 			NewDisplayCounter := DllCall("User32.dll\ShowCursor", "Int", State)
-			if State AND (NewDisplayCounter >= 0)
-				return 1, ErrorLevel := 0
-			else if !State AND (NewDisplayCounter <= -1)
+			if (State && (NewDisplayCounter >= 0)) || (!State && (NewDisplayCounter <= -1))
 				return 1, ErrorLevel := 0
 			if (NewDisplayCounter = OldDisplayCounter)
 				return 0, ErrorLevel := 1
@@ -5753,9 +5767,5 @@ MDMF_GetInfo(HMON) {
 
 #Include <ImageButton_Class>
 #Include <CtlColors_Class>
-;#Include <GuiControlTips_Class>
-;#Include <LV_InCellEdit_Class>
-;#Include <LV_Colors_Class>
-;#Include <ScrollGUI_Class>
-;#Include <OnWin>
+#Include <Gdip>
 #NoEnv
