@@ -7,8 +7,10 @@ Funciones Agregadas:
 	• RegOpenKey()
 	• SaveScreenshot()
 	• GuiControlColor()
+	• FileSizeCompare()
 
 Mejoras:
+	• IsNumber()
 	• MsgBox()
 	• InputBox()
 	• SelectMenuItem() --> MenuSelectItem()
@@ -21,6 +23,9 @@ Mejoras:
 	• Start()
 
 Correcciones:
+	• GuiControlGetHwnd()
+	• ProcessExist()
+	• ProcessClose()
 	• BlockInput()
 	• GetMenuItemList()
 	• StrSplit()
