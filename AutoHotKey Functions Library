@@ -8,7 +8,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					operaciones matemáticas, Menús, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.02 || Viernes, 28 de junio de 2015
+Actualizado: AHK-U1.1.22.02 || Miercoles, 01 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com
 
@@ -104,7 +104,7 @@ FileVersionCompare(version1, version2) {
 	version1 := RegExReplace(version1, "[^0-9.]"), version2 := RegExReplace(version2, "[^0-9.]")
 	version1 := Trim( version1, "." ), version2 := Trim( version2, "." )
 	verA := StrSplit( version1, "." ), verB := StrSplit( version2, "." )
-	Count := verA[0] > verB[0] ? verA[0] : verB[0]
+	Count := verA.MaxIndex()>verB.MaxIndex()?verA.MaxIndex():verB.MaxIndex()
 	Loop, %Count% {
 		if (verA[0] < A_Index)
 			verA[A_Index] := 0
@@ -275,14 +275,14 @@ FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Descripti
 FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
 	FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
 	return OutputVar
-} ;------------------------------------------------------------------------------------------
+}
 
 ;dialogo para guardar archivo
 ;Sintaxis: FileSave( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
 FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
 	FileSelectFile, OutputVar, S%Options%, %RootDirFilename%, %Prompt%, %Filter%
 	return OutputVar
-} ;------------------------------------------------------------------------------------------
+}
 
 ;leer archivo
 ;Sintáxis: FileRead( [Archivo], [Caracteres maximos] )
@@ -354,30 +354,10 @@ FileWriteLine(Text, Filename, LineNum, Encoding := "") {
 
 FileOpen2(file, mode := "rw", encoding := "") {
 	i := FileOpen(file, mode, encoding)
-	if !IsObject( i ) AND InStr2(mode, "w,a")
+	if !IsObject( i ) AND Contains(mode, "w,a")
 		FileSetAttrib( "-R", file, 0 )
 		, i := FileOpen(file, mode, encoding)
 	return i, ErrorLevel := !IsObject( i )
-}
-
-;ejecutar archivo, abrir carpeta/URL || AHK v1.1-
-;Sintáxis: Run( [Archivo], [directorio de trabajo], [opciones], [PID] )
-Run(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
-	Run, % InStr( Target, Chr(34) ) ? Target : FileExist( Target ) ? Chr(34) Target Chr(34) : Target, %WorkingDir%, UseErrorLevel %Options%, OutputVarPID
-	return ErrorLevel ? 0 : OutputVarPID ? OutputVarPID : 1
-}
-
-RunWait(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
-	RunWait, % InStr( Target, Chr(34) ) ? Target : FileExist( Target ) ? Chr(34) Target Chr(34) : Target, %WorkingDir%, UseErrorLevel %Options%, OutputVarPID
-	return ErrorLevel ? 0 : OutputVarPID ? OutputVarPID : 1
-}
-
-;Sintaxis: Start( [archivo], [parámetros*] ) 
-Start(Target, Param*) {
-	Loop, % Param.MaxIndex()
-		_ .= (A_Index = 1 ? "" : " ") Chr(34) Param[A_Index] Chr(34)
-	Run, "%Target%" %_%,, UseErrorLevel, PID
-	return ErrorLevel ? 0 : (PID ? PID : 1)
 }
 
 FileFNPath(Filename, String := "(%A_Index%)", Add := 1) {
@@ -505,6 +485,121 @@ FileExplore2(Filename) {
 	Run, %A_WinDir%\Explorer.exe /n`,/select`,"%Filename%",, UseErrorLevel
 	return !ErrorLevel
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+; ::::::::::::::::::::::::::::::::::::::::::::: EJECUTAR ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;ejecutar archivo, abrir carpeta/URL || AHK v1.1
+;Sintáxis: Run( [Archivo], [directorio de trabajo], [opciones], [PID] )
+Run(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
+	if !contains( Target, Chr(34) ",*,?,/,:,<,>,|" ) AND FileExist( Target )
+		Target := Chr(34) Target Chr(34)
+	Run, %Target%, %WorkingDir%, UseErrorLevel %Options%, OutputVarPID
+	return ErrorLevel ? 0 : (OutputVarPID ? OutputVarPID : 1)
+}
+
+RunWait(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
+	if !contains( Target, Chr(34) ",*,?,/,:,<,>,|" ) AND FileExist( Target )
+		Target := Chr(34) Target Chr(34)
+	RunWait, %Target%, %WorkingDir%, UseErrorLevel %Options%, OutputVarPID
+	return ErrorLevel ? 0 : (OutputVarPID ? OutputVarPID : 1)
+}
+
+;Sintaxis: Start( [archivo], [parámetros*] ) 
+Start(Target, Param*) {
+	Loop, % Param.MaxIndex()
+		_ .= (A_Index = 1 ? "" : " ") Chr(34) Param[A_Index] Chr(34)
+	return Run( Chr(34) Target Chr(34) _ )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1046,28 +1141,27 @@ StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop
 StrSplitP(String, Delimiter := "'", OmitChars := "", ReplaceLiteralVar := 0) {
 	Array := [], Index := 0
 	Loop, Parse, % String, %Delimiter%, %OmitChars%
-		if IsEven(A_Index)
+		if IsEven(A_Index) {
 			Index++
-			, Array[Index] := ReplaceLiteralVar ? ReplaceLiteralVar(A_LoopField) : A_LoopField
+			Array[Index] := ReplaceLiteralVar ? ReplaceLiteralVar(A_LoopField) : A_LoopField
+		}
 	return Array, ErrorLevel := Array.MaxIndex()
 }
 	
 ;Separa una cadena en una matriz de subcadenas utilizando los delimitadores especificados.
 ;Sintaxis: StrSplit( [cadena/array], [delimitador], [omitir], [defecto si es vacio] )
-;NOTA: Array[ 0 ] y ErrorLevel se establecen en la cantidad total de índices
-;EJEMPLO:
-	;String := "Este Es Un Ejemplo", Array := [ "Este", "Es", "Un", "Ejemplo" ]
-	;s := StrSplit( String, A_Space ), a := StrSplit( Array, A_Space )
-	;MsgBox % s[1] " = " a[1] "`n" s[2] " = " a[2] "`n" s[3] " = " a[3] "`n" s[4] " = " a[4]
-StrSplit(String, Delimiter, OmitChars := "", Default := "") {
-	Array := [], String := IsObject( String ) ? StrMergeArray( String, Delimiter ) : String
-	Loop, Parse, % String, %Delimiter%, %OmitChars%
-		Array[ A_Index ] := A_LoopField = "" ? Default : A_LoopField
-	Array[ 0 ] := Array.MaxIndex()
-	return Array, ErrorLevel := Array[ 0 ]
+;NOTA: ErrorLevel se establecen en la cantidad total de índices
+StrSplit(String, Delimiter := "", OmitChars := "", Default := "") {
+	if IsObject( Array := [] ) AND IsObject( String )
+		for index, value in String
+			Array[ A_Index ] := value = "" ? Default : value
+	else
+		Loop, Parse, % String, %Delimiter%, %OmitChars%
+			Array[ A_Index ] := A_LoopField = "" ? Default : A_LoopField
+	return Array, ErrorLevel := Array.MaxIndex()
 }
 
-StrMergeArray(Array, Delimiter) {
+StrMergeArray(Array, Delimiter := "") {
 	if IsObject( Array )
 		for k, v in Array
 			Array .= k = 1 ? v : Delimiter v
@@ -1108,17 +1202,30 @@ StrRight(String, Length := 1, ByRef OutStr2 := "") {
 }
 
 ;If [var] in [ .. ]
-InVar(Haystack, Needle, Delimiter := ",", OmitChars := "") {
+;comprueba si el contenido de la variable coincide exactamente con los elementos espesificados
+;Sintaxis: InVar( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
+InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
-		if (A_LoopField = Haystack)
+		if (!CaseSensitive&&(Haystack=A_LoopField))||(CaseSensitive&&(Haystack==A_LoopField))
+			return 1
+	return 0
+}
+
+;If [var] contains [ .. ]
+;comprueba si el contenido de la variable coincide exactamente o parcialmente con los elementos espesificados
+;Sintaxis: InVar( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
+Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
+	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
+		if InStr( Haystack, A_LoopField, CaseSensitive )
 			return 1
 	return 0
 }
 
 ;if [value] between [low] [high]
-;Sintaxis: Between( [número], [valor menor], [valor mayor] ) 
-Between(value, low := 0, high := 100) {
-    return value >= low && value <= high
+;comprueba si un número esta contenido entre otros dos valores (inclusive)
+;Sintaxis: Between( [número], [valor menor], [valor mayor], [valor a excluir] ) 
+Between(value, low, high, nval := "") {
+    return value>=low&&value<=high?(nval=""?1:value!=nval):0
 }
 
 InStr2(Haystack, Needle, Delimiter := ",", OmitChars := "") {
@@ -1827,10 +1934,10 @@ NetGetFileSize(URL) {
 
 ;obtener texto
 NetGetString() {
-		ComObjError(false)
-		i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-		i.Open("GET", URL), i.Send()
-		return i.ResponseText
+	ComObjError(false)
+	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+	i.Open("GET", URL), i.Send()
+	return i.ResponseText
 }
 
 
@@ -2395,6 +2502,27 @@ ShowDesktop(Wait := -1) {
 	return WinActivate( hDesktop, Wait, 1 )
 }
 
+;obtiene x, y, ancho y alto de la barra de tareas
+TaskBarGetPos(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
+	hTaskBar := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
+	return WinGetPos( hTaskBar, x, y, Width, Height )
+}
+
+;guardar captura de pantalla
+;Sintaxis: SaveScreen( [Archivo] )
+SaveScreenshot(Filename, Quality := 100) {
+	pToken := Gdip_Startup()
+	pBitmap := Gdip_BitmapFromScreen("0|0|" A_ScreenWidth "|" A_ScreenHeight, 0x40000000 + 0x00CC0020)
+	Gdip_SaveBitmapToFile(pBitmap, Filename, Quality), Gdip_DisposeImage(pBitmap), Gdip_Shutdown(pToken)
+	return pBitmap
+}
+
+
+
+
+
+
+
 
 
 
@@ -2485,7 +2613,7 @@ RegDelete(Key, ValueName*) {
 	
 ;escribe en el registro
 ;Sintáxis: RegWrite( [Tipo], [Clave\SubClave], [Valor], [Datos] )
-;NOTA: 'Tipo' puede ser reemplazado por 'Clave\SubClave', se establece en REG_SZ
+;Sintáxis 2: RegWrite( [Clave\SubClave] )
 ;EJEMPLOS:
 	;RegWrite( "HKCC\2" )
 	;RegWrite(, "HKCC\2", "RSZ", "VAL_RSZ" )
@@ -2665,6 +2793,17 @@ RegFNKey(Key, Force := 0, String := "(%A_Index%)") {
 	}
 }
 
+;abrir clave en regedit
+;Sintaxis: RegOpenKey( [clave\subclave], [¿comprobar si existe?], [¿forzar?] )
+RegOpenKey(Key, CheckExist := 0, Force := 0) {
+	Key := Trim( Key )
+	if CheckExist && !RegExist( Key,, Force )
+		return 0, ErrorLevel := 1
+	Key := RegSKName( Key, 1 )
+	RegWrite(, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", Key )
+	return Run( A_WinDir "\RegEdit.exe" )
+}
+
 ;Copia la clave de registro especificada, junto con sus valores y subclaves, a la clave de destino especificada.
 ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379768%28v=vs.85%29.aspx
 RegCopyTree(Key, Dest) {
@@ -2740,9 +2879,42 @@ RegCopyTree(Key, Dest) {
 
 
 
+
+
+
+
+ 
+
+
+
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;caja de mensaje: MessageBox
+;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
+;EJEMPLO:
+	;MsgBox % "Resultado: " MsgBox() "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox( 0 ) "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox(4112, "ERROR!",, 1 ) "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox(20, "Título" ) "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox(34,, "Texto" ) "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox(16694, "Título", "Texto" ) "`nErrorLevel: " ErrorLevel
+MsgBox(Options := "", Title := "", Text := "", Timeout := "") {
+	if (Options = "") AND (Title = "") AND (Text = "")
+		MsgBox, 0, *, Press OK to continue., %Timeout%
+	else if (Options != "") AND (Title = "") AND (Text = "")
+		MsgBox, 0, *, %Options%, %Timeout%
+	else
+		MsgBox, % Options, %Title%, %Text%, %Timeout%
+	;return ErrorLevel := A_MsgBoxResult ;AHKv2
+	Loop, Parse, % "Yes No Ok Cancel Abort Ignore Retry Timeout Continue TryAgain", %A_Space% ;AHKv1
+		IfMsgBox, %A_LoopField% ;AHKv1
+			return ErrorLevel := A_LoopField ;AHKv1
+}
+
 ;dialogo para elegir color
 ;Sintaxis: ColorSelect( [defecto], [ID ventana propietaria], [¿mostrar todos los colores? 0|1] )
 ;EJEMPLO: MsgBox % "Color: " (i:=ColorSelect(255,,1)) "`nRGB: " RGB(i) "`nHex: " Hex(i) "`n`nErrorLevel: " ErrorLevel
@@ -2767,13 +2939,14 @@ ColorSelect(Color := "", hWnd := 0, FullOpen := "") {
 		, ErrorLevel := !i
 }
 
-;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones para el Edit]] )
+;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [ID] )
+;ID: espesificar el ID de una ventana para deshabilitarla hasta que el dialogo se cierre
 ;ErrorLevel es:
 	;0 = el usuario precionó Aceptar
 	;1 = el usuario precionó Cancelar o Cerrar
 	;2 = la ventana ya existe
 	;3 = se ha alcanzado el tiempo máximo para la ventana
-InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "") {
+InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := "") {
 	;inicio
 	global _InputBoxResult, _InputBoxErrorLevel, _InputBoxId, _InputBoxInfoText
 	_InputBoxResult := _InputBoxErrorLevel := _InputBoxId := ""
@@ -2781,6 +2954,7 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "") {
 	;comprueba si ya existe la ventana
 	if IsWindow( _InputBoxHWND )
 		return "", ErrorLevel := 2
+	WinDisable( hWnd )
 	
 	;interfaz
 	Gui, _InputBoxGuiName:-Caption +ToolWindow +OwnDialogs +LastFound +HWND_InputBoxHWND +AlwaysOnTop +MinSize420x217 +MaxSize%A_ScreenWidth%x%A_ScreenHeight%
@@ -2810,11 +2984,11 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "") {
 	;esperar a que la ventana cierre
 	if !WinWaitClose( _InputBoxHWND, Timeout ) {
 		Gui, %_InputBoxHWND%:Destroy
-		return "", ErrorLevel := 3
+		return "", WinEnable( hWnd ), ErrorLevel := 3
 	}
 
 	;devuelve el resultado
-	return _InputBoxResult, ErrorLevel := _InputBoxErrorLevel
+	return _InputBoxResult, WinEnable( hWnd ), ErrorLevel := _InputBoxErrorLevel
 		, _InputBoxErrorLevel := _InputBoxId := _InputBoxInfoText := ""
 	;-------------------------------------------------------------------------------------------------------------------------------------
 	
@@ -2896,76 +3070,6 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 		SetTimer( Func("TrayTip").Bind(), -(TimeOut*1000) )
 }
 
-;mensaje
-;Sintaxis: MsgBox( [titulo], [texto], [tipo], [icono], [modalidad] )
-;NOTAS: 
-	;A_LastError se establece en 0 si se eligió OK, YES, CONTINUE o IGNORE. Caso contrario, se establece en 1
-	;ErrorLevel se establece en 1 si ha ocurrido algún error. Caso contrario, se establece en 0
-	;devuelve 0 si ha ocurrido algún error, caso contrario devuelve la opcion elegida
-;TIPOS:
-	;OkCancel / OC = boton cancelar
-	;YesNo / YN = botones si y no
-	;RetryCancel / RC = botones reintentar y cancelar
-	;YesNoCancel / YNC = botones si, no y cancelar
-	;CancelTryContinue / CTC = botones cancelar, volver a intentar y continuar
-	;AbortRetryIgnore / ARI = botones abortar/anular, reintentar e ignorar/omitir
-	;+[1 / 2 / 3 / 4] = boton por defecto, espesificar un Número
-;ICONOS:
-	;Warning / W = atención
-	;Info / I = informacion 
-	;Question / Q = pregunta
-	;Error / E = error
-;MODALIDADES:
-	;TopMost / TM / A / AOT = siempre al frente
-	;System / S = Sistema. Siempre al frente
-	;Task / T
-;EJEMPLOS:
-	;MsgBox % "Resultado: " MsgBox( "Ejemplo, MsgBox", "Tipo: Abortar/Anular, Reintentar, Ignorar/Omitir`nIcono: Atención`nBotono por defecto: 2 (reintentar)", "ARI 2", "W", "S" )
-	;MsgBox( "Texto" )
-MsgBox(lpCaption := "", ByRef lpText := "", uType := "", Icon := "", Mode := "") {
-	;resultado
-	r1 := "Ok", r2 := "Cancel", r3 := "Abort", r4 := "Retry", r5 := "Ignore"
-	, r6 := "Yes", r7 := "No", r10 := "TryAgain", r11 := "Continue"
-	
-	;A_LastError: resultado
-	e1 := e6 := e11 := e5 := 1
-	
-	;inicio
-	if !IsByRef( lpText ) AND (lpText = "") AND (lpCaption != "")
-		lpText := lpCaption, lpCaption := A_ScriptName
-	uType := RegExReplace(uType, "\s"), Icon := RegExReplace(Icon, "\s"), Mode := RegExReplace(Mode, "\s")
-	, Default := RegExReplace(uType, "[^0-9]"), uType := RegExReplace(uType, "[0-9]"), uType := uType ? uType : "_"
-	, Default := Default ? Default : 1, Icon := Icon ? Icon : "_", Mode := Mode ? Mode : "_"
-	
-	;boton por defecto
-	b1 := 0x00000000, b2 := 0x00000100, b3 := 0x00000200, b4 := 0x00000300
-	
-	;tipos
-	tCancelTryContinue := tCancelContinueTry := tContinueCancelTry := tContinueTryCancel := tTryCancelContinue := tTryContinueCancel := 0x00000006
-	, tCTC := tCCT := tTCC := 0x00000006, tARI := tAIR := tRAI := tRIA := tIAR := tIRA := 0x00000002, tYNC := tYCN := tNCY := tNYC := tCYN := tCNY := 0x00000003
-	, tAbortRetryIgnore := tAbortIgnoreRetry := tRetryAbortIgnore := tRetryIgnoreAbort := tIgnoreAbortRetry := tIgnoreRetryAbort := 0x00000002
-	, tYesNoCancel := tYesCancelNo := tNoCancelYes := tNoYesCancel := tCancelYesNo := tCancelNoYes := 0x00000003
-	, tOkCancel := tCancelOk := tOC := tCO := 0x00000001, tRetryCancel := tCancelRetry := tCR := tRC := 0x00000005, tYesNo := tNoYes := tNY := tYN := 0x00000004
- 
-	;icono
-	iExclamation := iEx := iWarning := iW := 0x00000030, iInfo := iI := 0x00000040
-	, iQuestion := iQ := 0x00000020, iStop := iS := iError := iE := 0x00000010
-
-	;modalidad 
-	mSystem := mS := 0x00001000, mTask := mT := 0x00002000, mTopMost := mTM := mA := mAOT := 0x00040000
-	
-	;opciones
-	uIcon := i%Icon% ? i%Icon% : 0x00000000 ;icono
-	, uType := t%uType% ? t%uType% : 0x00000000 ;botones
-	, uDefault := b%Default% ? b%Default% : 0x00000000 ;boton por defecto
-	, uModal := m%Mode% ? m%Mode% : 0x00000000 ;modalidad
-
-	hMsg := DllCall("User32.dll\MessageBoxW", "Ptr", A_ScriptHwnd, "Str", lpText, "Str", lpCaption, "UInt", uType|uIcon|uDefault|uModal) 
-	return r%hMsg% ? r%hMsg% : 0 ;resultado
-		, ErrorLevel := r%hMsg% ? 0 : 1 ;establece ErrorLevel 0|1
-		, SetLastError( e%hMsg% ? 0 : 1 ) ;establece A_LastError 0|1
-}
-
 ;estilo para los botones.
 GuiButtonStyle(hWnd, Type := 1, Round := 0) { ;https://github.com/AHK-just-me/Class_ImageButton
    ;------------------------------------------------------------------------------------------------------------------------------
@@ -3006,10 +3110,20 @@ GuiButtonStyle(hWnd, Type := 1, Round := 0) { ;https://github.com/AHK-just-me/Cl
 		Normal := [0, 0x1CA7EF,, 0xffffff]
 		Foco := [0, 0x6AB5FF,, 0xffffff]
 		Precionado := [0, 0x808080,, 0xffffff]
+		Deshabilitado := [0, 0x80F0F0F0,, 0x00DFDFDF, 0,, 0x80A7A7A7, 1]
 	}
 	
    ;------------------------------------------------------------------------------------------------------------------------------
    return ImageButton.Create(hWnd, Normal, Foco, Precionado, Deshabilitado, Fallido, Tab)
+}
+
+;color para los controles
+;conversor de colores: http://www.yellowpipe.com/yis/tools/hex-to-rgb/color-converter.php
+;Sintaxis: GuiControlColor( [control], [color del texto], [color de fondo] )
+GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Force := 1 ) {
+	if Force
+		CtlColors.Detach( ControlId )
+	CtlColors.Change( ControlId, BackgroundColor, TextColor )
 }
 
 ;establece texto por defecto a un control de edicion (edit)
@@ -3159,6 +3273,21 @@ LV_Set( Row := 0, Flags := "+Select", Type := -1 ) {
 	}
 	return RTrim( List, "," )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3386,7 +3515,7 @@ ControlFocus( Control, hWnd ) {
 
 ControlGetHwnd(Control, hWnd) {
 	ControlGet, ControlHwnd, hWnd,, %Control%, ahk_id %hWnd%
-	return ControlHwnd
+	return ControlHwnd ? ControlHwnd : Control
 }
 
 ;establecer texto
@@ -3406,7 +3535,6 @@ ControlGetText(Control, hWnd) {
 	i := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", Control, "UInt", 0x000D, "UInt", nSize, "Str", IpText, "UInt", 0x0002, "UInt", 3500, "UPtrP", 0)
 	return IpText, ErrorLevel := !i
 }
-
 
 
 
@@ -4304,6 +4432,23 @@ WinMinimizeAllUndo() {
 	return DllCall("User32.dll\PostMessageW", "Ptr", hWindow, "UInt", 0x0111, "UInt", 416, "Ptr", 0)
 }
 
+;Invoca un elemento de menú de la barra de menú de la ventana especificada
+;Sintaxis: WinMenuSelectItem( [ID], [Menu Principal], [Submenus*] )
+;EJEMPLO: WinMenuSelectItem( IsWindow(), "Archivo", "Abrir..." )
+;VER: GetMenuItemList()
+WinMenuSelectItem( hWnd, Menu, Submenu* ) { ;AHKv1 --> WinMenuSelectItem()
+	return MenuSelect( hWnd, Menu, Submenu* ) ;AHKv2 --> MenuSelect()
+}
+
+;quitar ventana de la barra de tareas
+;Sintaxis: WinTaskBarRemove( [ID], [¿mostrar?] )
+WinTaskBarRemove(hWnd, Show := 0) {
+	hTaskBar := ComObjCreate("{56FDF344-FD6D-11d0-958A-006097C9A090}", "{56FDF342-FD6D-11d0-958A-006097C9A090}")
+	DllCall(NumGet(NumGet(hTaskBar+0), 3*A_PtrSize), "Ptr", hTaskBar, "Ptr", hWnd)
+	return DllCall(NumGet(NumGet(hTaskBar+0), (Show?4:5)*A_PtrSize), "Ptr", hTaskBar, "Ptr", hWnd)
+		, ObjRelease( hTaskBar )
+}
+
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
 
@@ -4477,6 +4622,7 @@ WinRestore(hWnd, Force := 0) {
 }
 
 ;oculta la ventana
+;NOTA: para ocultar la ventana solo en la barra de tareas usar WinTaskBarRemove()
 WinHide(hWnd) {
 	nCmdShow := SW_HIDE := 0
 	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", nCmdShow)
@@ -4801,6 +4947,9 @@ WinWait(hWnd, Seconds := 0) {
 
 
 
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: MENÚS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4819,7 +4968,7 @@ GetMenuItemList(hWnd, hMenu := 0, Prefix := "") { ;http://ahkscript.org/boards/v
 		lpString := StrReplace(lpString, "&")
 		ItemId := DllCall("User32.dll\GetMenuItemID", "Ptr", hMenu, "Int", A_Index-1)
 		if (itemID = -1) AND (hSubMenu := DllCall("User32.dll\GetSubMenu", "Ptr", hMenu, "Int", A_Index-1)) {
-			List .= GetMenuItemList( "", hSubMenu, Prefix lpString " > " )
+			List .= GetMenuItemList( "", hSubMenu, Prefix lpString " > " ) "`n"
 			continue
 		}
 		List .= ItemId "`t" Prefix RegExReplace( lpString, "`t.*" ) "`n"
@@ -4828,10 +4977,11 @@ GetMenuItemList(hWnd, hMenu := 0, Prefix := "") { ;http://ahkscript.org/boards/v
 }
 
 ;ejecuta un comando del menu de la ventana
-;Sintaxis: SelectMenuItem( [ID], [ID del Menú], [Nombre del Menú] )
+;Sintaxis: MenuSelectItem( [ID], [ID del Menú], [Nombre del Menú] )
 ;NOTA: espesificar ' > ' para submenús
-;Ejemplo: WinSelectMenuItem( IsWindow(),, "Archivo > Abrir..." )
-SelectMenuItem(hWnd, MenuItemId := "", MenuItemName := "") {
+;Ejemplo: MenuSelectItem( IsWindow(),, "Archivo > Abrir..." )
+;VER: GetMenuItemList()
+MenuSelectItem(hWnd, MenuItemId := "", MenuItemName := "") {
 	if (MenuItemName != "") {
 		Loop, Parse, % GetMenuItemList( hWnd ), `n, `r
 		{
@@ -4841,9 +4991,33 @@ SelectMenuItem(hWnd, MenuItemId := "", MenuItemName := "") {
 				break
 			}
 		}
+		if (MenuItemId = "")
+			Loop, Parse, % GetMenuItemList( hWnd ), `n, `r
+			{
+				RegExMatch(A_LoopField, "(\d+)`t(.*)", MenuItem)
+				if InStr(MenuItem2, MenuItemName) {
+					MenuItemId := MenuItem1
+					break
+				}
+			}
 	}
 	return DllCall("User32.dll\SendNotifyMessageW", "Ptr", hWnd, "UInt", 0x111, "Ptr", MenuItemId, "Ptr", 0)
 }
+
+;Invoca un elemento de menú de la barra de menú de la ventana especificada
+;Sintaxis: MenuSelect( [ID], [Menu Principal], [Submenus*] )
+;EJEMPLO: MenuSelect( IsWindow(), "Archivo", "Abrir..." )
+;VER: GetMenuItemList()
+MenuSelect( hWnd, Menu, Submenu*) {
+	if !Submenu.MaxIndex()
+		return MenuSelectItem( hWnd,, Menu )
+	Loop, % Submenu.MaxIndex()
+		_Submenu .= " > " Submenu[A_Index]
+	return MenuSelectItem( hWnd,, Menu _Submenu )
+}
+
+;-------------------------------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
 
 ;comprueba si es un menú válido
 IsMenu(hMenu) {
@@ -5162,6 +5336,9 @@ ServiceOpen(lpDisplayName, SCManagerAccess, ServiceAccess) {
 	return DllCall("Advapi32.dll\OpenServiceW", "Ptr", hSCManager, "Uint", &lpServiceName, "Uint", ServiceAccess)
 		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hSCManager)
 }
+
+
+
 
 
 
@@ -5573,5 +5750,12 @@ MDMF_GetInfo(HMON) {
    }
    Return False
 }
+
 #Include <ImageButton_Class>
+#Include <CtlColors_Class>
+;#Include <GuiControlTips_Class>
+;#Include <LV_InCellEdit_Class>
+;#Include <LV_Colors_Class>
+;#Include <ScrollGUI_Class>
+;#Include <OnWin>
 #NoEnv
