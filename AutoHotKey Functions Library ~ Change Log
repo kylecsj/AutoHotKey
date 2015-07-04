@@ -1,5 +1,5 @@
 ###############################################################
-ACTUALIZACION 01/07/2015 - AHK1.1.22.02
+ACTUALIZACION 01/07/2015, 04/07 - AHK1.1.22.02
 ###############################################################
 Funciones Agregadas:
 	• MenuSelect() / WinMenuSelectItem()
@@ -10,6 +10,14 @@ Funciones Agregadas:
 	• FileSizeCompare()
 
 Mejoras:
+	• SetTimer()
+	• FileCopy()
+	• DirDelete()
+	• FileSelect()
+	• FileSave()
+	• DirSelect()
+	• IsWinActive()
+	• IsWindow()
 	• IsNumber()
 	• MsgBox()
 	• InputBox()
@@ -23,6 +31,8 @@ Mejoras:
 	• Start()
 
 Correcciones:
+	• WinTitleAnimate()
+	• FileVersionCompare() --> VersionCompare()
 	• GuiControlGetHwnd()
 	• ProcessExist()
 	• ProcessClose()
