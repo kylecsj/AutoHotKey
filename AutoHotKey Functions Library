@@ -8,7 +8,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					operaciones matemáticas, Menús, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.02 || Miercoles, 01 de julio de 2015
+Actualizado: AHK-U1.1.22.02 || Sabado, 04 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com
 
@@ -101,14 +101,17 @@ FileGetVersion( Filename ) {
 	;1: Ver1 > Ver2
 	;2: Ver1 < Ver2
 FileVersionCompare(version1, version2) {
-	version1 := RegExReplace(version1, "[^0-9.]"), version2 := RegExReplace(version2, "[^0-9.]")
-	version1 := Trim( version1, "." ), version2 := Trim( version2, "." )
+	return VersionCompare( version1, version2 )
+}
+VersionCompare(version1, version2) {
+	version1 := Trim( RegExReplace(version1, "[^0-9.]"), "." )
+	version2 := Trim( RegExReplace(version2, "[^0-9.]"), "." )
 	verA := StrSplit( version1, "." ), verB := StrSplit( version2, "." )
 	Count := verA.MaxIndex()>verB.MaxIndex()?verA.MaxIndex():verB.MaxIndex()
 	Loop, %Count% {
-		if (verA[0] < A_Index)
+		if (verA.MaxIndex() < A_Index)
 			verA[A_Index] := 0
-		if (verB[0] < A_Index)
+		if (verB.MaxIndex() < A_Index)
 			verB[A_Index] := 0
 		if (verA[A_Index] > verB[A_Index])
 			return 1
@@ -141,14 +144,18 @@ FileSizeCompare(Files*) {
 ;obtener tamaño del archivo
 ;Sintáxis: FileGetSize( [archivo], [KB|MB|GB] )
 FileGetSize(lpFileName, Units := 0) {
+	static sKB := 1024, sMB := 1024 ** 2, sGB := 1024 ** 3
 	lpFileName := GetFullPathName( lpFileName )
-	sKB := 1024, sMB := 1024 ** 2, sGB := 1024 ** 3, s0 := 0
 	hFile := DllCall("Kernel32.dll\CreateFileW", "Str", "\\?\" lpFileName, "UInt", 128, "UInt", 1, "UInt", 0, "UInt", 3, "UInt", 0, "Ptr", 0)
 	VarSetCapacity(lpFileSize, 1048576, 0)
 	DllCall("Kernel32.dll\GetFileSizeEx", "UInt", hFile, "UInt", &lpFileSize)
 	fs := NumGet(lpFileSize, 0, "Int64*")
 	return s%Units% ? fs / s%Units% : fs
 		, DllCall("Kernel32.dll\CloseHandle", "UInt", hFile)
+	;VarSetCapacity( WIN32_FIND_DATA, 1140, 0 ) ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa364418%28v=vs.85%29.aspx
+	;DllCall("Kernel32.dll\FindFirstFileW", "Str", ComSpec, "Ptr", &WIN32_FIND_DATA)
+	;nFileSizeHigh := NumGet( WIN32_FIND_DATA, 16, "UInt")
+	;nFileSizeLow := NumGet( WIN32_FIND_DATA, 20, "UInt")
 }
 
 ;Sintaxis: FileCreate( [archivo], [Acceso deseado], [0|1(R)|2(W)|4(D)] )
@@ -266,18 +273,25 @@ SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtens
 }
 
 ;copiar archivo(s); devuelve el número de archivos copiados
-;Sintaxis: FileCopy( [archivo(s)], [destino], [sobreescribir], [¿incluir archivos en subcarpetas?] )
+;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
+;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
 FileCopy(Source, Dest, Overwrite := 0, Recurse := 0) {
-	Flags := Overwrite ? "" : 0x00000001, ok := 0, IsFolder := DirExist( Dest )
-	Loop, Files, %Source%, % Recurse ? "FR" : "F"
-	{
-		Dest2 := IsFolder ? Dest "\" SplitPath(A_LoopFileLongPath).FileName : Dest
-		error := DllCall("CopyFileExW", "Str", "\\?\" A_LoopFileLongPath, "Str", "\\?\" Dest2, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags|0x00001000)
-		if !error
-			error := DllCall("CopyFileExW", "Str", "\\?\" A_LoopFileLongPath, "Str", "\\?\" Dest2, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
-		ok := error ? ok + 1 : ok
+	Flags := Overwrite ? 0x00001000 : 0x00000001|0x00001000
+	Flags_ := Overwrite ? 0 : 0x00000001, Dest := RTrim( Dest, "\" )
+	if !InStr(Source, "*") AND !InStr(Source, "?") AND !Recurse {
+		Source := GetFullPathName( Source )
+		_ := IsFolder( Dest ) ? Dest "\" SplitPath(Source).FileName : Dest
+		if DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
+		|| DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags_)
+			return 1, ErrorLevel := 0
+		return 0, ErrorLevel := 1
 	}
-	return ok
+	ok := i := 0
+	Loop, Files, %Source%, % Recurse ? "FR" : "F"
+		if DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" A_LoopFileLongPath, "Str", "\\?\" Dest "\" A_LoopFileName, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
+		|| DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" A_LoopFileLongPath, "Str", "\\?\" Dest "\" A_LoopFileName, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags_)
+			ok := ok + 1, i := i + 1
+	return ok, ErrorLevel := ok = i ? 0 : 1
 }
 
 FileGetShortcut(ShortcutFile, ByRef OutTarget := "", ByRef OutDir := "", ByRef OutArgs := "", ByRef OutDescription := "", ByRef OutIcon := "", ByRef OutIconNum := "", ByRef OutRunState := "") {
@@ -291,17 +305,21 @@ FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Descripti
 }
 
 ;dialogo para seleccionar archivos
-;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
+;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones/VentanaID], [Título de la ventana] )
 FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
+	if (StrLen(Options) >= 3) AND IsWindow( Options )
+		WinDisable( Options ), i := 1
 	FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar
+	return OutputVar, i:=i?WinEnable(Options):""
 }
 
 ;dialogo para guardar archivo
 ;Sintaxis: FileSave( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
 FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
+	if (StrLen(Options) >= 3) AND IsWindow( Options )
+		WinDisable( Options ), i := 1
 	FileSelectFile, OutputVar, S%Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar
+	return OutputVar, i:=i?WinEnable(Options):""
 }
 
 ;leer archivo
@@ -660,8 +678,10 @@ Start(Target, Param*) {
 ;Sintaxis: DirDelete( [carpeta], [¿eliminar archivos y subcarpetas?] )
 DirDelete(lpPathName, Recurse := 0) {
 	lpPathName := RTrim( Trim( lpPathName ), "\" )
-	if !Recurse
+	if !Recurse {
+		lpPathName := GetFullPathName( lpPathName )
 		return DllCall("Kernel32.dll\RemoveDirectoryW", "Str", "\\?\" lpPathName)
+	}
 	FileRemoveDir, %lpPathName%, %Recurse%
 	return !ErrorLevel
 }
@@ -726,10 +746,12 @@ DirCreate(lpPathName) {
 }
 
 ;dialogo: seleccionar carpeta
-;Sintaxis: DirSelect( [Directorio], [Opciones], [Título] )
+;Sintaxis: DirSelect( [Directorio], [Opciones/VentanaID], [Título] )
 DirSelect(StartingFolder := "", Options := 1,  Prompt := "") {
+	if (StrLen(Options) >= 3) AND IsWindow( Options )
+		WinDisable( Options ), i := 1
 	FileSelectFolder, OutputVar, %StartingFolder%, %Options%, %Prompt%
-	return RTrim( OutputVar, "\" )
+	return RTrim( OutputVar, "\" ), i:=i?WinEnable(Options):""
 }
 
 ;comprueba si es carpeta
@@ -2266,11 +2288,14 @@ LoadLibrary(lpFileName, hFile := 0, dwFlags := 0) {
 	return DllCall("Kernel32.dll\LoadLibraryExW", "Str", lpFileName, "UInt", hFile, "UInt", dwFlags) 
 }
 
-;Sintaxis: SetTimer( [etiqueta|funcion|0|1], [On(1)|Off(0)|Delete(D)] )
-SetTimer(Label := "", PeriodOnOffDelete := 1) {
-	if (Label = 0) OR (Label = 1) OR (Label = -1)
-		PeriodOnOffDelete := Label = -1 ? "D" : Label, Label := A_ThisLabel
+;Sintaxis: SetTimer( [Etiqueta], [Período] )
+SetTimer(Label := "", PeriodOnOffDelete := "") {
+	if Between( Label, -4294967295, 4294967295 )&&(PeriodOnOffDelete="")
+		PeriodOnOffDelete := Label=-1?"D":Label, Label := A_ThisLabel
+	else
+		Label := Label=""?A_ThisLabel:Label
 	PeriodOnOffDelete := PeriodOnOffDelete = 1 ? "On" 
+		: PeriodOnOffDelete = "" ? "On"
 		: PeriodOnOffDelete = 0 ? "Off"
 		: PeriodOnOffDelete = "D" ? "Delete" : PeriodOnOffDelete
 	SetTimer, %Label%, %PeriodOnOffDelete%
@@ -2302,7 +2327,11 @@ Wait(Delay := 0) {
 }
 
 ;reiniciar script
-Reload() {
+Reload(Force := 0, ExitCode := 0) {
+	if Force {
+		Run( A_ScriptFullPath )
+		ExitApp( Force, ExitCode )
+	}
 	Reload
 }
 
@@ -2338,7 +2367,9 @@ ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/b
 Clipboard(String := "", Selected := 0) {
 	if Selected {
 		Temp := ClipboardAll
-		Clipboard(), Send( "^c" ), ClipWait( Selected > 0 ? Selected : 1 )
+		Clipboard()
+		Send( "{LCtrl Down}c{LCtrl Up}" )
+		ClipWait( Selected > 0 ? Selected : 1 )
 		return Clipboard, Clipboard := Temp
 	}
 	if (String = "") {
@@ -2915,6 +2946,8 @@ RegCopyTree(Key, Dest) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;caja de mensaje: MessageBox
 ;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
+;ErrorLevel: contiene el resultado (Yes, No, Ok ... )
+;A_LastError: es 0 si el resultado es Yes, No, Continue o Ignore
 ;EJEMPLO:
 	;MsgBox % "Resultado: " MsgBox() "`nErrorLevel: " ErrorLevel
 	;MsgBox % "Resultado: " MsgBox( 0 ) "`nErrorLevel: " ErrorLevel
@@ -2930,9 +2963,9 @@ MsgBox(Options := "", Title := "", Text := "", Timeout := "") {
 	else
 		MsgBox, % Options, %Title%, %Text%, %Timeout%
 	;return ErrorLevel := A_MsgBoxResult ;AHKv2
-	Loop, Parse, % "Yes No Ok Cancel Abort Ignore Retry Timeout Continue TryAgain", %A_Space% ;AHKv1
-		IfMsgBox, %A_LoopField% ;AHKv1
-			return ErrorLevel := A_LoopField ;AHKv1
+	Loop, Parse, % "Yes No Ok Cancel Abort Ignore Retry Timeout Continue TryAgain", %A_Space% ;AHKv1 -->
+		IfMsgBox, %A_LoopField%
+			return ErrorLevel := A_LoopField, A_LastError( !InVar(A_LoopField,"Yes,Ok,Continue,Ignore") )
 }
 
 ;dialogo para elegir color
@@ -3233,9 +3266,11 @@ GuiControlGetText(hWnd) {
    return Text
 }
 
-GuiControlGetPos(hWnd) {
+GuiControlGetPos(hWnd, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
 	GuiControlGet, pos, pos, %hWnd%
-	i := {}, i.w := posW, i.h := posH, i.x := posX, i.y := posY
+	i := {}, i.w := i.Width := Width := posW
+	i.h := i.Height := Height := posH
+	i.x := x := posX, i.y := y := posY
 	return i
 }
 
@@ -3494,6 +3529,16 @@ IL_GetSize(ImageList, ByRef Width := "", ByRef Height := "") {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: CONTROL ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtener posicion
+;Sintaxis: ControlGetPos( [ID], [control], [x], [y], [ancho], [alto] )
+ControlGetPos( hWnd, Control, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "" ) {
+	ControlGetPos, x, y, Width, Height, %Control%, ahk_id %hWnd%
+	i := {}, i.w := i.Width := Width
+	i.h := i.Height := Height
+	i.x := x, i.y := y
+	return i
+}
+
 ;enviar pulsaciones de teclas a un control
 ;Sintaxis: ControlSend( [ID], [Control], [Teclas], [Repeticiones], [retraso (ms)] )
 ControlSend( hWnd, Control, Keys, Count := 1, Delay := -2 ) {
@@ -4388,14 +4433,37 @@ IsWinEnabled(hWnd) {
 }
 
 ;comprueba si la ventana existe
-;NOTAS: 
-	;dejar vacio para obtener el ID de la ventana activa
-	;si existe, devuelve el ID
-IsWindow(hWnd*) {
-	if !hWnd.MaxIndex() ;devuelve el ID de la ventana activa
-		return DllCall("User32.dll\GetForegroundWindow")
-	return (i := DllCall("User32.dll\IsWindow", "Ptr", hWnd[1])) ? hWnd[1] : 0
-		, ErrorLevel := !i
+;Sintaxis: IsWindow( [ID], [clase], [proceso/pid], [¿detectar ventanas ocultas? (defecto=SI)] )
+;NOTA: dejar vacio para obtener el ID de la ventana activa
+;EJEMPLO: MsgBox % IsWindow(,, "notepad.exe", 0 )
+IsWindow(hWnd*) { 
+	;si no espesifica ningún parametro, devuelve el ID de la ventana activa
+	if !hWnd.MaxIndex()
+		return i := DllCall("User32.dll\GetForegroundWindow"), ErrorLevel := !i
+	;si no se espesifica un ID válido, se busca una ventana que coincida con la/el clase/proceso/pid espesificado
+	if !hWnd[1]&&(hWnd[2]||hWnd[3]) {
+		DetectHiddenWindows, % hWnd[4]=0?"Off":"On"
+		WinGet, Window, List
+		Loop, %Window% {
+			CurrentWindowId := Window%A_Index%
+			if hWnd[3]&&InStr( hWnd[3], "." )
+				WinGetPID( CurrentWindowId,, PN )
+			else if hWnd[3]
+				PN := WinGetPID( CurrentWindowId )
+			if (hWnd[2]&&(WinGetClass(CurrentWindowId)=hWnd[2]))
+			||(hWnd[3]&&(PN=hWnd[3]))
+				return CurrentWindowId, ErrorLevel := 0
+		}
+	}
+	if hWnd[1]&&hWnd[3]&&InStr( hWnd[3], "." )
+		WinGetPID( hWnd[1],, PN )
+	else if hWnd[1]&&hWnd[3]
+		PN := WinGetPID( hWnd[1] )
+	if !hWnd[1]||!DllCall("User32.dll\IsWindow", "Ptr", hWnd[1])
+	||(hWnd[2]&&(WinGetClass(hWnd[1])!=hWnd[2]))
+	||(hWnd[3]&&(PN!=hWnd[3]))
+		return 0, ErrorLevel := 1
+	return hWnd[1], ErrorLevel := 0
 }
 
 ;comprueba si la ventana es visible
@@ -4418,14 +4486,27 @@ WinMax(hWnd) {
 
 ;devuelve 1 si la ventana: existe, no esta maximizada/minimizada, es visible
 WinNormal(hWnd) {
-	if WinMin( hWnd ) OR WinMax( hWnd ) OR !IsWindow( hWnd ) OR !WinVisible( hWnd )
+	if !IsWindow(hWnd)||WinMin(hWnd)||WinMax(hWnd)||!WinVisible(hWnd)
 		return 0, ErrorLevel := 1
 	return 1, ErrorLevel := 0
 }
 
 ;comprueba si la ventana está activa
-IsWinActive(hWnd) {
-	return IsWindow() = hWnd ? 1 : 0
+;Sintaxis: IsWinActive( [ID], [clase], [proceso/pid] )
+;NOTA: equivale a: WinActive( "ahk_id ID ahk_class CLASS ahk_exe PROCESS.EXE ahk_pid PID" )
+IsWinActive(hWnd := "", Class := "", ProcessName := "") {
+	ActiveWindowId := IsWindow()
+	if ProcessName&&InStr( ProcessName, "." )
+		WinGetPID( hWnd?hWnd:ActiveWindowId,, PN )
+	else if ProcessName
+		PN := WinGetPID( hWnd?hWnd:ActiveWindowId )
+	if (!Class&&!ProcessName&&!ActiveWindowId)
+	||(!hWnd&&!Class&&!ProcessName)
+	||(hWnd&&(ActiveWindowId!=hWnd))
+	||(Class&&(WinGetClass(hWnd?hWnd:ActiveWindowId)!=Class))
+	||(ProcessName&&(PN != ProcessName))
+		return 0, ErrorLevel := 1
+	return 1, ErrorLevel := 0
 }
 
 ;--------------------------------------------------------------------------------------------------------
@@ -4456,6 +4537,7 @@ WinMenuSelectItem( hWnd, Menu, Submenu* ) { ;AHKv1 --> WinMenuSelectItem()
 
 ;quitar ventana de la barra de tareas
 ;Sintaxis: WinTaskBarRemove( [ID], [¿mostrar?] )
+;NOTA: comandos comos WinShow() hacen que la ventana se restaure en la barra de tareas
 WinTaskBarRemove(hWnd, Show := 0) {
 	hTaskBar := ComObjCreate("{56FDF344-FD6D-11d0-958A-006097C9A090}", "{56FDF342-FD6D-11d0-958A-006097C9A090}")
 	DllCall(NumGet(NumGet(hTaskBar+0), 3*A_PtrSize), "Ptr", hTaskBar, "Ptr", hWnd)
@@ -4467,7 +4549,7 @@ WinTaskBarRemove(hWnd, Show := 0) {
 ;--------------------------------------------------------------------------------------------------------
 
 ;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha
-;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [obviar barra de tareas], [¿centrar?] )
+;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [¿obviar barra de tareas?], [¿centrar?] )
 ;EJEMPLO:
 	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist( "ahk_exe notepad.exe" ), WinActivate( i, 1 )
 	;MsgBox % "Centrar Ventana: " WinCenter( i ) " - " i
@@ -4481,12 +4563,12 @@ WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 	if WinMax( hWnd )
 		return 0, ErrorLevel := 3
 	WinGetPos( hWnd,,, width, height )
-	ypos := (Mode = "T") OR (Mode = "Top") ? 0
-		: (Mode = "B") OR (Mode = "Bottom") ? A_MonitorWorkArea().h - height
-		: (Center?((ByWorkArea?A_MonitorWorkArea().h:A_ScreenHeight)/2) - (height/2):"")
-	xpos := (Mode = "L") OR (Mode = "Left") ? 0
-		: (Mode = "R") OR (Mode = "Right") ? A_MonitorWorkArea().w - width
-		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2) - (width/2):"")
+	ypos := (Mode="T")||(Mode="Top")?0
+		: (Mode="B")||(Mode="Bottom")?A_MonitorWorkArea().h-height
+		: (Center?((ByWorkArea?A_MonitorWorkArea().h:A_ScreenHeight)/2)-(height/2):"")
+	xpos := (Mode="L")||(Mode="Left")?0
+		: (Mode="R")||(Mode="Right")?A_MonitorWorkArea().w-width
+		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2)-(width/2):"")
 	return i := WinMove( hWnd, xpos, ypos )
 		ErrorLevel := !i
 }
@@ -4499,7 +4581,7 @@ WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 WinRedraw(hWnd, Force := 0) {
 	if Force
 		return i := DllCall("User32.dll\UpdateWindow", "Ptr", hWnd), ErrorLevel := !i
-	RDW_INVALIDATE := 0x0001, RDW_UPDATENOW := 0x0100
+	static RDW_INVALIDATE := 0x0001, RDW_UPDATENOW := 0x0100
 	return i := DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", RDW_INVALIDATE|RDW_UPDATENOW)
 		, ErrorLevel := !i
 }
@@ -4512,7 +4594,7 @@ WinRedraw(hWnd, Force := 0) {
 	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
 	;5 = Arriba Abajo | 6 = Abajo Arriba
 WinAnimate(hwnd, dwTime := 200, dwFlags := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
-	Flags_List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
+	static Flags_List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
 	For k, v In Flags_List
 		If InStr(dwFlags, k)
 			Flags += v
@@ -4534,7 +4616,7 @@ WinMinimizeToTray(hWnd, Show := 0) {
 	MenuIcon( "Tray", 1 ), Array[hWnd] := WinGetPos( hWnd )
 	hTray := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
 	WinGetPos( hTray, txpos, typos, twsize, thsize)
-	ControlGetPos, nxpos, nypos, nwsize, nhsize, TrayNotifyWnd1, ahk_id %hTray%
+	ControlGetPos( hTray, "TrayNotifyWnd1", nxpos, nypos, nwsize, nhsize )
 	SW:=A_ScreenWidth,SH:=A_ScreenHeight,xpos:=SW-nhsize,ypos:=SH-nhsize,P:=((typos>(SH/3))?("B"):(txpos>(SW/3))
 	? ("R"):((txpos<(SW/3))&&(thsize<(SH/3)))?("T"):("L")),((P="L")?(xpos:=nxpos+twsize):(P="T")?(ypos:=nypos+thsize):) 
 	return WinTitleAnimate( hWnd, xpos, ypos, nhsize, nhsize, "M" )
@@ -4544,14 +4626,14 @@ WinMinimizeToTray(hWnd, Show := 0) {
 ;permite producir una animacion para el titulo de la ventana
 ;Sintaxis: WinTitleAnimate( [ID], [x], [y], [ancho], [alto], [Opciones] )
 ;OPCIONES: puede incluir una, dos o las tres
-	;Hide / H = ocultar ventana antes de producir el efecto
+	;Hide /Hi = ocultar ventana antes de producir el efecto
 	;Move / M = mover ventana
 	;Show / S = mostrar ventana al terminar la animación
 ;EJEMPLO:
 	;MenuIcon( "Tray" )
 	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist("ahk_exe notepad.exe"), WinActivate(i,1)
-	;WinMove(i,,,300,300), WinCenter(i,"Bottom"), WinCenter(i,"Right",, 0), Sleep(500), WinTitleAnimate(i,0,0,,,"HMS")
-	;Sleep(1000), WinTitleAnimate(i,50,50,,, "HMS"), Sleep(1000), WinMinimizeToTray(i), Sleep(1000)
+	;WinMove(i,,,300,300), WinCenter(i,"Bottom"), WinCenter(i,"Right",, 0), Sleep(500), WinTitleAnimate(i,0,0,,,"HiMS")
+	;Sleep(1000), WinTitleAnimate(i,50,50,,, "HiMS"), Sleep(1000), WinMinimizeToTray(i), Sleep(1000)
 	;WinMinimizeToTray(i,2), Sleep(1000), ExitApp()
 WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
 	;desde: posicion actual
@@ -4564,7 +4646,7 @@ WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
 	NumPut( x = "" ? fxpos : x, TRECT, 0, "Int" ), NumPut( y = "" ? fypos : y, TRECT, 4, "Int" )
 	NumPut( W = "" ? fwsize+fxpos : W+X, TRECT, 8, "Int" ), NumPut( H = "" ? fhsize+fypos : H+Y, TRECT, 12, "Int" )
 	;opciones
-	if InStr( Flag, "H" )
+	if InStr( Flag, "Hi" )
 		WinHide( hWnd )
 	if InStr( Flag, "M" )
 		WinMove( hWnd, x = "" ? fxpos : x, y = "" ? fypos : y )
@@ -5588,6 +5670,13 @@ DriveSpaceFree(IpDrive, Units := 0) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: MONITOR ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+PixelGetColor( x := "", y := "", AltSlowRGB := 0 ) {
+	if (x="")||(y="")
+		MouseGetPos( x_, y_ )
+	PixelGetColor, OutputVar, % x=""?x_:x, % y=""?y_:y, %AltSlowRGB%
+	return OutputVar
+}
+
 ;recupera el nombre del sistema operativo para el número de monitor espesificado
 MonGetName(Number := "") {
 	SysGet, OutputVar, MonitorName, %Number%
