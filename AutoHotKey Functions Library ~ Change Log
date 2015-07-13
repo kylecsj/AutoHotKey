@@ -1,4 +1,68 @@
 ###############################################################
+ACTUALIZACION 13/07/2015 - AHK1.1.22.03
+###############################################################
+Funciones Agregadas:
+	• SplitKey()
+	• MouseAutoWheelSpeed()
+	• TaskBarActivate()
+	• ConvertTime()
+	• SplitTextBetweenQuotes()
+	• FormatNumComma()
+	• GetDesktop()
+	• DesktopRedraw()
+	• DesktopIconCount()
+	• DesktopIconList()
+	• LV_GetItemCount()
+	• LV_DeleteItem()
+	• LV_DeleteColumn()
+	• LV_Update()
+	• LV_GetNextItem()
+	• LV_GetItemText()
+	• LV_GetItemTextEx()
+	• GetTaskBar()
+	• TaskBarRedraw()
+
+Mejoras:
+	• WinRedraw()
+
+Correcciones:
+	• WinRedraw()
+	• WinTaskBarRemove() --> TaskBarRemove()
+	• SetTaskBarProgress() --> TaskBarProgress()
+	• WinMinimizeToTray()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 11/07/2015 - AHK1.1.22.02
 ###############################################################
 Funciones Agregadas:
