@@ -9,9 +9,76 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					escritorio & explorador & menu inicio, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Lunes, 13 de julio de 2015
+Actualizado: AHK-U1.1.22.03 || Miércoles, 15 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
-*/ ;flipeador@gmail.com
+*/ ;flipeador@gmail.com ################################################################################################
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+; ::::::::::::::::::::::::::::::::::::::::::::: FUNCIONES APARTE :::::::::::::::::::::::::::::::::: 																										   ###
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+_mnum(f, s) { ;[+-^N] [N]
+	return i:=(_:=StrLeft(s:=Trim(s)))!="-"&&_!="+"&&_!="^"?(f&s?f:f+s)
+	: ((s:=StrTrimLeft(s))?(_="-"?(f&s?f-s:f):_="^"?(f&s?f-s:f+s):(f&s?f:f+s)):f)
+	, ErrorLevel := i=f||!f||!s
+}
+_cstr(Array, Value, m, i) { ;[A] [V] [&=~] [+-|.]
+	_:=i="+"||i="-"||i="|"?0:""
+	for k, v in Array
+		x:=(m="&"?Value&v:m="="?Value=v:m="~"?InStr(Value, k):0)?(m="~"?v:k):(i="-"?0:i="+"?0:i="|"?0:"")
+		, x:=i="."?(_.=x):i="|"?(_|=x):i="-"?(_-=x):i="+"?(_+=x):""
+	return _, ErrorLevel := _=""
+}
+_trim(String, OmitChars := "") {
+	DllCall("Shlwapi.dll\StrTrimW", "Str", String, "Str", OmitChars=""?A_Space A_Tab:OmitChars)
+	return String
+}
+_len(String) {
+	return DllCall("Kernel32.dll\lstrlenW", "Str", String)
+}
+_cpath(path, ByRef cpath := "") {
+	return cpath:=(StrLen(i:=GetFullPathName(path))=2?i "\":i)
+}
+_clfm(f, m, r, ByRef ok := "") {
+	m := m=0?"F":m=1?"FD":m=2?"D":m=-1?(IsDir(f)?"D":"F"):m, m .= r?"R":""
+	return m?m:"", ok := 0, ErrorLevel := m=""
+}
+_wildc(path, r := 0) {
+	return r||InStr(path,"*")||InStr(path,"?")
+}
+Set(Var, Value := "") {
+	static Array := []
+	if (Value=""||Var="?"||Var="!")
+		return Var="?"||Var="!"?(Var="?"?Array[Value]:Var="!"?Array:""):Array.Delete(Var)
+	return Value, Array[Var] := Value
+}
+Get(Var, ByRef Value := "") {
+	return Value := Set( "?", Var )
+}
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+;####################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
+;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
+;<--------------------	---------------	<<-------------	FUNCIONES	------------->>	---------------	---------------	---------------	---------------	------->
+;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
+;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
+;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: ARCHIVOS ::::::::::::::::::::::::::::::::::
@@ -20,7 +87,7 @@ Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/mas
 ;devuelve el número de archivos eliminados
 ;Sintaxis: FileDelete( [archivo], [¿operar en subcarpetas?] )
 FileDelete(FilePattern, Recurse := 0) {
-	if !InStr(FilePattern, "*") && !InStr(FilePattern, "?") && !Recurse {
+	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		if !(i := DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" FilePattern))
 			FileSetAttrib( "-R", A_LoopFileLongPath, 0 )
@@ -35,7 +102,7 @@ FileDelete(FilePattern, Recurse := 0) {
 
 ;eliminar archivo(s) al reiniciar
 FileRDelete(FilePattern, Recurse := 0) {
-	if !InStr(FilePattern, "*") && !InStr(FilePattern, "?") && !Recurse {
+	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		return i := DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" FilePattern, "Ptr", 0, "UInt", 0x4)
 			, ErrorLevel := !i
@@ -49,7 +116,7 @@ FileRDelete(FilePattern, Recurse := 0) {
 ;eliminar archivo(s) de forma segura
 ;Sintáxis: FileSDelete( [archivo], [pasadas], [¿incluir subcarpetas?] )
 FileSDelete(FilePattern, Pases := 1, Recurse := 0) {
-	if !InStr(FilePattern, "*") AND !InStr(FilePattern, "?") AND !Recurse {
+	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		if !IsFile( FilePattern )
 			return 0, ErrorLevel := 1
@@ -80,7 +147,7 @@ FileRename(FilePattern, NewName, Recurse := 0) {
 	ValidateName( NewName )
 	if (NewName = "")
 		return 0
-	if !InStr(FilePattern, "*") AND !InStr(FilePattern, "?") AND !Recurse {
+	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		SplitPath( FilePattern,, Directory )
 		return i := FileMove( FilePattern, Directory "\" NewName ), ErrorLevel := !i
@@ -213,7 +280,7 @@ FileGetTime(Filename, WhichTime := 0, ByRef ObjTime := "") {
 ;recyclar archivo(s) o carpeta(s)
 ;FileRecycle( [archivo/carpeta], [¿operar en subcarpetas?] )
 FileRecycle(FilePattern, Recurse := 0) {
-	if !InStr(FilePattern, "*") AND !InStr(FilePattern, "?") AND !Recurse {
+	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		FileSetAttrib( "-RS", FilePattern )
 		FileRecycle, %FilePattern%
@@ -233,32 +300,45 @@ IsFile(Filename) {
 
 ;obtener atributos de un archivo o carpeta
 ;Sintaxis: FileGetAttrib( [Archivo/Carpeta] )
-FileGetAttrib(lpFileName, IfEqual := 0) {
-	lpFileName := GetFullPathName(lpFileName)
-	if InStr(lpFileName, ":") AND (StrLen(lpFileName) = 2)
-		lpFileName .= "\"
-	static List := {0x1 : "R", 0x20 : "A", 0x4 : "S", 0x2 : "H", 0x80 : "N", 0x10000 : "V"
-		, 0x10 : "D", 0x1000 : "O", 0x800 : "C", 0x100 : "T", 0x4000 : "E"}
-	hAttrib := DllCall("Kernel32.dll\GetFileAttributesW", "Str", "\\?\" lpFileName)
-	if !(hAttrib > 0)
-		return 0, ErrorLevel := 2
-	for Value, Attrib in List
-		FileAttrib .= hAttrib & Value ? Attrib : ""
-	return IfEqual ? InStr(FileAttrib, IfEqual) : FileAttrib, ErrorLevel := !FileAttrib
+;ATRIBUTOS: ver FileSetAttrib()
+FileGetAttrib(lpFileName, ByRef hAttrib := "", ByRef _cpath := "") {
+	static List := {"R": 0x1, "A": 0x20, "S": 0x4, "H": 0x2, "N": 0x80, "D": 0x10, "O": 0x1000, "C": 0x800, "T": 0x100, "E": 0x4000, "V": 0x10000}
+	if ((hAttrib:=DllCall("Kernel32.dll\GetFileAttributesW", "Str", "\\?\" _cpath(lpFileName, _cpath)))=-1)
+		return 0, ErrorLevel := 1
+	return _cstr(List, hAttrib, "&", "."), ErrorLevel := 0
 }
 
 ;cambiar atributo(s)
-;Sintaxis: FileSetAttrib( [atributos], [archivo], [modo], [¿incluir subdirectorios?] )
-;devuelve el número de archivos/carpetas modificadas
-FileSetAttrib(Attributes, FilePattern, Mode := -1, Recurse := 0) {
-	Mode :=  Mode = 0 ? "F" : Mode = 1 ? "FD" : Mode = 2 ? "D" : Mode = -1 ? (IsDir(FilePattern) ? "D" : "F") : Mode
-	Mode .= Recurse ? "R" : "", ok := 0
-	Loop, Files, %FilePattern%, %Mode%
-	{
-		FileSetAttrib, %Attributes%, %A_LoopFileLongPath%
-		ok := ErrorLevel ? ok : ok + 1
+;Sintaxis: FileSetAttrib( [atributos], [archivos/carpeta], [modo] )
+;NOTA: devuelve el número de archivos/carpetas modificadas
+;ATRIBUTOS: 
+	;R = solo lectura (modificable)
+	;A = archivo | modificado (modificable)
+	;S = sistema (modificable)
+	;H = oculto (modificable)
+	;N = normal (modificable, único)
+	;D = directorio | carpeta
+	;O = fuera de linea (modificable)
+	;C = comprimido
+	;T = temporal (modificable)
+	;E = encriptado
+	;V = virtual
+FileSetAttrib(Attributes, FilePattern, Mode := 0, Recurse := 0) {
+	static R := 0x1, A := 0x20, S := 0x4, H := 0x2, N := 0x80, O := 0x1000, T := 0x100
+	if !_wildc(FilePattern, Recurse)&&(Mode:="+") {
+		FileGetAttrib( FilePattern, hAttrib, lpFileName )
+		Loop, Parse, % Attributes
+			if !InVar(A_LoopField, "R,A,S,H,N,O,T") {
+				Mode := A_LoopField="+"||A_LoopField="-"||A_LoopField="^"?A_LoopField:"+"
+				continue
+			} else
+				hAttrib := _mnum(hAttrib, Mode %A_LoopField%)
+		return i := DllCall("Kernel32.dll\SetFileAttributesW", "Str",  "\\?\" lpFileName, "UInt", hAttrib)
+			, ErrorLevel := !i
 	}
-	return ok
+	Loop, Files, %FilePattern%, % _clfm(FilePattern, Mode, Recurse, ok)
+		ok += FileSetAttrib(Attributes, A_LoopFileLongPath), i := A_Index
+	return ok, ErrorLevel := ok!=i
 }
 
 SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtension := "", ByRef OutNameNoExt := "", ByRef OutDrive := "") {
@@ -277,7 +357,7 @@ SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtens
 FileCopy(Source, Dest, Overwrite := 0, Recurse := 0) {
 	Flags := Overwrite ? 0x00001000 : 0x00000001|0x00001000
 	Flags_ := Overwrite ? 0 : 0x00000001, Dest := RTrim( Dest, "\" )
-	if !InStr(Source, "*") AND !InStr(Source, "?") AND !Recurse {
+	if !_wildc(Source, Recurse) {
 		Source := GetFullPathName( Source )
 		_ := IsDir( Dest ) ? Dest "\" SplitPath(Source).FileName : Dest
 		if DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
@@ -954,16 +1034,16 @@ IsNumber( num, IfChars := "*,x" ) {
 ;----------------------------------------------------------------------------------------------------------------
 
 ;convertir a hexadecimal
-;Sintaxis: Hex( [número hexadecimal], [max prefijo 0], [¿mayúscula?] )
-Hex(num, max := 0, may := 0) {
-	return max = 0 ? Format("0x{:" (may ? "X" : "x") "}", num)
-		: Format("0x{:" 0 LTrim(max,0) (may ? "X" : "x") "}", num)
+;Sintaxis: Hex( [número], [max prefijo 0], [¿mayúscula?] )
+Hex(int, max := 0, may := 0) {
+	return max = 0 ? Format("0x{:" (may ? "X" : "x") "}", int)
+		: Format("0x{:" 0 LTrim(max,0) (may ? "X" : "x") "}", int)
 }
 
 ;convertir a Unsigned Integer
-;Sintaxis: Int( [número entero], [¿Signed?] )
-Int(num, Signed := 0) {
-	return Format("{:" (Signed ? "d" : "u") "}", num)
+;Sintaxis: Int( [número], [¿Signed?] )
+Int(hex, Signed := 0) {
+	return Format("{:" (Signed ? "d" : "u") "}", hex)
 }
 
 ;convertir a RGB
@@ -1347,12 +1427,6 @@ StrSplitP(String, Delimiter := "'", OmitChars := "", ReplaceLiteralVar := 0) {
 	return Array, ErrorLevel := Array.MaxIndex()
 }
 
-;eliminar caracteres iniciales y finales de una cadena
-StrTrim( String, OmitChars := "" ) {
-	DllCall("Shlwapi.dll\StrTrimW", "Str", String, "Str", OmitChars = "" ? A_Space A_Tab : OmitChars)
-	return String
-}
-
 StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093%28v=vs.85%29.aspx
     len := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", String, "Int", StrLen(String), "Ptr", 0, "Int", 0)
     Loop {
@@ -1370,26 +1444,20 @@ StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop
 ;Separa una cadena en una matriz de subcadenas utilizando los delimitadores especificados.
 ;Sintaxis: StrSplit( [cadena], [delimitador], [omitir], [defecto si es vacio] )
 ;NOTA: ErrorLevel se establecen en la cantidad total de índices
-StrSplit(String, Delimiter := "", OmitChars := "", Default := "") {
-	if IsObject( String )
-		return String, ErrorLevel := String.MaxIndex()
-	Array := []
-	Loop, Parse, % String, %Delimiter%, %OmitChars%
-		Array[ A_Index ] := A_LoopField = "" ? Default : A_LoopField
-	return Array, ErrorLevel := Array.MaxIndex()
-}
-
-StrMergeArray(Array, Delimiter := "") {
-	if IsObject( Array )
-		for k, v in Array
-			Array .= k = 1 ? v : Delimiter v
-	return Array
-}
-
-;Determina la longitud de la cadena especificada
-StrLen2(IpString) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647492%28v=vs.85%29.aspx
-	return DllCall("Kernel32.dll\lstrlenW", "Str", lpString)
-}
+;StrSplit(String, Delimiter := "", OmitChars := "", Default := "") {
+;	if IsObject( String )
+;		return String, ErrorLevel := String.MaxIndex()
+;	Array := []
+;	Loop, Parse, % String, %Delimiter%, %OmitChars%
+;		Array[ A_Index ] := A_LoopField = "" ? Default : A_LoopField
+;	return Array, ErrorLevel := Array.MaxIndex()
+;}
+;StrMergeArray(Array, Delimiter := "") {
+;	if IsObject( Array )
+;		for k, v in Array
+;			Array .= k = 1 ? v : Delimiter v
+;	return Array
+;}
 
 ;quitar caracteres de izquierda a derecha
 ;Sintaxis : StrTrimLeft( [Var], [Limite] )
@@ -2280,11 +2348,11 @@ TaskBarGetPos(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "
 	return WinGetPos( GetTaskBar(), x, y, Width, Height )
 }
 
-;obtiene hWnd de la barra de tareas, área de notificacion y reloj
+;obtiene hWnd de la barra de tareas, opcional: área de notificacion, reloj y boton inicio
 ;Sintaxis: GetTaskBar( [área de notificacion], [área de notificacion (iconos ocultos)], [reloj] )
 ;EJEMPLO: leer hora que indica el reloj de la barra de tareas. para otro ejemplo ver TaskBarGetPos()
 	;MsgBox % ControlGetText( "TrayClockWClass1", GetTaskBar() ) ;[control], [ventana id o hWnd]
-GetTaskBar(ByRef hNotifArea := "", ByRef hOverFNotifArea := "", ByRef hTrayClock := "") {
+GetTaskBar(ByRef hNotifArea := "", ByRef hOverFNotifArea := "", ByRef hTrayClock := "", ByRef hStartButton := "") {
 	hTaskBar := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
 	if IsByRef(hNotifArea)||IsByRef(hOverFNotifArea)||IsByRef(hTrayClock) {
 		hNotify := DllCall("User32.dll\FindWindowExW", "Ptr", hTaskBar, "Ptr", 0, "Str", "TrayNotifyWnd", "Ptr", 0)
@@ -2292,10 +2360,12 @@ GetTaskBar(ByRef hNotifArea := "", ByRef hOverFNotifArea := "", ByRef hTrayClock
 		if !(hNotifArea := DllCall("User32.dll\FindWindowExW", "Ptr", hSyspager, "Ptr", 0, "Str", "ToolbarWindow32", "Str", "User Promoted Notification Area"))
 			if !(hNotifArea := DllCall("User32.dll\FindWindowExW", "Ptr", hSyspager, "Ptr", 0, "Str", "ToolbarWindow32", "Str", "Notification Area"))
 				hNotifArea := DllCall("User32.dll\FindWindowExW", "Ptr", hSyspager, "Ptr", 0, "Str", "ToolbarWindow32", "Ptr", 0)
-		hNotifIcon := DllCall("User32.dll\FindWindowW", "Ptr", 0, "Str", "NotifyIconOverflowWindow")
-		hOverFNotifArea := DllCall("User32.dll\FindWindowExW", "Ptr", hNotifIcon, "Ptr", 0, "Str", "ToolbarWindow32", "Str", "Overflow Notification Area")
+		if IsByRef(hOverFNotifArea)
+			hNotifIcon := DllCall("User32.dll\FindWindowW", "Ptr", 0, "Str", "NotifyIconOverflowWindow")
+			, hOverFNotifArea := DllCall("User32.dll\FindWindowExW", "Ptr", hNotifIcon, "Ptr", 0, "Str", "ToolbarWindow32", "Str", "Overflow Notification Area")
 	}
 	return hTaskBar, hTrayClock := IsByRef(hTrayClock)?DllCall("User32.dll\FindWindowExW", "Ptr", hNotify, "Ptr", 0, "Str", "TrayClockWClass", "Ptr", 0):""
+		, hStartButton := IsByRef(hStartButton)?DllCall("User32.dll\FindWindowExW", "Ptr", hTaskBar, "Ptr", 0, "Str", "Button", "Ptr", 0):""
 }
 
 ;redibujar barra de tareas, área de notificacion, y reloj
@@ -2664,19 +2734,6 @@ ComVarSet(cv, v, p*) { ;Called when script sets an unknown field.
 ComVarDel(cv) { ;Called when the object is being freed.
 	; This must be done to allow the internal array to be freed.
 	DllCall("oleaut32\SafeArrayUnaccessData", "ptr", ComObjValue(cv._))
-}
-
-Set(Var, Value := "") {
-	static Array := []
-	if InVar( Var, "?,!" )
-		return Var = "?" ? Array[Value] : Var = "!" ? Array : ""
-	if (Value = "")
-		return Array.Delete(Var)
-	return Value, Array[Var] := Value
-}
-
-Get(Var, ByRef Value := "") {
-	return Value := Set( "?", Var )
 }
 
 ;obtener sugerencias de una palabra vía google
@@ -4173,6 +4230,7 @@ ControlSendRaw( hWnd, Control, Keys, Count := 1, Delay := 0) {
 	return ControlSend( hWnd, Control, "{raw}" Keys, Count, Delay )
 }
 
+;establece foco en un control
 ;Sintaxis: ControlFocus( [Control], [ID] )
 ControlFocus( Control, hWnd ) {
 	Control := ControlGetHwnd( Control, hWnd )
@@ -4382,7 +4440,14 @@ MouseMove(x, y, Speed := "", R := -1) {
 ;recupera la posicion del cursor
 ;MouseGetPos / CursorGetPos
 MouseGetPos(ByRef x := "", ByRef y := "", ByRef  Win := "", ByRef Control := "", Mode := 0) {
-	MouseGetPos, x, y, Win, Control, %Mode%
+	if !IsByRef(Control)&&!IsByRef(Win)
+		MouseGetPos, x, y,,, %Mode%
+	else if IsByRef(Control)&&!IsByRef(Win)
+		MouseGetPos, x, y,, Control, %Mode%
+	else if !IsByRef(Control)&&IsByRef(Win)
+		MouseGetPos, x, y, Win,, %Mode%
+	else
+		MouseGetPos, x, y, Win, Control, %Mode%
 	i := {}, i.x := x, i.y := y, i.Win := i.hWnd := Win, i.Control := i.ctrl := Control, i.Mode := Mode
 	return i
 }
@@ -4880,7 +4945,8 @@ A_ScreenWidth() {
 
 ;tamaño de la zona de trabajo en el monitor de pantalla principal.
 ;el área de trabajo es la parte de la pantalla que no está oculta por la barra de tareas o las barras de herramientas de escritorio de aplicaciones.
-A_MonitorWorkArea() {
+;Sintaxis: A_MonitorWorkArea( [xpos], [ypos], [ancho], [alto] )
+A_MonitorWorkArea(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
 	VarSetCapacity(RECT, 8 * 2, 0), i := {}
 	r := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0030, "UInt", 0, "Ptr", &RECT, "UInt", 0)
 	i.x := x := NumGet(RECT, 0, "Int"), i.y := y := NumGet(RECT, 4, "Int")
@@ -5063,11 +5129,11 @@ A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
 
 
 
-
 /*-------------------------------------------------------------------------------------------------------------------------------------------------------------
   ::::::::::::::::::::::::::::::::::::::::::::: VENTANAS ::::::::::::::::::::::::::::::::::
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------
-NOTA: las funciones solo aceptan el ID de la ventana (mas rápido), para el titulo o ahk_xxx usar WinExist( .. )
+NOTA: las funciones solo aceptan el ID de la ventana (mas rápido), excepto algunas como IsWindow() (opcional).
+NOTA 2: para el titulo o ahk_xxx usar WinExist( .. ) o IsWindow(, [clase], [proceso/pid], [titulo]).
 EJEMPLO: WinCenter( WinExist("ahk_exe notepad.exe") )
 */
 ;comprueba si la ventana no responde
@@ -5284,12 +5350,9 @@ WinRedraw(hWnd) {
 	;1 = Desvanecer | 2 = Diapositiva (combinar con 3/4 y/o 5/6)
 	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
 	;5 = Arriba Abajo | 6 = Abajo Arriba
-WinAnimate(hwnd, dwTime := 200, dwFlags := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
+WinAnimate(hwnd, Time := 200, Mode := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
 	static List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
-	for Option, Value In List
-		If InStr(dwFlags, Option)
-			Flags += Value
-	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", dwTime, "UInt", Flags)
+	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", Time, "UInt", _cstr(List, Mode, "~", "+"))
 }
 
 ;minimizar ventana al área de notificacion con animación
@@ -5490,17 +5553,43 @@ WinGetBorder(hWnd, ByRef Width := "", ByRef Height := "") {
 }
 
 ;obtiene el estilo de la ventana
-WinGetStyle(hWnd, ByRef Style := "") { ;0x40000 = resize
+;para convertirlo a hexadecimal: Hex( Style, 8, 1 )
+WinGetStyle(hWnd) { ;0x40000 = resize
 	if !(Style := DllCall("User32.dll\GetWindowLongPtrW", "Ptr", hWnd, "Int", -16))
 		Style := DllCall("User32.dll\GetWindowLongW", "Ptr", hWnd, "Int", -16)
-	return Hex( Style, 8, 1 ), ErrorLevel := !Style
+	return Style, ErrorLevel := !Style
 }
 
 ;obtiene el estilo extendido de la ventana
-WinGetExStyle(hWnd, ByRef ExStyle := "") {
+;para convertirlo a hexadecimal: Hex( ExStyle, 8, 1 )
+WinGetExStyle(hWnd) {
 	if !(ExStyle := DllCall("User32.dll\GetWindowLongPtrW", "Ptr", hWnd, "Int", -20))
 		ExStyle := DllCall("User32.dll\GetWindowLongW", "Ptr", hWnd, "Int", -20)
-	return Hex( ExStyle, 8, 1 ), ErrorLevel := !ExStyle
+	return ExStyle, ErrorLevel := !ExStyle
+}
+
+;establecer estilo
+;Sintaxis: WinSetStyle( [ID], [+-^Estilo] )
+;Estilo: +(añadir) -(quitar) ^(alternar) || defecto es +(añadir)
+;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600%28v=vs.85%29.aspx
+WinSetStyle(hWnd, Style) {
+	Style := _mnum(WinGetStyle(hWnd), Style)
+	if ErrorLevel||(!DllCall("User32.dll\SetWindowLongPtrW", "Ptr", hWnd, "Int", -16, "Int", Style)
+	&&!DllCall("User32.dll\SetWindowLongW", "Ptr", hWnd, "Int", -16, "Int", Style))
+			return 0, ErrorLevel := 1
+	return 1, ErrorLevel := 0
+}
+
+;establecer estilo extendido
+;Sintaxis: WinSetExStyle( [ID], [+-^Estilo] )
+;Estilo: +(añadir) -(quitar) ^(alternar) || defecto es +(añadir)
+;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543%28v=vs.85%29.aspx
+WinSetExStyle(hWnd, ExStyle) {
+	ExStyle := _mnum(WinGetExStyle(hWnd), ExStyle)
+	if ErrorLevel||(!DllCall("User32.dll\SetWindowLongPtrW", "Ptr", hWnd, "Int", -20, "Int", ExStyle)
+	&&!DllCall("User32.dll\SetWindowLongW", "Ptr", hWnd, "Int", -20, "Int", ExStyle))
+			return 0, ErrorLevel := 1
+	return 1, ErrorLevel := 0
 }
 
 ;Recupera el titulo de la ventana especificada.
@@ -5514,13 +5603,14 @@ WinGetTitle(hWnd) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms
 
 ;Recupera el nombre de la clase a la que pertenece la ventana especificada.
 WinGetClass(hWnd) {
-	nMaxCount := VarSetCapacity( lpClassName, (260 + 1) * 2, 0 ) / 2
+	nMaxCount := VarSetCapacity( lpClassName, (256 + 1) * 2, 0 ) / 2
 	i := DllCall("User32.dll\GetClassNameW", "Ptr", hWnd, "Str", lpClassName, "Int", nMaxCount)
 	return lpClassName, ErrorLevel := !i
 }
 
 ;recupera el PID, opcional ThreadId/ProcessName/ProcessPath
 ;Sintaxis: WinGetPID( [ID], [ThreadId (salida)], [Proceso (salida)], [Proceso Ruta (salida)] )
+;EJEMPLO: MsgBox % "Pid: " WinGetPid(IsWindow(),,,i) "`nCompanyName: " FileGetInfo(i,"CompanyName") "`nRuta: " i
 WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "", ByRef ProcessPath := "") {
 	VarSetCapacity( lpdwProcessId, A_PtrSize * 2, 0 )
 	ThreadId := DllCall("User32.dll\GetWindowThreadProcessId", "Ptr", hWnd, "Ptr", &lpdwProcessId)
@@ -5670,6 +5760,10 @@ WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
 		Sleep( 100 )
 	}
 }
+
+
+
+
 
 
 
