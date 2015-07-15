@@ -1,5 +1,5 @@
 ###############################################################
-ACTUALIZACION 13/07/2015 - AHK1.1.22.03
+ACTUALIZACION 13/07/2015, 15/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
 	• SplitKey()
@@ -21,10 +21,15 @@ Funciones Agregadas:
 	• LV_GetItemTextEx()
 	• GetTaskBar()
 	• TaskBarRedraw()
+	• WinSetStyle()
+	• WinSetExStyle()
 
 Mejoras:
 	• WinRedraw()
-
+	• FileGetAttrib()
+	• FileSetAttrib()
+	• GetTaskBar()
+	
 Correcciones:
 	• WinRedraw()
 	• WinTaskBarRemove() --> TaskBarRemove()
