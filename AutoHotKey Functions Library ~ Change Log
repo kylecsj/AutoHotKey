@@ -28,7 +28,6 @@ Mejoras:
 	• WinRedraw()
 	• FileGetAttrib()
 	• FileSetAttrib()
-	• GetTaskBar()
 	
 Correcciones:
 	• WinRedraw()
