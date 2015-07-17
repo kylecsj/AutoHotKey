@@ -1,13 +1,15 @@
 ###############################################################
-ACTUALIZACION 13/07/2015, 15/07 - AHK1.1.22.03
+ACTUALIZACION 13/07/2015, 15/07, 17/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
-	• SplitKey()
-	• MouseAutoWheelSpeed()
-	• TaskBarActivate()
-	• ConvertTime()
-	• SplitTextBetweenQuotes()
-	• FormatNumComma()
+	• EmailSend() ~ 17/07
+	• ServiceExist() ~ 17/07
+	• SplitKey() ~ 15/07
+	• MouseAutoWheelSpeed() ~ 15/07
+	• TaskBarActivate() ~ 15/07
+	• ConvertTime() ~ 15/07
+	• SplitTextBetweenQuotes() ~ 15/07
+	• FormatNumComma() ~ 15/07
 	• GetDesktop()
 	• DesktopRedraw()
 	• DesktopIconCount()
@@ -25,12 +27,21 @@ Funciones Agregadas:
 	• WinSetExStyle()
 
 Mejoras:
-	• WinRedraw()
-	• FileGetAttrib()
-	• FileSetAttrib()
+	• IsWinActive() ~ 17/07
+	• IsWindow() ~ 17/07
+	• SendMessage() ~ 17/07
+	• PostMessage() ~ 17/07
+	• WinGetPos() ~ 17/07
+	• WinRedraw() ~ 15/07
+	• FileGetAttrib() ~ 15/07
+	• FileSetAttrib() ~ 15/07
 	
 Correcciones:
-	• WinRedraw()
+	• WinGetPos() ~ 17/07
+	• ServiceStatus() ~ 17/07
+	• ServiceInfo() ~ 17/07
+	• Wait() --> Sleep() ~ 17/07
+	• WinRedraw() ~ 15/07
 	• WinTaskBarRemove() --> TaskBarRemove()
 	• SetTaskBarProgress() --> TaskBarProgress()
 	• WinMinimizeToTray()
