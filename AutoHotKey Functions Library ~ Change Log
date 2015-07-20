@@ -1,7 +1,18 @@
 ###############################################################
-ACTUALIZACION 13/07/2015, 15/07, 17/07 - AHK1.1.22.03
+ACTUALIZACION 13/07/2015, 15/07, 17/07, 20/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
+	• NumAverage() ~ 20/07
+	• WinFlash() ~ 20/07
+	• ServiceGetDescription() ~ 20/07
+	• ServiceSetDescription() ~ 20/07
+	• Power() ~ 20/07
+	• Add() ~ 20/07
+	• IsGreater() ~ 20/07
+	• Multiply() ~ 20/07
+	• Perfect() ~ 20/07
+	• FileWait() ~ 20/07
+	• DirWait() ~ 20/07
 	• EmailSend() ~ 17/07
 	• ServiceExist() ~ 17/07
 	• SplitKey() ~ 15/07
@@ -27,6 +38,11 @@ Funciones Agregadas:
 	• WinSetExStyle()
 
 Mejoras:
+	• ProcessSetPrivilege() ~20/07
+	• RunAsAdmin() ~20/07
+	• ToolTip() ~20/07
+	• TrayTip() ~20/07
+	• CursorShow() ~20/07
 	• IsWinActive() ~ 17/07
 	• IsWindow() ~ 17/07
 	• SendMessage() ~ 17/07
@@ -45,6 +61,11 @@ Correcciones:
 	• WinTaskBarRemove() --> TaskBarRemove()
 	• SetTaskBarProgress() --> TaskBarProgress()
 	• WinMinimizeToTray()
+	
+Nota (20/07):
+	• La funcion RunAsAdmin() es llamada automáticamente al inicio del script. 
+		- esto es necesario para el correcto funcionamiento de algunas funciones
+		- (con el tema de los permisos) y el rendimiento general del script (configuracion).
 ###############################################################
 
 
