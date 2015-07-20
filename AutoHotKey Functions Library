@@ -4094,7 +4094,7 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", Height := 
 }
 
 ;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segondos] )
-;Nota: espesificar un número negativo en segundos para usar milisegundos
+;Nota: espesificar un número negativo en tiempo fuera para usar milisegundos
 ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 	static ToolTip := Func("ToolTip").Bind()
 	SetTimer(ToolTip, "Off")
@@ -4111,7 +4111,7 @@ ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 ;OPCIONES:
 	;0 = sin icono | 1 = Info (defecto) | 2 = Advertencia | 3 = Error
 	;+M = sin sonido (0M, 1M, 2M, 3M)
-;Nota: espesificar un número negativo en segundos para usar milisegundos
+;Nota: espesificar un número negativo en tiempo fuera para usar milisegundos
 TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 	static TrayTip := Func("TrayTip").Bind()
 	SetTimer(TrayTip, "Off")
