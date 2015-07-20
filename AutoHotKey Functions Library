@@ -9,13 +9,13 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					escritorio & explorador & menu inicio, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Viernes, 17 de julio de 2015
+Actualizado: AHK-U1.1.22.03 || Lunes, 20 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ; ::::::::::::::::::::::::::::::::::::::::::::: FUNCIONES APARTE :::::::::::::::::::::::::::::::::: 																										   ###
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
-_mnum(f, s) { ;suma(+), resta(-) o alterna(^) un valor a otro. por defecto lo suma(+).
+_mnum(f, s) { ;suma(+), resta(-) o alterna(^) un valor a otro dependiendo el modificador(+-^) inicial. por defecto lo suma(+).
 	return i:=(_:=StrLeft(s:=Trim(s)))!="-"&&_!="+"&&_!="^"?(f&s?f:f+s)
 	: ((s:=StrTrimLeft(s))?(_="-"?(f&s?f-s:f):_="^"?(f&s?f-s:f+s):(f&s?f:f+s)):f)
 	, ErrorLevel := i=f||!f||!s
@@ -80,6 +80,14 @@ _fspdtestex(Count, Func, Param*) { ;test de velocidad para una funcion, mayor pr
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;####################################################################################################################
+
+
+
+
+
+
+
+
 
 
 
@@ -429,10 +437,10 @@ FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
 }
 
 ;leer archivo
-;Sintáxis: FileRead( [Archivo], [Caracteres maximos] )
-FileRead(Filename, CharCount := 0) {
-	return CharCount > 0 ? FileOpen(Filename, "r").Read(CharCount)
-		: FileOpen(Filename, "r").Read()
+;Sintáxis: FileRead( [Archivo] )
+FileRead(Filename) {
+	FileRead, OutputVar, %Filename%
+	return OutputVar
 }
 
 ;leer texto de un número de linea de un archivo
@@ -449,7 +457,7 @@ FileReadLine(Filename, LineNum, Encoding := "") {
 FileAppend(Text, Filename, Encoding := "") {
 	FileAppend, %Text%, %Filename%, %Encoding%
 	if ErrorLevel {
-		FileSetAttrib( "-R", Filename, 0 )
+		FileSetAttrib("-R", Filename)
 		FileAppend, %Text%, %Filename%, %Encoding%
 	}
 	return !ErrorLevel
@@ -747,6 +755,23 @@ Properties(Target, WaitClose := -1) {
 	return i, ErrorLevel := !i
 }
 
+;esperar a que un archivo exista o no
+;Sintaxis: FileWait( [archivo], [segundos], [¿esperar a que no exista?] )
+FileWait(FileName, Seconds := 0, NotExist := false) {
+	if (Seconds=-1)
+		return 0
+	FileName := GetFullPathName(FileName)
+	StartTime := A_TickCount
+	Loop {
+		if (NotExist&&!IsFile(FileName))||(!NotExist&&IsFile(FileName))
+			return 1, ErrorLevel := 0
+		ElapsedTime := (A_TickCount - StartTime) / 1000
+		if (Seconds>0)&&(ElapsedTime>=Seconds)
+			return 0, ErrorLevel := 1
+		Sleep(500)
+	}
+}
+
 
 
 
@@ -961,6 +986,26 @@ DirGetInfo(Dirname, ValidatePath := 0) {
 	return i, ErrorLevel := !i.Name
 }
 
+;esperar a que un directorio exista o no
+;Sintaxis: DirWait( [directorio], [segundos], [¿esperar a que no exista?] )
+DirWait(DirName, Seconds := 0, NotExist := 0) {
+	if (Seconds=-1)
+		return 0
+	DirName := GetFullPathName(DirName)
+	StartTime := A_TickCount
+	Loop {
+		if (NotExist&&!IsDir(DirName))||(!NotExist&&IsDir(DirName))
+			return 1, ErrorLevel := 0
+		ElapsedTime := (A_TickCount - StartTime) / 1000
+		if (Seconds>0)&&(ElapsedTime>=Seconds)
+			return 0, ErrorLevel := 1
+		Sleep(500)
+	}
+}
+
+
+
+
 
 
 
@@ -1015,8 +1060,210 @@ DirGetInfo(Dirname, ValidatePath := 0) {
 Links:
 	• http://ahkscript.org/boards/viewtopic.php?t=3925
 	• https://dl.dropboxusercontent.com/u/186419968/html/BaseConversion/index.html
+Nota: algunas operaciones aceptan números de mas de 18 cifras, para ello, el número debe estar encerrado entre comillas (cadena).
+	Ejemplo (suma): MsgBox % "Normal: " (9999999999999999999+1) " (ERROR)`nAdd(): " Add("9999999999999999999", 1) " (OK)"
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 */
+;elevar un numero (potenciación)
+;Sintaxis: Power( [base], [exponente] )
+;Ejemplo: Power(99, 999)
+;NOTA: evitar números de 4 cifras o mas (muy lento)
+Power(Base, Exponent) {
+	SLB := StrLen(Base), VarSetCapacity(B, SLB, 0)
+	Loop, Parse, % Base
+		NumPut(A_LoopField, B, SLB - A_Index, "UChar")
+	VarSetCapacity(P, SLB, 0)
+	DllCall("RtlMoveMemory", "Ptr", &P, "Ptr", &B, "Ptr", PL := SLB)
+	Loop, % (Exponent - 1) {
+		V := 0, VarSetCapacity(R, RL := PL + SLB + 1, 0)
+		Loop, %SLB% { ; multiply
+			If (I := NumGet(B, A_Index - 1, "UChar")) {
+				Loop, %PL%
+					N := NumGet(R, J := A_Index + V - 1, "UChar") + (NumGet(P, A_Index - 1, "UChar") * I)
+					, NumPut(SubStr(N, 0), R, J++, "UChar")
+					, NumPut(NumGet(R, J, "UChar") + SubStr("0" . N, -1, 1), R, J, "UChar")
+			} V++
+		} VarSetCapacity(P, RL, 0), DllCall("RtlMoveMemory", "Ptr", &P, "Ptr", &R, "Ptr", PL := RL)
+		while !NumGet(P, PL - 1, "UChar") ; remove trailing zeroes
+			PL--
+	} VarSetCapacity(V, RL, 0)
+	Loop, %RL%
+		V .= NumGet(R, --RL, "UChar")
+	return LTrim(V, "0")
+} ;http://ahkscript.org/boards/viewtopic.php?p=49693#p49693
+
+;convierte cualquier número a la forma perfecta, es decir, elimina ceros adicionales y agrega requeridos.
+;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
+Prefect(num) {
+	if !num
+		return 0
+	if InStr(num, "-")
+		num := Substr(num, 2), neg := "-"
+	if InStr(num, ".") {
+		num := Trim(num, 0)
+		if (Substr(num, 1, 1) = ".")
+			num := "0" num
+		if (Substr(num, 0) = ".")
+			num := Substr(num, 1, -1)
+		return neg num
+	} else
+		return Trim(num, 0)?neg LTrim(num, 0):0
+}
+
+;redondear un número
+;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
+RoundEx(num, places := 0) {
+	if !(dot:=InStr(num, "."))
+		return num
+	ndec := ((len:=StrLen(num))-dot)=0?len:dot
+	if (ndec>places) {
+		if ((dig:=Substr(num, dot+places+1, 1))>=5)
+			Loop, % (places-1)
+				z .= "0"
+		num := Add(Substr(num, 1, InStr(num, ".")+places), (dig>=5)?"0." z "1":"0")
+	} else {
+		Loop, % (places-ndec)
+			z .= "0"
+		num .= z
+	}
+	return Rtrim(num, ".")
+}
+
+;multiplicar dos números.
+;Sintaxis: Multiply( [(-)valor 1], [(-)valor2] )
+;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
+Multiply(num1, num2) {
+	ps := (mnum2:=InStr(num2, "-"))?0:1
+	, ps := (mnum1:=InStr(num1, "-"))?!ps:ps
+	, num1 := SubStr(num1, mnum1?2:1)
+	, num2 := Substr(num2, mnum2?2:1)
+	, dec := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0
+	, dec := (dot2:=InStr(num2, "."))?dec+StrLen(num2)-dot2:dec
+	, num1 := StrReplace(num1, "."), num2 := StrReplace(num2, ".")
+	Loop, % StrLen(num2)
+		tnum2 .= SubStr(num2, 1-A_Index, 1)
+	num2 := tnum2, pr := "0"
+	Loop, Parse, % num2
+	{
+		rw := "0", zr := ""
+		if A_LoopField
+			Loop, %A_LoopField%
+				rw := Add(rw, num1)
+		else
+			Loop, % (StrLen(num1)-1)
+				rw .= "0"
+		Loop, % (A_Index-1)
+			zr .= "0"
+		rw .= zr, pr := Add(pr, rw)
+	}
+	if dec
+		pr := Prefect(SubStr(pr, 1, StrLen(pr)-dec) "." SubStr(pr, 1-dec))
+	return (ps?"":"-") pr
+}
+
+;comprueba si num1>num2. si el 3er parametro es verdadero, devuelve 1 si ambos números son iguales.
+;Sintaxis: IsGreater( [valor mayor], [valor menor], [param3] )
+;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
+IsGreater(num1, num2, teq := false) {
+	neg1 := InStr(num1, "-"), neg2 := InStr(num2, "-")
+	if !neg1&&neg2
+		return true
+	if neg1&&!neg2
+		return false
+	num1 := Prefect(num1), num2 := Prefect(num2)
+	, dot1 := InStr(num1, "."), dot2 := InStr(num2, ".")
+	, dec1 := dot1?StrLen(num1)-dot1:0
+	, dec2 := dot2?StrLen(num2)-dot2:0
+	if (dec1>dec2)
+		Loop, % (dec1-dec2)
+			num2 .= "0"
+	else if (dec2 > dec1)
+		Loop, % (dec2-dec1) 
+			num1 .= "0"
+	num1 := StrReplace(num1, "."), num2 := StrReplace(num2, ".")
+	if ((len1:=StrLen(num1))>(len2:=StrLen(num2)))
+		return neg1?0:1
+	else if (len2>len1)
+		return neg1?1:0
+	else
+		Loop {
+			if ((sub1:=SubStr(num1, A_Index, 1))>(sub2:=Substr(num2, A_index, 1)))
+				return neg1?0:1
+			else if (sub2>sub1)
+				return neg1?1:0
+			else if (A_Index=len1)
+				return teq?1:0
+		}
+}
+
+;sumar o restar dos números. para restar, agregar '-' al inicio del segundo número.
+;Sintaxis: Add( [(-)valor 1], [(-)valor2] )
+;Ejemplo: Add("99999999999999999999999999999999999999", "9999999999999")
+;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
+Add(num1, num2, Prefect := false) {
+	count := (dneg2:=InStr(num2, "--"))?2:InStr(num2, "-")?1:0
+	, count := count+((neg1:=InStr(num1, "-"))?1:0)
+	, cnum1 := num1, cnum2 := num2
+	, num1 := StrReplace(num1, "-"), num2 := StrReplace(num2, "-")
+	, dec1 := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0
+	, dec2 := (dot2:=InStr(num2, "."))?StrLen(num2)-dot2:0
+	if (dec1>dec2) {
+		dec := dec1
+		Loop, % (dec1-dec2)
+			num2 .= "0"
+	} else if (dec2>dec1) {
+		dec := dec2
+		Loop, % (dec2-dec1)
+			num1 .= "0"
+	} else
+		dec := dec1
+	num1 := StrReplace(num1, "."), num2 := StrReplace(num2, ".")
+	if ((len1:=StrLen(num1))>=(len2:=StrLen(num2)))
+		Loop, % (len1-len2)
+			num2 := "0" num2
+	else
+		Loop, % (len2-len1)
+			num1 := "0" num1
+	if (count!=1&&count!=3)&&((len1:=StrLen(num1))!="*") {
+		Loop {
+			digit := SubStr(num1, 1-A_Index, 1)+SubStr(num2, 1-A_index, 1)+(cr?1:0)
+			if (A_Index=len1) {
+				sm := digit sm
+				break
+			} else if (digit>9)
+				cr := true, digit := SubStr(digit, 0, 1)
+			else
+				cr := false
+			sm := digit sm
+		}
+		if neg1&&InStr(cnum2, "-")
+			sm := "-" sm
+	} else if ((len1:=StrLen(num1))!="*") {
+		if !(nc:=IsGreater(num1, num2, true))
+			tnum2 := num2, num2 := num1, num1 := tnum2
+		Loop {
+			digit := SubStr(num1, 1-A_Index, 1)-SubStr(num2, 1-A_index, 1)+(bw?-1:0)
+			if (A_Index=len1) {
+				sm := StrReplace(digit, "-") sm
+				break
+			} else if InStr(digit, "-")
+				bw := true, digit += 10
+			else
+				bw := false
+			sm := digit sm
+		}
+		if ((dneg2||InStr(cnum1, "-"))&&nc)||(InStr(cnum2, "-")&&!nc)
+			sm := "-" sm
+	}
+	if (sm = "-")
+		sm := 0
+	sm := dec&&sm?SubStr(sm, 1, StrLen(sm)-dec) "." SubStr(sm, 1-dec):sm
+	return Prefect?Prefect(sm):sm
+}
+
+;----------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------
+
 ;obtiene el mayor numero
 ;EJEMPLO: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max( "5,2,8,-44,7" )
 Max(n*) {
@@ -1336,7 +1583,13 @@ FormatNumComma(lpValue, Locale := 0x0400) {
     return SubStr(lpNumberStr, 1, StrLen(lpNumberStr) - 3)
 }
 
-
+;saca el promedio
+NumAverage(num*) {
+	Sum := 0, num := num.MaxIndex()=1?StrSplit(num[1], ","):num
+	Loop, % num.MaxIndex()
+		Sum += num[A_Index]
+	return Sum/(num.MaxIndex()+0.0)
+}
 
 
 
@@ -1781,9 +2034,9 @@ Base32Decode(Encoded, UseHex := 0, ByRef Decoded := "") {
 	return IsByRef(Decoded) ? I : StrGet(&Decoded, I, "UTF-8")
 }
 
-Base64Decode(pszString) {
+Base64Decode(pszString, nSize := 0) {
 	static dwFlags := CRYPT_STRING_BASE64 := 0x00000001
-	cchString := StrLen( pszString )
+	cchString := nSize?(nSize+3)*2:StrLen(pszString)
 	DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &pszString, "UInt", cchString, "UInt", dwFlags, "UChar", 0, "UInt*", pcbBinary, "UInt*", 0, "UInt*", 0, "CDECL Int")
 	pcbBinary := VarSetCapacity( pbBinary, pcbBinary * 2)
 	i := DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &pszString, "UInt", cchString, "UInt", dwFlags, "Str", pbBinary, "UInt*", pcbBinary, "UInt*", 0, "UInt*", 0, "CDECL Int")
@@ -2095,16 +2348,28 @@ ProcessGetWorkingSetSize(ProcessName, ByRef Min := "", ByRef Max := "") {
 }
 
 ;Habilitar/Deshabilitar privilegios para el proceso
-;Sintaxis: ProcessSetPrivilege( [Proceso], [Tipo de privilegio], [0|1 (deshabilitar/habilitar)] )
-ProcessSetPrivilege(ProcessName, Privilege, OnOff) {
+;Sintaxis: ProcessSetPrivilege( [Proceso], [privilegios separados por coma], [0|1 (deshabilitar/habilitar)] )
+;Privilegios: https://msdn.microsoft.com/en-us/library/windows/desktop/bb530716%28v=vs.85%29.aspx
+;Nota: espesificar 'All' en Privilegios para establecer todos.
+ProcessSetPrivilege(ProcessName, Privileges, Set := true) {
+	static AllPrivileges := "SeChangeNotifyPrivilege,SeCreateGlobalPrivilege,SeDebugPrivilege,"
+		. "SeShutdownPrivilege,SeSystemtimePrivilege,SeCreatePagefilePrivilege,SeImpersonatePrivilege,SeIncreaseQuotaPrivilege,"
+		. "SeTimeZonePrivilege,SeIncreaseBasePriorityPrivilege,SeManageVolumePrivilege,SeRemoteShutdownPrivilege,"
+		. "SeSecurityPrivilege,SeTakeOwnershipPrivilege,SeBackupPrivilege,SeProfileSingleProcessPrivilege,SeRestorePrivilege,"
+		. "SeSystemEnvironmentPrivilege,SeSystemProfilePrivilege"
 	ProcessId := InStr(ProcessName, ".") ? ProcessExist(ProcessName) : ProcessName
 	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId)
-	static TOKEN_ADJUST_PRIVILEGES := 0x0020, TOKEN_QUERY := 0x00000008
-	DllCall("Advapi32.dll\OpenProcessToken", "Ptr", hProcess, "UInt", TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY, "UIntP", hToken)
-	DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Str", Privilege, "Int64P", lpLuid)
-	VarSetCapacity(ti, 16, 0), NumPut(1, ti, 0, "UInt"), NumPut(lpLuid, ti, 4, "Int64"), NumPut(2, ti, 12, "UInt")
-	return DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", !OnOff, "Ptr", &ti, "UInt", 0, "Ptr", 0, "Ptr", 0)
-		, DllCall("kernel32.dll\CloseHandle", "Ptr", hToken), DllCall("kernel32.dll\CloseHandle", "Ptr", hProcess)
+	DllCall("Advapi32.dll\OpenProcessToken", "Ptr", hProcess, "UInt", 0x0020|0x00000008, "UIntP", hToken)
+	PrivilegesLuid := [], i := 0
+	Loop, Parse, % (Privileges="All"?AllPrivileges:Privileges), `,
+		DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Str", A_LoopField, "Int64P", lpLuid)
+		, PrivilegesLuid[A_Index] := lpLuid
+	for k, v in PrivilegesLuid
+		ti := "", VarSetCapacity(ti, 16, 0), NumPut(1, ti, 0, "UInt"), NumPut(v, ti, 4, "Int64"), NumPut(2, ti, 12, "UInt")
+		, i := i+(DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", !Set, "Ptr", &ti, "UInt", 0, "Ptr", 0, "Ptr", 0)?1:0)
+	DllCall("kernel32.dll\CloseHandle", "Ptr", hToken)
+	DllCall("kernel32.dll\CloseHandle", "Ptr", hProcess)
+	return i, ErrorLevel := PrivilegesLuid.MaxIndex()!=i
 }
 
 ;suspender
@@ -2915,11 +3180,10 @@ ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/b
 ;Sintaxis: Clipboard( [texto], [¿copiar seleccionado al portapapeles? (segundos a esperar)] )
 Clipboard(String := "", Selected := 0) {
 	if Selected {
-		Temp := ClipboardAll
-		Clipboard()
+		Temp := ClipboardAll, Clipboard()
 		Send( "{LCtrl Down}c{LCtrl Up}" )
-		ClipWait( Selected > 0 ? Selected : 1 )
-		return Clipboard, x := Selected=2?"":(Clipboard := Temp)
+		ClipWait( Selected>0?Selected:1 )
+		return Clipboard, Clipboard := Temp
 	}
 	if (String = "") {
 		DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd)
@@ -2938,23 +3202,22 @@ GetTickCount(ByRef TickCount := "") {
 ClipWait( Seconds := -1, AnyFormats := 1 ) {
 	StartTime := A_TickCount
 	Loop {
-		if AnyFormats AND DllCall("User32.dll\CountClipboardFormats")
+		if (AnyFormats&&DllCall("User32.dll\CountClipboardFormats"))
+		||(!AnyFormats&&(DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1)||DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15)))
 			return 1, ErrorLevel := 0
-		else if (!AnyFormats AND (DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1) OR DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15)))
-				return 1, ErrorLevel := 0
 		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds >= 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>=0&&ElapsedTime>=Seconds)
 			return 0, ErrorLevel := 1
 		Sleep( 50 )
 	}
 }
 
-;establecer directorio de trabajo
+;establece el directorio de trabajo.
 SetWorkingDir(DirName) {
 	return DllCall("kernel32.dll\SetCurrentDirectoryW", "Str", DirName)
 }
 
-;obtener directorio de trabajo
+;obtiene el directorio de trabajo
 GetWorkingDir() {
 	uSize := VarSetCapacity(lpBuffer, (260 + 1) * 2) / 2
 	DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt*", uSize, "Str", lpBuffer)
@@ -2985,32 +3248,23 @@ FormatMessage(dwMessageId := "") {
 ;modifica los privilegios para el correcto funcionamiento del script
 ;NOTA: esta funcion es llamada automáticamente al inicio del script
 RunAsAdmin() {
-	static i
-	static x := RunAsAdmin()
-	if !i {
-		SetBatchLines, -1
-		SetWorkingDir, %A_ScriptDir%
-		SetTitleMatchMode, 2
-		SetTitleMatchMode, Fast
-		CoordMode, Mouse, Screen 
-		ListLines, Off
-		SetStoreCapslockMode, Off
-		SetDefaultMouseSpeed, 0
-		SendMode, Input 
-		SetControlDelay, 10
-		SetKeyDelay, 10, 10, 10
-		SetMouseDelay, 0
-		SetWinDelay, 50
-		AutoTrim, On
-		StringCaseSense, Off
-		if !A_IsAdmin {
-			Run, *RunAs "%A_ScriptFullPath%",, UseErrorLevel
-			if !ErrorLevel
-				ExitApp(1)
-		}
-		ProcessSetPrivilege( ProcessExist(), "SeDebugPrivilege", 1 )
-		ProcessPriority( ProcessExist(), "High"), i := 1
-	} ;DllCall("Kernel32.dll\SetErrorMode", "UInt", 0x0001) ;AHK1.1.21.00+ (defecto)
+	static RunAsAdmin := RunAsAdmin()
+	static ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All")
+	static ProcessPriority := ProcessPriority( ProcessExist(), "High")
+	static SetWorkingDir := SetWorkingDir(A_ScriptDir)
+	;static SetErrorMode := DllCall("Kernel32.dll\SetErrorMode", "UInt", 0x0001)
+	SetBatchLines, -1
+	SetTitleMatchMode, 2
+	SendMode, Input 
+	SetControlDelay, 10
+	SetKeyDelay, 10, 10, 10
+	SetMouseDelay, 0
+	SetWinDelay, 50
+	;if !A_IsAdmin {
+	;	Run, *RunAs "%A_ScriptFullPath%",, UseErrorLevel
+	;	if !ErrorLevel
+	;		ExitApp(1)
+	;} 
 }
 
 FormatTime(Time, Format := "yyyyMMddHmmss") {
@@ -3851,31 +4105,35 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := ""
 	return
 }
 
-;Sintaxis: ToolTip( [texto], [tiempo fuera (seg)], [tiempo fuera (ms)] )
-ToolTip(Text := "", TimeOut := 0, TimeOutMS := 0) {
-	if (Text = "") {
-		ToolTip,,,, 20
-		return
+;Sintaxis: ToolTip( [texto], [tiempo fuera (seg)], [tiempo fuera (ms)], [xpos], [ypos] )
+ToolTip(Text := "", TimeOut := 0, TimeOutMS := 0, xpos := "", ypos := "") {
+	static ToolTip := Func("ToolTip").Bind()
+	SetTimer(ToolTip, "Off")
+	if (Text="")
+		ToolTip,,,, 20 
+	else {
+		ToolTip, %Text%, %xpos%, %ypos%, 20
+		if (TimeOut>0||TimeOutMS>0)
+			SetTimer(ToolTip, -(TimeOutMS>0?TimeOutMS:TimeOut*1000))
 	}
-	ToolTip, %Text%,,, 20
-	if (TimeOut>0||TimeOutMS>0)
-		SetTimer( Func("ToolTip").Bind(), -(TimeOutMS>0?TimeOutMS:TimeOut*1000) )
 }
 
 ;TrayTip( [titulo], [texto], [tiempo fuera (seg)], [opciones] )
 ;OPCIONES:
 	;0 = sin icono | 1 = Info (defecto) | 2 = Advertencia | 3 = Error
-	;M = sin sonido (0M, 1M, 2M, 3M)
+	;+M = sin sonido (0M, 1M, 2M, 3M)
 TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
+	static TrayTip := Func("TrayTip").Bind()
+	SetTimer(TrayTip, "Off")
+	if Text=""&&Title="")
+		TrayTip
+	else {
+		TrayTip, %Title%, %Text%, 30, % RegExReplace(Options, "[^0-9]")+(InStr(Options, "M")?16:0)
+		if (TimeOut>0)
+			SetTimer(TrayTip, -(TimeOut*1000))
+	} ;necesario por si no funciona:
 	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "EnableBalloonTips", 2 )
 	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "Start_NotifyNewApps", 1 )
-	if (Text = "") AND (Title = "") {
-		TrayTip
-		return 1
-	}
-	TrayTip, %Title%, %Text%, 30, % InStr(Options, "M") ? RegExReplace(Options, "[^0-9]") + 16 : RegExReplace(Options, "[^0-9]")
-	if (TimeOut > 0)
-		SetTimer( Func("TrayTip").Bind(), -(TimeOut*1000) )
 }
 
 ;estilo para los botones.
@@ -4517,17 +4775,23 @@ CursorGetPos(ByRef x := "",ByRef y := "", ByRef Win := "", ByRef Control := "") 
 }
 
 ;muestra/oculta el cursor
-;Sintaxis: CursorShow( [Estado (0|1)], [Modo (0|1)], [Reestablecer (segundos)] )
+;Sintaxis: CursorShow( [Estado (0|1)], [Modo (0|1)], [Reestablecer (segundos)], [¿esperar?] )
 ;REESTABLECER: tiempo fuera en el que el cursor se muestra/oculta (dependiedo el estado espesificado)
-;EJEMPLO: CursorShow( 0,, 5 ), ExitApp()
-CursorShow(State, Mode := 0, TimeOut := 0) {
+;EJEMPLO: CursorShow(0,, 5, 1), ExitApp()
+CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := 0) {
 	;--------------------------------------------------------------------------------------------------------------
-	static hCursor, hCursorImage, Cursor
+	static hCursor, hCursorImage, Cursor, LastState, LastMode
+	static CursorShow := Func("CursorShow").Bind(-1)
+	if (State=-1)
+		return i := CursorShow( !LastState, LastMode ), ErrorLevel := !i
 	;--------------------------------------------------------------------------------------------------------------
 	if (TimeOut > 0) { ;alternar: State=0|1, Mode=0|1, TimeOut>0
-		if !CursorShow( State, Mode )
+		if !CursorShow( LastState:=State, LastMode:=Mode )
 			return 0, ErrorLevel := 1
-		Sleep( TimeOut * 1000 )
+		if WaitTimeOut
+			Sleep(TimeOut*1000)
+		else
+			return SetTimer(CursorShow, -(TimeOut*1000))
 		return i := CursorShow( !State, Mode ), ErrorLevel := !i
 	} ;--------------------------------------------------------------------------------------------------------------
 	if Mode ;solo afecta a las ventanas creadas por el script: State=0|1, Mode=1, TimeOut=0
@@ -4618,6 +4882,9 @@ CursorShow(State, Mode := 0, TimeOut := 0) {
 
 
 
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4633,8 +4900,6 @@ SysGet(Subcommand, Param3 := "") {
 	;5 = Suspender | 6 = Hibernar
 	;7 = Apagar monitor | 8 = Encender monitor | 9 = Poner el monitor en bajo consumo
 Shutdown(Code, Force := 0) {
-	ProcessSetPrivilege( ProcessExist(), "SeShutdownPrivilege", 1 )
-	ProcessSetPrivilege( ProcessExist(), "SE_SHUTDOWN_NAME", 1 )
 	if Between( Code, 5, 6 ) {
 		Code := Code = 5 ? 0 : 1
 		return DllCall("PowrProf.dll\\SetSuspendState", "int", Code, "int", Force, "int", 0)
@@ -5280,7 +5545,7 @@ WinChild(hWnd, ChWnd) {
 
 ;comprueba si la ventana está activa
 ;Sintaxis: IsWinActive( [ID], [clase], [proceso/pid], [titulo] )
-;NOTA: equivale a: WinActive( "ahk_id ID ahk_class CLASS ahk_exe PROCESS.EXE ahk_pid PID" )
+;NOTA: equivale a: WinActive( "Título ahk_id ID ahk_class CLASS ahk_exe PROCESS.EXE ahk_pid PID" )
 IsWinActive(hWnd := "", Class := "", ProcessName := "", Title := "") {
 	ActiveWindowId := IsWindow()
 	if (!Class&&!ProcessName&&!ActiveWindowId&&!Title)
@@ -5388,6 +5653,23 @@ WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2)-(width/2):"")
 	return i := WinMove( hWnd, xpos, ypos )
 		ErrorLevel := !i
+}
+
+;parpadea la ventana especificada. no cambia el estado activo de la ventana.
+;Sintaxis: WinFlash( [ID], [opciones], [veces que parpadea la ventana], [velocidad de parpadeo en milisegundos] )
+;Opciones (se pueden sumar para combinar):
+	;0 = parar (defecto).
+	;1 = solo afecta al titulo de la ventana
+	;2 = solo afecta al boton de la barra de tareas
+	;12 = hasta que la ventana esté activa
+WinFlash(hWnd, dwFlags := 0, uCount := 0, dwTimeout := 0) {
+	cbSize := VarSetCapacity(FLASHWINFO, A_PtrSize = 4 ? 20 : 32, 0) 
+	NumPut(cbSize, FLASHWINFO, 0, "UInt")
+	NumPut(hWnd, FLASHWINFO, 4, "Ptr")
+	NumPut(dwFlags+(uCount=0?4:0), FLASHWINFO, 8, "UInt")
+	NumPut(uCount>0?uCount:0, FLASHWINFO, A_PtrSize = 4 ? 12 : 16, "UInt")
+	NumPut(dwTimeout>0?dwTimeout:0, FLASHWINFO, A_PtrSize = 4 ? 16 : 24, "UInt")
+	return DllCall("User32.dll\FlashWindowEx", "Ptr", &FLASHWINFO)
 }
 
 ;--------------------------------------------------------------------------------------------------------
@@ -5755,13 +6037,13 @@ WinSetEventHook(hWnd, Func := "", EventMin := "", EventMax := "") {
 ;--------------------------------------------------------------------------------------------------------
 
 ;espera a que la ventana no exista
-;Sintaxis: WinWaitClose( [ID], [segundos], [clase], [proceso/pid] )
-WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
+;Sintaxis: WinWaitClose( [ID], [segundos], [clase], [proceso/pid], [titulo] )
+WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
 	StartTime := A_TickCount
 	Loop {
-		if !IsWindow( hWnd, Class, ProcessName)
+		if !IsWindow(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
 		ElapsedTime := (A_TickCount - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -5771,13 +6053,13 @@ WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
 }
 
 ;esperar a que una ventana se active
-;Sintaxis: WinWaitActive( [ID], [Segundos], [clase], [proceso/pid] )
-WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
+;Sintaxis: WinWaitActive( [ID], [Segundos], [clase], [proceso/pid], [titulo] )
+WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
 	StartTime := A_TickCount
 	Loop {
-		if IsWinActive( hWnd, Class, ProcessName )
+		if IsWinActive(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
 		ElapsedTime := (A_TickCount - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -5787,13 +6069,13 @@ WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
 }
 
 ;esperar a que una ventana pierda el foco
-;Sintaxis: WinWaitNotActive( [ID], [Segundos], [clase], [proceso/pid] )
-WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
+;Sintaxis: WinWaitNotActive( [ID], [Segundos], [clase], [proceso/pid], [titulo] )
+WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
 	StartTime := A_TickCount
 	Loop {
-		if !IsWinActive( hWnd, Class, ProcessName )
+		if !IsWinActive(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
 		ElapsedTime := (A_TickCount - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -5803,13 +6085,13 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
 }
 
 ;esperar a que una ventana exista
-;Sintaxis: WinWait( [Título], [Segundos], [clase], [proceso/pid] )
-WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "") {
+;Sintaxis: WinWait( [Título], [Segundos], [clase], [proceso/pid], [ID] )
+WinWait(Title := "", Seconds := 0, Class := "", ProcessName := "", hWnd := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
 	StartTime := A_TickCount
 	Loop {
-		if IsWindow(, Class, ProcessName, hWnd)
+		if IsWindow( hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
 		ElapsedTime := (A_TickCount - StartTime) / 1000
 		if (Seconds > 0) AND (ElapsedTime >= Seconds)
@@ -6201,17 +6483,64 @@ SoundPlay( Filename, Wait := "") {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SERVICIOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;cambiar modo de inicio: boot | system | auto | manual | disable
-;Sintaxis: ServiceSet( [servicio], [modo] )
-ServiceSet( IpName, Mode ) {
-	static mboot := 0x00000000, msystem := 0x00000001, mauto := 0x00000002, mmanual := 0x00000003, mdisable := 0x00000004
+;cambiar modo de inicio del servicio.
+;Sintaxis: ServiceSet( [servicio], [boot | system | auto | manual | disable] )
+ServiceSet(IpName, StartMode := "") {
+	static StartupModes := {"boot": 0x00000000, "system": 0x00000001, "auto": 0x00000002, "manual": 0x00000003, "disable": 0x00000004}
 	hService := ServiceOpen( IpName,, 0x0002 ) ;SERVICE_NO_CHANGE := 0xffffffff | SERVICE_CHANGE_CONFIG := 0x0002
-	return i := DllCall("Advapi32.dll\ChangeServiceConfigW", "Ptr", hService
-		, "UInt", 0xffffffff, "UInt", m%Mode%, "UInt", 0xffffffff, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0) 
+	if StartupModes[StartMode]
+		return i := DllCall("Advapi32.dll\ChangeServiceConfigW", "Ptr", hService, "UInt", 0xffffffff, "UInt", StartupModes[StartMode]
+		, "UInt", 0xffffffff, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0)
 		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
+	return 0, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := 1
+}
+
+;recupera la informacion del servicio
+;Sintaxis: ServiceGetDescription( [servicio], [Fast|Slow] )
+ServiceGetDescription(IpName, Mode := "Fast") {
+	if (Mode="F"||Mode="Fast") { ;Fast: lee desde el registro (recomendado)
+		return RegRead("HKLM\SYSTEM\CurrentControlSet\Services\" IpName, "Description")
+	} else if (Mode="S"||Mode="Slow") { ;Slow: abre el servicio para leer la descripcion (mas lento)
+		hService := ServiceOpen( IpName,, 0x0001 )
+		DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", 0, "UInt", 0, "UIntP", pcbBytesNeeded)
+		cbBufSize := VarSetCapacity(SERVICE_DESCRIPTION, pcbBytesNeeded * 2, 0) / 2
+		i := DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION, "UInt", cbBufSize, "UIntP", 0)
+		return StrGet(NumGet(SERVICE_DESCRIPTION, 0, "Ptr"), cbBufSize, "UTF-16")
+			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
+	}
+	return 0, ErrorLevel := 1
+}
+
+;establece la informacion del servicio
+;Sintaxis: ServiceSetDescription( [servicio], [descripcion] )
+ServiceSetDescription(IpName, Description := "", Mode := "Slow") {
+	Description := Trim(StrReplace(Description, A_Tab, A_Space))
+	if (Mode="F"||Mode="Fast") { ;Fast: establece desde el registro (no recomendado, puede dar problemas con permisos)
+		return RegWrite("HKLM\SYSTEM\CurrentControlSet\Services\" IpName, "Description", Description)
+	} else if (Mode="S"||Mode="Slow") { ;Slow: abre el servicio para establecer la descripcion (recomendado)
+		hService := ServiceOpen( IpName,, 0x0002 )
+		VarSetCapacity(SERVICE_DESCRIPTION, StrLen(Description), 0)
+		NumPut(&Description, SERVICE_DESCRIPTION, 0, "Ptr")
+		return i := DllCall("Advapi32.dll\ChangeServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION)
+			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
+	}
+	return 0, ErrorLevel := 1
 }
 
 ;pausar
@@ -6235,7 +6564,7 @@ ServiceDelete(IpName) {
 	hService := ServiceOpen( IpName,, 0x00010000 )
 	return i := DllCall("Advapi32.lib\DeleteService", "Ptr", hService)
 		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService)
-		, , ErrorLevel := !i
+		, ErrorLevel := !i
 }
 
 ;iniciar
@@ -6305,13 +6634,14 @@ ServiceInfo(IpName) {
 ;Sintaxis: ServiceExist( [servicio], [Fast|Slow] )
 ;Test (Fast vs Slow): MsgBox % "Fast: " _fspdtestex(999, "ServiceExist", "Spooler") "`nSlow: " _fspdtestex(999, "ServiceExist", "Spooler", "S")
 ServiceExist(lpDisplayName, Mode := "Fast") {
-	if (Mode="F"||Mode="Fast") ;modo rápido (Fast): comprueba si existe desde el registro.
+	if (Mode="F"||Mode="Fast") ;Fast: comprueba si existe desde el registro. (recomendado)
 		return i:=RegExist("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
-	if (Mode="S"||Mode="Slow") ;modo lento (Slow): abre y cierra el servicio para comprobar si existe.
+	if (Mode="S"||Mode="Slow") ;Slow: abre y cierra el servicio para comprobar si existe. (mas lento)
 		return i:=DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", ServiceOpen(lpDisplayName)), ErrorLevel:=!i
 	return 0, ErrorLevel := 1
 }
 
+;abre un servicio para modificar/leer datos/configuracion
 ;Sintaxis: ServiceOpen( [servicio], [acceso para SCManager], [acceso para el servicio], [SCManager (salida)] )
 ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF, ByRef hSCManager := "") {
 	hSCManager := DllCall("AdvApi32.dll\OpenSCManagerW", "Ptr", 0, "Ptr", 0, "UInt", SCManagerAccess) 
@@ -6565,7 +6895,7 @@ DriveSpaceFree(IpDrive, Units := 0) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: MONITOR ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-PixelGetColor( x := "", y := "", AltSlowRGB := 0 ) {
+PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
 	if (x="")||(y="")
 		MouseGetPos( x_, y_ )
 	PixelGetColor, OutputVar, % x=""?x_:x, % y=""?y_:y, %AltSlowRGB%
@@ -6715,3 +7045,4 @@ MonGet(ByRef pdwCurrentBrightness := "", ByRef pdwCurrentContrast := "", ByRef p
 #Include <CtlColors_Class>
 #Include <Gdip>
 #NoEnv
+#MaxMem 4095
