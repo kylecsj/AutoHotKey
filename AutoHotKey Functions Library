@@ -439,7 +439,7 @@ FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
 ;leer archivo
 ;Sintáxis: FileRead( [Archivo] )
 FileRead(Filename) {
-	FileRead, OutputVar, %Filename%
+	try FileRead, OutputVar, %Filename%
 	return OutputVar
 }
 
@@ -3101,17 +3101,8 @@ LoadLibrary(lpFileName, hFile := 0, dwFlags := 0) {
 }
 
 ;Sintaxis: SetTimer( [Etiqueta], [Período] )
-SetTimer(Label := "", PeriodOnOffDelete := "", ThreadPriority := 0) {
-	if Between( Label, -4294967295, 4294967295 )&&(PeriodOnOffDelete="")
-		PeriodOnOffDelete := Label=-1?"D":Label, Label := A_ThisLabel
-	else
-		Label := Label=""?A_ThisLabel:Label
-	PeriodOnOffDelete := PeriodOnOffDelete = 1 ? "On" 
-		: PeriodOnOffDelete = "" ? "On"
-		: PeriodOnOffDelete = 0 ? "Off"
-		: PeriodOnOffDelete = "D" ? "Delete"
-		: PeriodOnOffDelete = "P" ? "" : PeriodOnOffDelete
-	SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
+SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0) {
+	try SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
 }
 
 gosub(Label) {
@@ -3814,7 +3805,7 @@ LV_GetNextItem(hWnd, Item := 0, Mode := "") {
 	return Index, ErrorLevel := Index=-1
 }
 
-;ListView: establece el estilo
+;ListView: establece el estilo extendido
 ;Sintaxis: LV_SetExStyle( [hWnd], [Estilo], [Remover = 0] )
 ;ESTILOS:
 	;0x010000 = dibujo vía doble búfer, lo que reduce el parpadeo
@@ -3875,7 +3866,7 @@ LV_Set( Row := 0, Flags := "+Select", Type := -1 ) {
 	return RTrim( List, "," )
 }
 
-;recupera texto en un item espesificado en la ListView
+;recupera texto en un item espesificado
 ;Sintaxis: LV_GetSelected( [columna], [F|C] )
 LV_GetSelected(Col := 1, Type := "F", RowNumber := 0) {
 	while ( RowNumber := LV_GetNext(RowNumber, Type) ) {
@@ -4000,23 +3991,21 @@ ColorSelect(Color := "", hWnd := 0, FullOpen := "") {
 		, ErrorLevel := !i
 }
 
-;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [ID] )
-;ID: espesificar el ID de una ventana para deshabilitarla hasta que el dialogo se cierre
+;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [Alto], [Ancho] )
 ;ErrorLevel es:
 	;0 = el usuario precionó Aceptar
 	;1 = el usuario precionó Cancelar o Cerrar
 	;2 = la ventana ya existe
 	;3 = se ha alcanzado el tiempo máximo para la ventana
-InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := "") {
+InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", Height := 217, Width := 420) {
 	;inicio
-	global _InputBoxResult, _InputBoxErrorLevel, _InputBoxId, _InputBoxInfoText
-	_InputBoxResult := _InputBoxErrorLevel := _InputBoxId := ""
+	global _InputBoxResult, _InputBoxErrorLevel, _InputBoxInfoText
+	_InputBoxResult := _InputBoxErrorLevel := ""
+	static _InputBoxId
 	
 	;comprueba si ya existe la ventana
-	if IsWindow( _InputBoxHWND )
+	if IsWindow(_InputBoxId)
 		return "", ErrorLevel := 2
-	if hWnd
-		WinDisable( hWnd )
 	
 	;interfaz
 	Gui, _InputBoxGuiName:-Caption +ToolWindow +OwnDialogs +LastFound +HWND_InputBoxHWND +AlwaysOnTop +MinSize420x217 +MaxSize%A_ScreenWidth%x%A_ScreenHeight%
@@ -4027,9 +4016,10 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := ""
 	Gui, %_InputBoxHWND%:Add, Button, x0 y0 w%A_ScreenWidth% h30 HWND_InputBoxTitle Disabled +Left, % " " Title
 		GuiButtonStyle( _InputBoxTitle, 7 )
 	Gui, %_InputBoxHWND%:Add, Text, x0 y0 w350 h30 g_InputBoxTMove BackgroundTrans
-	Gui, %_InputBoxHWND%:Font, s12 w400 Q5, Courier New
-	Gui, %_InputBoxHWND%:Add, Button, x388 y2 w30 h25 HWND_InputBoxClose g_InputBoxClose, X
+	Gui, %_InputBoxHWND%:Font, s10 Q5 w400, Marlett
+	Gui, %_InputBoxHWND%:Add, Button, x388 y2 w30 h25 HWND_InputBoxClose g_InputBoxClose, r
 		GuiButtonStyle( _InputBoxClose, 3 )
+	Gui, %_InputBoxHWND%:Font, s12 w400 Q5, Courier New
 	Gui, %_InputBoxHWND%:Add, Button, x357 y2 w30 h25 HWND_InputBoxMax g_InputBoxMax, % Chr(9794)
 		GuiButtonStyle( _InputBoxMax, 4 )
 	Gui, %_InputBoxHWND%:Font, s9 w400 Q5, Segoe UI
@@ -4041,7 +4031,11 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := ""
 		GuiButtonStyle( _InputBoxAccept, 8 )
 	Gui, %_InputBoxHWND%:Add, Button, x320 y185 w95 h27 HWND_InputBoxCancel g_InputBoxClose, Cancelar
 		GuiButtonStyle( _InputBoxCancel, 8 )
-	Gui, %_InputBoxHWND%:Show, w420 h217
+	Gui, %_InputBoxHWND%:Show, w%Width% h%Height% Hide
+	WinAnimate(_InputBoxHWND, 100), WinRedraw(_InputBoxHWND)
+	Gui, %_InputBoxHWND%:Default
+	GuiControl, Focus, _InputBoxResult
+	ControlSend(_InputBoxHWND, "Edit1", "{End}")
 	
 	;esperar a que la ventana cierre
 	if !WinWaitClose( _InputBoxHWND, Timeout ) {
@@ -4050,13 +4044,13 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := ""
 	}
 
 	;devuelve el resultado
-	return _InputBoxResult, WinEnable( hWnd ), ErrorLevel := _InputBoxErrorLevel
+	return _InputBoxResult, ErrorLevel := _InputBoxErrorLevel
 		, _InputBoxErrorLevel := _InputBoxId := _InputBoxInfoText := ""
 	;-------------------------------------------------------------------------------------------------------------------------------------
 	
 	;ajustar tamaño de la ventana
 	_InputBoxGuiNameGuiSize:
-	Gui, %_InputBoxId%:Default
+	Gui, %_InputBoxHWND%:Default
 	GuiControl, Move, Button2, % "x" (A_GuiWidth - 32)
 	GuiControl, Move, Button3, % "x" (A_GuiWidth - 63)
 	GuiControl, MoveDraw, Button4, % "x" (A_GuiWidth - 210) " y" (A_GuiHeight - 32)
@@ -4068,69 +4062,65 @@ InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", hWnd := ""
 
 	;texto
 	_InputBoxInfoText:
-	Gui, %_InputBoxId%:Default
+	Gui, %_InputBoxHWND%:Default
 	GuiControl, Focus, _InputBoxInfoText
 	return
 	
 	;boton Titulo (mover ventana)
 	_InputBoxTMove:
-	Gui, %_InputBoxId%:Default
+	Gui, %_InputBoxHWND%:Default
 	GuiControl, Focus, _InputBoxInfoText
-	DllCall("User32.dll\PostMessageW", "Ptr", _InputBoxId, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
+	DllCall("User32.dll\PostMessageW", "Ptr", _InputBoxHWND, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
 	return
 	
-	;boton Cerrar y Cancelar
+	;boton Aceptar, Cerrar y Cancelar
 	_InputBoxClose:
-	Gui, %_InputBoxId%:Default
+	_InputBoxAccept:
+	Gui, %_InputBoxHWND%:Default
 	GuiControlGet, _InputBoxResult
-	_InputBoxErrorLevel := 1
-	Gui, %_InputBoxId%:Destroy
+	_InputBoxErrorLevel := A_ThisLabel="_InputBoxClose"?1:0
+	WinAnimate(_InputBoxHWND, 100, "HS1")
+	Gui, %_InputBoxHWND%:Destroy
 	return
 	
 	;boton Cambiar Tamaño Si/No (habilita a la ventana para cambiar el tamaño)
 	_InputBoxMax:
 	if !_InputBoxErrorLevel
-		Gui, %_InputBoxId%: +Resize
+		Gui, %_InputBoxHWND%: +Resize
 	else
-		Gui, %_InputBoxId%: -Resize
+		Gui, %_InputBoxHWND%: -Resize
 	_InputBoxErrorLevel := !_InputBoxErrorLevel
-	return
-	
-	;boton Aceptar
-	_InputBoxAccept:
-	Gui, %_InputBoxId%:Default
-	GuiControlGet, _InputBoxResult
-	_InputBoxErrorLevel := 0
-	Gui, %_InputBoxId%:Destroy
 	return
 }
 
-;Sintaxis: ToolTip( [texto], [tiempo fuera (seg)], [tiempo fuera (ms)], [xpos], [ypos] )
-ToolTip(Text := "", TimeOut := 0, TimeOutMS := 0, xpos := "", ypos := "") {
+;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segondos] )
+;Nota: espesificar un número negativo en segundos para usar milisegundos
+ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 	static ToolTip := Func("ToolTip").Bind()
 	SetTimer(ToolTip, "Off")
 	if (Text="")
-		ToolTip,,,, 20 
+		ToolTip,,,, 20
 	else {
 		ToolTip, %Text%, %xpos%, %ypos%, 20
-		if (TimeOut>0||TimeOutMS>0)
-			SetTimer(ToolTip, -(TimeOutMS>0?TimeOutMS:TimeOut*1000))
+		if TimeOut
+			SetTimer(ToolTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
 	}
 }
 
-;TrayTip( [titulo], [texto], [tiempo fuera (seg)], [opciones] )
+;TrayTip( [titulo], [texto], [tiempo fuera, en segundos], [opciones] )
 ;OPCIONES:
 	;0 = sin icono | 1 = Info (defecto) | 2 = Advertencia | 3 = Error
 	;+M = sin sonido (0M, 1M, 2M, 3M)
+;Nota: espesificar un número negativo en segundos para usar milisegundos
 TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 	static TrayTip := Func("TrayTip").Bind()
 	SetTimer(TrayTip, "Off")
-	if Text=""&&Title="")
+	if (Text=""&&Title="")
 		TrayTip
 	else {
 		TrayTip, %Title%, %Text%, 30, % RegExReplace(Options, "[^0-9]")+(InStr(Options, "M")?16:0)
-		if (TimeOut>0)
-			SetTimer(TrayTip, -(TimeOut*1000))
+		if TimeOut
+			SetTimer(TrayTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
 	} ;necesario por si no funciona:
 	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "EnableBalloonTips", 2 )
 	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "Start_NotifyNewApps", 1 )
@@ -4138,47 +4128,50 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 
 ;estilo para los botones.
 GuiButtonStyle(hWnd, Type := 1, Round := 0) { ;https://github.com/AHK-just-me/Class_ImageButton
-   ;------------------------------------------------------------------------------------------------------------------------------
-   if (Type = 1) { ;estilo blanco y celeste #1
+	;------------------------------------------------------------------------------------------------------------------------------
+	if (Type = 1) { ;estilo blanco y celeste #1
 		Normal := [0, 0x80F0F0F0,, 0xD3000000, Round,, 0x800099CC, 1]
 		Foco := [0, 0x8033B5E5,, 0x00FFFFFF, Round,, 0x800099CC, 1]
 		Precionado := [0, 0x801A9CCB,, 0x00FFFFFF, Round,, 0x800099CC, 1]
 		Deshabilitado := [0, 0x80F0F0F0,, 0x00DFDFDF, Round,, 0x80A7A7A7, 1]
 		Fallido := [0, 0x80F0F0F0,, 0xD3000000, Round,, 0x800099CC, 1]
 		Tab := [0, 0x80F0F0F0,, 0xD3000000, Round,, 0x800099CC, 1]
-   ;------------------------------------------------------------------------------------------------------------------------------
-   } else if (Type = 2) { ;estilo grises, negros y blancos #1
+	;------------------------------------------------------------------------------------------------------------------------------
+	} else if (Type = 2) { ;estilo grises, negros y blancos #1
 		Normal := [7, 0x00383838, 0x00757575, 0x00CCCCCC, Round]
 		Foco := [7, 0x00383838, 0x00858585, 0x00FFFFFF, Round]
 		Precionado := [7, 0x00383838, 0x00AAAAAA, 0x00FFFFFF, Round]
 		Deshabilitado := [7, 0x00AAAAAA, 0x00AAAAAA, 0x00FFFFFF, Round]
-   } else if (Type = 3) { ;boton cerrar #1
+	} else if (Type = 3) { ;boton cerrar #1
 		Normal := [0, 0x1CA7EF,, 0xCCCCCC]
 		Foco := [0, 0xFF7171,, 0xffffff]
 		Precionado := [0, 0xFF0000,, 0xffffff]
-   } else if (Type = 4) { ;boton minimizar #1
+	} else if (Type = 4) { ;boton minimizar #1 (gris y blanco)
 		Normal := [0, 0x1CA7EF,, 0xCCCCCC]
 		Foco := [0, 0xC0C0C0,, 0xffffff]
 		Precionado := [0, 0x808080,, 0xffffff]
-   } else if (Type = 5) { ;boton verde #1
+	} else if (Type = 5) { ;boton verde #1
 		Normal := [3, 0x46cc9b, 0x228731, "White", 4]
 		Foco := [3, 0x5bf0b9, 0x35bd47, "White", 4]
 		Precionado := [3, 0x228731, 0x46cc9b, "White", 4]
 		Deshabilitado := [0, 0xF0F0EE,, 0xCACBC2, 4,, 0xCACBC2, 1]
-   } else if (Type = 6) { ;boton rojo #1
-        Normal := [3, 0xFF4A4A, 0xCC0000, "White", 4]
-        Foco := [3, 0xFF6A6A, 0xFF2424, "White", 4]
-        Precionado := [3, 0xEA0000, 0x9B0000, "White", 4]
-        Deshabilitado := [0, 0xF0F0EE,, 0xCACBC2, 4,, 0xCACBC2, 1]
-   } else if (Type = 7) { ;fondo celeste, texto blanco
-        Normal := Deshabilitado := [0, 0x1CA7EF,, 0xffffff]
-   } else if (Type = 8) { ;botones celeste y blanco
+	} else if (Type = 6) { ;boton rojo #1
+		Normal := [3, 0xFF4A4A, 0xCC0000, "White", 4]
+		Foco := [3, 0xFF6A6A, 0xFF2424, "White", 4]
+		Precionado := [3, 0xEA0000, 0x9B0000, "White", 4]
+		Deshabilitado := [0, 0xF0F0EE,, 0xCACBC2, 4,, 0xCACBC2, 1]
+	} else if (Type = 7) { ;fondo celeste, texto blanco
+		Normal := Deshabilitado := [0, 0x1CA7EF,, 0xffffff]
+	} else if (Type = 8) { ;botones celeste y blanco
 		Normal := [0, 0x1CA7EF,, 0xffffff]
 		Foco := [0, 0x6AB5FF,, 0xffffff]
 		Precionado := [0, 0x808080,, 0xffffff]
 		Deshabilitado := [0, 0x80F0F0F0,, 0x00DFDFDF, 0,, 0x80A7A7A7, 1]
+	} else if (Type = 9) { ;boton minimizar #2 (celeste y blanco)
+		Normal := [0, 0x182E46,, 0xffffff,,, 0x4E668C, 1]
+		Foco := [0, 0xFF7171,, 0xffffff,,, 0x4E668C, 1]
+		Precionado := [3, 0xFF0000, 0xFF7171, 0xffffff,,, 0x4E668C, 1]
 	}
-	
    ;------------------------------------------------------------------------------------------------------------------------------
    return ImageButton.Create(hWnd, Normal, Foco, Precionado, Deshabilitado, Fallido, Tab)
 }
@@ -4625,12 +4618,12 @@ MouseAutoWheelSpeed(TimeOut := 500, Boost := 30, Limit := 60, ToolTip := 0) {
 		}
 		v := v>1?(v>Limit?Limit:Floor(v)):1
 		if ToolTip
-			ToolTip("×" v,, ToolTip)
+			ToolTip("×" v,,, -ToolTip)
 		return MouseClick( A_ThisHotkey,,, v )
 	} else {
 		d := i := 0
 		if ToolTip
-			ToolTip("×" 1,, ToolTip)
+			ToolTip("×" 1,,, -ToolTip)
 		return MouseClick(A_ThisHotkey)
 	}
 }
@@ -5689,6 +5682,7 @@ WinRedraw(hWnd) {
 	;1 = Desvanecer | 2 = Diapositiva (combinar con 3/4 y/o 5/6)
 	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
 	;5 = Arriba Abajo | 6 = Abajo Arriba
+;Nota: cuando se usa la opcion 'S' (mostrar), a veces es necesario redibujar la ventana, usar WinRedraw().
 WinAnimate(hwnd, Time := 200, Mode := "S1") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
 	static List := {"S" : 0x00020000, 1 : 0x00080000, "C" : 0x00000010, "H" : 0x00010000, 3 : 0x00000001, 4 : 0x00000002, 2 : 0x00040000, 5 : 0x00000004, 6 : 0x00000008}
 	return DllCall("User32.dll\AnimateWindow", "Ptr", hwnd, "UInt", Time, "UInt", _cstr(List, Mode, "~", "+"))
@@ -5701,12 +5695,12 @@ WinMinimizeToTray(hWnd, Show := 0) {
 	static Array := []
 	if Show {
 		if (Show = 2)
-			MenuIcon( "Tray" )
+			MenuIcon("Tray")
 		WinShow( hWnd )
 		return WinTitleAnimate( hWnd, Array[hWnd].x, Array[hWnd].y, Array[hWnd].w, Array[hWnd].h )
 			, WinMove( hWnd, Array[hWnd].x, Array[hWnd].y )
 	}
-	MenuIcon( "Tray", 1 ), Array[hWnd] := WinGetPos( hWnd )
+	MenuIcon("Tray", 1), Array[hWnd] := WinGetPos(hWnd)
 	hTray := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
 	WinGetPos( hTray, txpos, typos, twsize, thsize)
 	ControlGetPos( hTray, "TrayNotifyWnd1", nxpos, nypos, nwsize, nhsize )
