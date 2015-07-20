@@ -38,11 +38,12 @@ Funciones Agregadas:
 	• WinSetExStyle()
 
 Mejoras:
-	• ProcessSetPrivilege() ~20/07
-	• RunAsAdmin() ~20/07
-	• ToolTip() ~20/07
-	• TrayTip() ~20/07
-	• CursorShow() ~20/07
+	• ProcessSetPrivilege() ~ 20/07
+	• RunAsAdmin() ~ 20/07
+	• InputBox()
+	• ToolTip() ~ cambio de sintaxis ~ 20/07
+	• TrayTip() ~ 20/07
+	• CursorShow() ~ 20/07
 	• IsWinActive() ~ 17/07
 	• IsWindow() ~ 17/07
 	• SendMessage() ~ 17/07
