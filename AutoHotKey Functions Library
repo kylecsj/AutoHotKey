@@ -3,13 +3,13 @@ FUNCIONES  AUTOHOTKEY UNICODE 32 & 64 BITS.
 -------------------------------------------------------------------------
 SO: WXP, WV, W7 & W8 ~ 32 & 64 Bits.
 Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
-					gui & dialogos, registro, control, mouse & teclado, sistema,
+					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
 					escritorio & explorador & menu inicio, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Lunes, 20 de julio de 2015
+Actualizado: AHK-U1.1.22.03 || Martes, 21 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -2891,36 +2891,22 @@ SaveScreenshot(Filename, Quality := 100) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;obtener ancho y alto de una imagen
-;Sintaxis: ImageGetDimension( [imagen], [ancho], [alto] )
-ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
-	pToken := Gdip_Startup(), i := {}
-	pBitmap := Gdip_CreateBitmapFromFile(Image)
-	pGraphics := Gdip_GraphicsFromImage(pBitmap)
-	x:=Gdip_GetImageDimensions(pBitmap, Width, Height)
-	Gdip_DeleteGraphics(pGraphics)
-	Gdip_DisposeImage(pBitmap)
-	Gdip_Shutdown(pToken)
-	i.w := i.Width := Width, i.h := i.Height := Height
-	return i, ErrorLevel := !x
-}
-
 ;bloquear mouse y teclado & suspende el script
 ;Sintaxis: BlockInput( [0|1] )
 BlockInput( OnOff ) {
+	static BlockInput := Func("BlockInput").Bind(-1)
+	if (OnOff=-1)
+		return DllCall("User32.dll\BlockInput", "Int", 1)
 	if !OnOff {
 		Suspend, Off
 		RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
-		SetTimer( "BlockInput_Function_Label", 0 )
+		SetTimer(BlockInput,  "Off")
 		return DllCall("User32.dll\BlockInput", "Int", 0)
 	}
 	Suspend, On
 	return DllCall("User32.dll\BlockInput", "Int", 1)
-		, SetTimer( "BlockInput_Function_Label", 500 )
+		, SetTimer(BlockInput, 500)
 		, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
-	BlockInput_Function_Label:
-	DllCall("User32.dll\BlockInput", "Int", 1)
-	return
 }
 
 ;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
@@ -3345,6 +3331,96 @@ Translate(String, From := "", To := "") {
 	return RegExReplace(i.ResponseText, "^.*?""(.*?)"".*$", "$1")
 }
 
+;obtener ancho y alto de una imagen
+;Sintaxis: ImageGetDimension( [imagen], [ancho], [alto] )
+ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
+	pToken := Gdip_Startup(), i := {}
+	pBitmap := Gdip_CreateBitmapFromFile(Image)
+	pGraphics := Gdip_GraphicsFromImage(pBitmap)
+	x:=Gdip_GetImageDimensions(pBitmap, Width, Height)
+	Gdip_DeleteGraphics(pGraphics)
+	Gdip_DisposeImage(pBitmap)
+	Gdip_Shutdown(pToken)
+	i.w := i.Width := Width, i.h := i.Height := Height
+	return i, ErrorLevel := !x
+}
+
+;efecto de agua para una imagen. (ver notas)
+;Sintaxis: ImageWaterCtrl( [ID], [Modo], [Opciones*] )
+;PARÁMETROS:
+	;ID = HWND de la ventana (GUI) | ruta de waterctrl.dll (ver notas) | control (modo SETPARENT)
+	;MODOS (descripcion) = OPCIONES (las opciones varian dependiendo el modo espesificado):
+		;SETPATH = establecer directorio de waterctrl.dll (ver notas). Nota: solo debe espesificarce una vez
+		;ENABLE (habilitar) = [Imagen ruta o Imagen HWND] [xpos] [ypos] [radio] [alto]
+		;DISABLE (deshabilitar)
+		;BLOB (efecto gota de agua) = [xpos] [ypos] [radio] [alto]
+		;SETPARENT (establecer en el control espesificado en ID)
+		;FLATTEN = parar efecto
+		;EXIT = liberar la memoria para waterctrl.dll
+;NOTAS: 
+	;--> necesario waterctrl.dll, descarga: http://restools.hanzify.org/article.asp?id=80 | http://restools.hanzify.org/inno/waterctrl/inno_waterctrl_v2.zip
+	;--> poner waterctrl.dll en el mismo directorio que el script o espesificar la ruta en el primer parámetro y establecer el Modo a 'SETPATH'
+	;--> valor de ErrorLevel = ver funcion
+;EJEMPLO (quitar '/*' y '*/'):
+	/*;cargar waterctrl.dll. poner WaterCtrl.dll en el escritorio
+	ImageWaterCtrl( A_Desktop "\WaterCtrl.dll", "SETPATH")
+	Gui, +HWND_G
+		;establecer ventana. poner imagen en el escritorio con el nombre ahk_logo, extension .BMP
+		;link imagen (o buscar una .BMP): https://i.imgur.com/uK1ZX7p.png
+		ImageWaterCtrl(_G, "Enable", A_Desktop "\ahk_logo.bmp") 
+	Gui, Add, Text, x0 y111 w542 h111 HWND_T
+		;establecer imagen en el control de texto
+		ImageWaterCtrl(_T, "SETPARENT") 
+	Gui, Add, Button, x15 y255 gWaterBlob, WaterBlob
+	Gui, Add, Button, x85 y255 gFlattenWater, FlattenWater
+	Gui, Show,, ImageWaterCtrl
+	Return
+	WaterBlob:
+	ImageWaterCtrl(, "BLOB", 500, 50) ;efecto gota
+	ImageWaterCtrl(, "BLOB", 50, 50) ;efecto gota
+	ImageWaterCtrl(, "BLOB", 250, 50) ;efecto gota
+	Return
+	FlattenWater:
+	ImageWaterCtrl(, "FLATTEN") ;quitar efectos
+	Return
+	GuiClose:
+	ImageWaterCtrl(, "EXIT") ;liberar WaterCtrl.dll 
+	ExitApp
+	*/
+ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
+	static LoadLibrary, LibraryPath
+	if (Mode="SETPATH")
+		return (i:=FileExist(hWnd))?(LibraryPath:=hWnd):0, ErrorLevel := !i
+	if !LibraryPath&&!FileExist(A_ScriptDir "\waterctrl.dll")
+		return 0, ErrorLevel := 2 ;ErrorLevel 2 = waterctrl.dll no se encuentra
+	if !LoadLibrary&&!(LoadLibrary:=LoadLibrary(LibraryPath?LibraryPath:A_ScriptDir "\waterctrl.dll"))
+		return 0, ErrorLevel := 3 ;ErrorLevel 3 = error al cargar waterctrl.dll
+	if (Mode="ATTACH"||Mode="ENABLE") {
+		if FileExist(Option[1])
+			SplitPath(Option[1],,, Ext)
+			, Img := DllCall("User32.dll\LoadImageW", "Int", 0, "Str", Option[1], "UInt", Ext="Ico"?1:0, "Int", 0, "Int", 0, "UInt", 0x2010)
+		return i:=DllCall("waterctrl\enablewater", "Ptr", hWnd, "Int", Option[2]=""?0:Option[2]
+			, "Int", Option[3]=""?0:Option[3], "Ptr", Img?Img:Option[1], "Int", Option[3]=""?3:Option[3]
+			, "Int", Option[4]=""?20:Option[4]), ErrorLevel := !i
+	} else if (Mode="DETACH"||Mode="DISABLE") {
+		return i:=DllCall("waterctrl\disablewater"), ErrorLevel := !i
+	} else if (Mode="BLOB") {
+		return i:=DllCall("waterctrl\waterblob", "Int", Option[1]=""?0:Option[1], "Int", Option[2]=""?0:Option[2]
+		, "Int", Option[3]=""?30:Option[3], "Int", Option[4]=""?30:Option[4]), ErrorLevel := !i
+	} else if (Mode="SETPARENT") {
+		return i:=DllCall("waterctrl\setwaterparent", "Ptr", hWnd), ErrorLevel := !i
+	} else if (Mode="FLATTEN") {
+		return i:=DllCall("waterctrl\flattenwater"), ErrorLevel := !i
+	} else if (Mode="EXIT"||Mode="FREE") {
+		ImageWaterCtrl(, "DETACH")
+		return i:=FreeLibrary("waterctrl.dll"), ErrorLevel := !i, LoadLibrary := ""
+	}
+	return 0, ErrorLevel := 1 ;ErrorLevel 1 = el modo espesificado es inválido
+} ;By. tmplinshi: http://ahkscript.org/boards/viewtopic.php?f=22&t=3302&p=16261&hilit=waterctrl#p16261
+
+
+
+
 
 
 
@@ -3733,7 +3809,6 @@ RegCopyTree(Key, Dest) {
 
 
 
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: LISTVIEW CONTROL ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3744,11 +3819,11 @@ LV_GetItemCount(hWnd) {
 
 ;elimina item. dejar vacio el segundo parámetro para eliminar todos los items
 LV_DeleteItem(hWnd, Item := 0) {
-	return SendMessage(hWnd, 0x1000+(Item?8:9),, Item>0?Item-1:0)
+	return SendMessage(hWnd, 0x1000+(Item>0?8:9),, Item>0?Item-1:0)
 }
 
 ;eliminar columna
-LV_DeleteColumn(hWnd, Column) {
+LV_DeleteColumn(hWnd, Column := 1) {
 	return SendMessage(hWnd, 0x1000+28,, Column-1)
 }
 
@@ -3893,6 +3968,270 @@ LV_GetSelected(Col := 1, Type := "F", RowNumber := 0) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;::::::::::::::::::::::::::::::::::::::::::::: TREEVIEW CONTROL ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Obtener item
+;Sintaxis: TV_GetNextItem( [ID], [Item], [Modo] )
+;Modos: https://msdn.microsoft.com/en-us/library/windows/desktop/bb773622%28v=vs.85%29.aspx
+;Nota: espesificar 'CARET' para obtener el item seleccionado (3er parametro)
+TV_GetNextItem(hWnd, Item := 0, Mode := "NEXT") {
+	static Modes := {"CARET": 0x0009, "CHILD": 0x0004, "DROPHILITE": 0x0008, "FIRSTVISIBLE": 0x0005, "LASTVISIBLE": 0x000A, "NEXT": 0x0001
+	, "NEXTSELECTED": 0x000B, "NEXTVISIBLE": 0x0006, "PARENT": 0x0003, "PREVIOUS": 0x0002, "PREVIOUSVISIBLE": 0x0007, "ROOT": 0x0000}
+	return SendMessage(hWnd, 0x110A, "UInt", Modes[Mode],, Item)
+}
+
+;obtiene la cantidad de items
+;Sintaxis: TV_GetItemCount( [ID], [Modo] )
+;Modos: ALL|SELECTED|VISIBLE
+TV_GetItemCount(hWnd, Mode := "ALL") {
+	if (Mode="ALL")
+		return SendMessage(hWnd, 0x1105)
+	else if (Mode="VISIBLE")
+		return SendMessage(hWnd, 0x1110)
+	else if (Mode="SELECTED") {
+		ItemSelectedCount := 0
+		while TV_GetNextItem(hWnd,, "NEXTSELECTED")
+			ItemSelectedCount++
+		return ItemSelectedCount
+	}
+	return 0, ErrorLevel := 1
+}
+
+;seleccionar item
+;TV_SelectItem( [ID], [Item], [Modo] )
+;Modos: https://msdn.microsoft.com/en-us/library/windows/desktop/bb773736%28v=vs.85%29.aspx
+TV_SelectItem(hWnd, Item := 0, Mode := "CARET") {
+	static Modes := {"CARET": 0x0009, "DROPHILITE": 0x0008, "FIRSTVISIBLE": 0x0005, "NOSINGLEEXPAND": 0x8000}
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	return SendMessage(hWnd, 0x110B, "UInt", Modes[Mode],, Item-1)
+}
+
+;hacer visible un item
+;TV_VisibleItem( [ID], [Item] )
+TV_VisibleItem(hWnd, Item := 0) {
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	return SendMessage(hWnd, 0x1114,,,, Item-1)
+}
+
+;editar etiqueta del item
+;TV_EditLabel( [ID], [Item] )
+TV_EditLabel(hWnd, Item := 0) {
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	return SendMessage(hWnd, 0x1141,,,, Item-1)
+}
+
+;eliminar un item o 'todos (defecto)'
+;Sintaxis: TV_DeleteItem( [ID], [Item] )
+TV_DeleteItem(hWnd, Item := 0) {
+	if !(Item>0)
+		return SendMessage(hWnd, 0x1101,,,, -65536)
+	return SendMessage(hWnd, 0x1101,,,, Item-1)
+}
+
+;expandir/contraer/invertir items
+;Sintaxis: TV_Expand( [ID], [Item], [Modo] )
+;Modos: https://msdn.microsoft.com/en-us/library/windows/desktop/bb773568%28v=vs.85%29.aspx
+TV_Expand(hWnd, Item := 0, Mode := "EXPAND") {
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	static Modes := {"COLLAPSE": 0x0001, "COLLAPSERESET": 0x8000, "EXPAND": 0x0002, "EXPANDPARTIAL": 0x4000, "TOGGLE": 0x0003}
+	return SendMessage(hWnd, 0x1102, "UInt", Modes[Mode],, Item-1)
+}
+
+;cambiar nombre
+;Sintaxis: TV_SetItemText( [ID], [texto], [Item] )
+TV_SetItemText(hWnd, NewText := "", Item := 0) {
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	VarSetCapacity(TVITEMEX, A_PtrSize = 4 ? 56 : 64, 0)
+	NumPut(0x0001, TVITEMEX, 0, "UInt")
+	NumPut(Item-1, TVITEMEX, 4, "Ptr")
+	NumPut(&NewText, TVITEMEX, A_PtrSize = 4 ? 16 : 20, "Ptr")
+	NumPut(StrLen(NewText), TVITEMEX, A_PtrSize = 4 ? 20 : 24, "Int")
+	return return SendMessage(hWnd, 0x113F,,,, &TVITEMEX)
+}
+
+;obtener nombre
+;Sintaxis: TV_GetItemText( [ID], [Item] )
+TV_GetItemText(hWnd, Item := 0) {
+	Item := Item>0?Item:TV_GetNextItem(hWnd,, "CARET")+1
+	VarSetCapacity(TVITEMEX, A_PtrSize = 4 ? 56 : 64, 0)
+	NumPut(0x0001, TVITEMEX, 0, "UInt")
+	NumPut(Item-1, TVITEMEX, 4, "Ptr")
+    VarSetCapacity(TVTEXT, 256 * 2, 0)
+    NumPut(&TVTEXT, TVITEMEX, A_PtrSize = 4 ? 16 : 20, "Ptr")
+    NumPut(256, TVITEMEX, A_PtrSize = 4 ? 20 : 24, "Int")
+    SendMessage(hWnd, 0x113E,,,, &TVITEMEX)
+    return StrGet(NumGet(TVITEMEX, A_PtrSize = 4 ? 16 : 20, "UPtr"))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;::::::::::::::::::::::::::::::::::::::::::::: TAB CONTROL ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtener cantidad de items
+;Sintaxis: TC_GetItemCount( [ID] )
+TC_GetItemCount(hWnd) {
+	return SendMessage(hWnd, 0x1304)
+}
+
+;obtener posicion del item que tiene el foco o el item seleccionado.
+;Sintaxis: TC_GetItemFocus( [ID], [¿seleccionado?] )
+TC_GetItemFocus(hWnd, Selected := 1) {
+	return SendMessage(hWnd, Selected?0x130B:0x132F)+1
+}
+
+;obtener texto de un item
+;Sintaxis: TC_GetItemText( [ID], [Item] )
+TC_GetItemText(hWnd, Item := 0) {
+	Item := Item>0?Item:TC_GetItemFocus(hWnd)
+	VarSetCapacity(TCITEM, A_PtrSize = 4 ? 28 : 40, 0)
+	NumPut(0x0001, TCITEM, 0, "UInt")
+	VarSetCapacity(TCTEXT, 256 * 2, 0)
+	NumPut(&TCTEXT, TCITEM, A_PtrSize = 4 ? 12 : 16, "Ptr")
+	NumPut(256, TCITEM, A_PtrSize = 4 ? 16 : 20, "Int")
+	SendMessage(hWnd, 0x133C,, Item-1,, &TCITEM)
+	return StrGet(NumGet(TCITEM, A_PtrSize = 4 ? 12 : 16, "UPtr"))
+}
+
+;cambiar texto de un item
+;Sintaxis: TC_SetItemText( [ID], [Texto], [Item] )
+TC_SetItemText(hWnd, NewText := "", Item := 0) {
+	Item := Item>0?Item:TC_GetItemFocus(hWnd)
+	VarSetCapacity(TCITEM, A_PtrSize = 4 ? 28 : 40, 0)
+	NumPut(0x0001, TCITEM, 0, "UInt")
+	NumPut(&NewText, TCITEM, A_PtrSize = 4 ? 12 : 16, "Ptr")
+	NumPut(StrLen(NewText), TCITEM, A_PtrSize = 4 ? 16 : 20, "Int")
+	return SendMessage(hWnd, 0x133D,, Item-1,, &TCITEM)
+}
+
+;dar foco a un item o seleccionarlo
+;Sintaxis: TC_SetItemFocus( [ID], [Item], [¿seleccionar?] )
+;Notas: si se omite el 2do parametro, auto-selecciona el item anterior o 'siguiente si no hay anterior'.
+TC_SetItemFocus(hWnd, Item := 0, Select := 1) {
+	if !(Item>0)
+		Item := ((i:=TC_GetItemFocus(hWnd, Select))-1)>0?i-1:(i=1?i+(TC_GetItemCount(hWnd)>1?1:0):1)
+	return SendMessage(hWnd, Select?0x130C:0x1330,, Item-1)
+}
+
+;deselecciona todos los items o todos menos el item seleccionado
+;Sintaxis: TC_Reset( [ID], [¿evitar deseleccionar el item seleccionado?] )
+TC_Reset(hWnd, Mode := 0) {
+	return SendMessage(hWnd, 0x1332,, Mode)
+}
+
+;eliminar un item, opcional seleccionar el anterior (o siguiente si no hay anterior)
+;Sintaxis: TC_DeleteItem( [ID], [Item], [¿seleccionar el item anterior?] )
+;Nota: dejar vacio el 2do parametro (o establecerlo <0) para eliminar todos los items.
+TC_DeleteItem(hWnd, Item := 0, Select := 1) {
+	if !(Item>0)
+		return SendMessage(hWnd, 0x1309)
+	i := SendMessage(hWnd, 0x1308,, Item-1)
+	if Select
+		TC_SetItemFocus(hWnd, ((Item-1)>0?(Item-1):1))
+	return i, ErrorLevel := !i
+}
+
+;resalta el item
+;Sintaxis: TC_HighlightItem( [ID], [Item], [Estado 0|1] )
+TC_HighlightItem(hWnd, Item := 0, State := 1) {
+	Item := Item>0?Item:TC_GetItemFocus(hWnd)
+	return SendMessage(hWnd, 0x1333, "Int", Item-1, "Int", State)
+}
 
 
 
@@ -4111,7 +4450,7 @@ ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 ;OPCIONES:
 	;0 = sin icono | 1 = Info (defecto) | 2 = Advertencia | 3 = Error
 	;+M = sin sonido (0M, 1M, 2M, 3M)
-;Nota: espesificar un número negativo en tiempo fuera para usar milisegundos
+;Nota: espesificar un número negativo en tiempo fuera para usar milisegundosundos
 TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 	static TrayTip := Func("TrayTip").Bind()
 	SetTimer(TrayTip, "Off")
