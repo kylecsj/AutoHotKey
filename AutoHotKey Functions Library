@@ -3393,6 +3393,10 @@ ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
 		return (i:=FileExist(hWnd))?(LibraryPath:=hWnd):0, ErrorLevel := !i
 	if !LibraryPath&&!FileExist(A_ScriptDir "\waterctrl.dll")
 		return 0, ErrorLevel := 2 ;ErrorLevel 2 = waterctrl.dll no se encuentra
+	if LoadLibrary&&(Mode="EXIT"||Mode="FREE") {
+		ImageWaterCtrl(, "DETACH")
+		return i:=FreeLibrary(LoadLibrary), ErrorLevel := !i, LoadLibrary := ""
+	}
 	if !LoadLibrary&&!(LoadLibrary:=LoadLibrary(LibraryPath?LibraryPath:A_ScriptDir "\waterctrl.dll"))
 		return 0, ErrorLevel := 3 ;ErrorLevel 3 = error al cargar waterctrl.dll
 	if (Mode="ATTACH"||Mode="ENABLE") {
@@ -3411,12 +3415,9 @@ ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
 		return i:=DllCall("waterctrl\setwaterparent", "Ptr", hWnd), ErrorLevel := !i
 	} else if (Mode="FLATTEN") {
 		return i:=DllCall("waterctrl\flattenwater"), ErrorLevel := !i
-	} else if (Mode="EXIT"||Mode="FREE") {
-		ImageWaterCtrl(, "DETACH")
-		return i:=FreeLibrary("waterctrl.dll"), ErrorLevel := !i, LoadLibrary := ""
 	}
 	return 0, ErrorLevel := 1 ;ErrorLevel 1 = el modo espesificado es inválido
-} ;By. tmplinshi: http://ahkscript.org/boards/viewtopic.php?f=22&t=3302&p=16261&hilit=waterctrl#p16261
+} ;http://ahkscript.org/boards/viewtopic.php?f=22&t=3302&p=16261&hilit=waterctrl#p16261
 
 
 
