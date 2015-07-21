@@ -1,4 +1,63 @@
 ###############################################################
+ACTUALIZACION 21/07/2015 - AHK1.1.22.03
+###############################################################
+Funciones Agregadas:
+	• TC_GetItemCount()
+	• TC_GetItemFocus()
+	• TC_GetItemText()
+	• TC_SetItemText()
+	• TC_SetItemFocus()
+	• TC_DeleteItem()
+	• TC_Reset()
+	• TC_HighlightItem()
+	• TV_GetNextItem()
+	• TV_GetItemCount()
+	• TV_SelectItem()
+	• TV_SelectItem()
+	• TV_VisibleItem()
+	• TV_EditLabel()
+	• TV_DeleteItem()
+	• TV_Expand()
+	• TV_SetItemText()
+	• TV_GetItemText()
+	• ImageWaterCtrl()
+
+Correcciones:
+	• BlockInput()
+	• SetTimer()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 13/07/2015, 15/07, 17/07, 20/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
