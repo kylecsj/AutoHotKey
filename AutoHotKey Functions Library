@@ -6,10 +6,10 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
-					escritorio & explorador & menu inicio, otros.
+					escritorio & explorador & menu inicio, recursos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Martes, 21 de julio de 2015
+Actualizado: AHK-U1.1.22.03 || Viernes, 24 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -533,23 +533,25 @@ FileFNPath(Filename, String := "(%A_Index%)", Add := 1) {
 ;EJEMPLOS:
 	;MsgBox % FileGetInfo( comspec ).CompanyName
 	;MsgBox % FileGetInfo( comspec, "FileDescription" )
-FileGetInfo( lptstrFilename, FileInfo := "") {
-	static List := "Comments InternalName ProductName CompanyName LegalCopyright ProductVersion"
-		. " FileDescription LegalTrademarks PrivateBuild FileVersion OriginalFilename SpecialBuild"
-	dwLen := DllCall("Version.dll\GetFileVersionInfoSizeW", "Str", lptstrFilename, "Ptr", 0)
-	dwLen := VarSetCapacity( lpData, dwLen + A_PtrSize)
-	DllCall("Version.dll\GetFileVersionInfoW", "Str", lptstrFilename, "UInt", 0, "UInt", dwLen, "Ptr", &lpData) 
-	DllCall("Version.dll\VerQueryValueW", "Ptr", &lpData, "Str", "\VarFileInfo\Translation", "PtrP", lplpBuffer, "PtrP", puLen )
-	sLangCP := Format( "{:04X}{:04X}", NumGet(lplpBuffer+0, "UShort"), NumGet(lplpBuffer+2, "UShort") )
-	if FileInfo {
-		DllCall("Version.dll\VerQueryValueW", "Ptr", &lpData, "Str", "\StringFileInfo\" sLangCP "\" FileInfo, "PtrP", lplpBuffer, "PtrP", puLen )
-		return StrGet(lplpBuffer, puLen)
-	}
-	i := {}
-	Loop, Parse, % List, %A_Space%
-		DllCall("Version.dll\VerQueryValueW", "Ptr", &lpData, "Str", "\StringFileInfo\" sLangCp "\" A_LoopField, "PtrP", lplpBuffer, "PtrP", puLen )
-		, i[A_LoopField] := StrGet(lplpBuffer, puLen)
-	return i
+FileGetInfo(FileName, InfoType := "") {
+	static InfoList := ["Comments","InternalName","ProductName","CompanyName","LegalCopyright","ProductVersion"
+		,"FileDescription","LegalTrademarks","PrivateBuild","FileVersion","OriginalFilename","SpecialBuild"]
+	;InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeExW", "UInt", 0, "Str", FileName, "Ptr", 0)
+	InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeW", "Str", FileName, "Ptr", 0)
+	VarSetCapacity(InfoData, InfoSize * 2, 0)
+	;DllCall("Version.dll\GetFileVersionInfoExW", "UInt"; 0, "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
+	DllCall("Version.dll\GetFileVersionInfoW", "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
+	DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\VarFileInfo\Translation", "PtrP", aInfoData, "PtrP", InfoSize+1)
+	Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort")
+	Lang_CodePage := Format( "{:04X}{:04X}", Lang, CodePage)
+	if InfoType {
+		DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
+		return StrGet(aInfoData, InfoSize)
+	} FileInfo := {}
+	for Index, InfoType in InfoList
+		if DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
+			FileInfo[InfoType] := StrGet(aInfoData, InfoSize)
+	return FileInfo
 }
 
 ;obtiene informacion de un archivo (mas lento)
@@ -761,12 +763,11 @@ FileWait(FileName, Seconds := 0, NotExist := false) {
 	if (Seconds=-1)
 		return 0
 	FileName := GetFullPathName(FileName)
-	StartTime := A_TickCount
+	, ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if (NotExist&&!IsFile(FileName))||(!NotExist&&IsFile(FileName))
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds>0)&&(ElapsedTime>=Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep(500)
 	}
@@ -992,12 +993,11 @@ DirWait(DirName, Seconds := 0, NotExist := 0) {
 	if (Seconds=-1)
 		return 0
 	DirName := GetFullPathName(DirName)
-	StartTime := A_TickCount
+	, ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if (NotExist&&!IsDir(DirName))||(!NotExist&&IsDir(DirName))
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds>0)&&(ElapsedTime>=Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep(500)
 	}
@@ -1591,6 +1591,10 @@ NumAverage(num*) {
 	return Sum/(num.MaxIndex()+0.0)
 }
 
+Random(Min, Max) {
+	Random, OutputVar, %Min%, %Max%
+	return OutputVar
+}
 
 
 
@@ -1619,6 +1623,319 @@ NumAverage(num*) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+; ::::::::::::::::::::::::::::::::::::::::::::: RECURSOS (.EXE & .DLL) ::::::::::::::::::::::::::::::::::
+;NOTA: para usar las funciones, primero es necesario establecer el archivo sobre el cual trabajar mediante ResourceOpen( [archivo] ).
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;carga/libera el archivo con el cual todas las funciones de abajo trabajan.
+;Sintaxis: ResourceOpen( [archivo], [¿cerrar?] )
+;Notas: una vez terminado de usar el archivo, espesificar 1 en el 2do parametro (o 'free' en el 1ero) para cerrar el archivo actual.
+	;debe espesificarce el archivo primero antes de utilizar cualquier otra funcion de abajo
+	;si espesifica un nuevo archivo ya habiendo otro cargado, libera el anterior y carga el nuevo. todo archivo no guardado se descarta.
+;EJEMPLO DE USO: obtener todos los tipos de recursos de cmd.exe y los recursos dentro de estos con el tamaño en bytes.
+	/*ResourceOpen(ComSpec)
+	Loop, Parse, % ResourceEnumTypes(StringType, Total), `n
+	{
+		SubItems := "", ResourceType := A_LoopField
+		Loop, Parse, % ResourceEnumNames(A_LoopField), `n
+			SubItems .= A_LoopField " (" ResourceSize(ResourceType, A_LoopField) " Bytes), "
+		Resources .= StringType[A_Index] ": " StrTrimRight(SubItems, 2) "`n"
+	}
+	MsgBox % LTrim(Resources, "`n")
+	ResourceOpen("free") ;necesario para cuando se termina de utilizar el archivo
+	ExitApp
+	*/
+ResourceOpen(FileName := "*", Free := false) {
+	static ResTypes := {1: "RT_CURSOR", 2: "RT_BITMAP", 3: "RT_ICON", 4: "RT_MENU", 5: "RT_DIALOG", 23: "RT_HTML"
+	, 6: "RT_STRING", 7: "RT_FONTDIR", 8: "RT_FONT", 9: "RT_ACCELERATOR", 10: "RT_RCDATA", 22: "RT_ANIICON"
+	, 11: "RT_MESSAGETABLE", 12: "RT_GROUP_CURSOR", 14: "RT_GROUP_ICON", 15: "RT_NAMETABLE"
+	, 16: "RT_VERSION", 17: "RT_DLGINCLUDE", 19: "RT_PLUGPLAY", 20: "RT_VXD", 21: "RT_ANICURSOR"}
+	static ResNames := {"RT_CURSOR": 1, "RT_BITMAP": 2, "RT_ICON": 3, "RT_MENU": 4, "RT_DIALOG": 5, "RT_HTML": 23
+	, "RT_STRING": 6, "RT_FONTDIR": 7, "RT_FONT": 8, "RT_ACCELERATOR": 9, "RT_RCDATA": 10, "RT_ANIICON": 22
+	, "RT_MESSAGETABLE": 11, "RT_GROUP_CURSOR": 12, "RT_GROUP_ICON": 14, "RT_NAMETABLE": 15
+	, "RT_VERSION": 16, "RT_DLGINCLUDE": 17, "RT_PLUGPLAY": 19, "RT_VXD": 20, "RT_ANICURSOR": 21}
+	static CurrentFileName, hFile
+	if (FileName="*") {
+		if !Free {
+			if hFile 
+				return hFile, ErrorLevel := 0
+		} else if (Free=1) {
+			return ResTypes, ErrorLevel := 0
+		} else if (Free=2) {
+			return ResNames, ErrorLevel := 0
+		} else if (Free=3) {
+			if CurrentFileName
+				return CurrentFileName, ErrorLevel := 0
+		}
+	} else if Free||(FileName="free") {
+		if hFile {
+			ResourceEnumLanguages(-1,0), ResourceEnumTypes(-1), ResourceEnumNames(-1,0)
+			, ResourceCopy("end", true), ResourceAdd("end", true), ResourceDelete("end", true)
+			return FreeLibrary(hFile), CurrentFileName:=hFile:=""
+		}
+	} else if FileExist(FileName) {
+		if (FileName!=CurrentFileName) {
+			if hFile
+				ResourceCopy("end", true), ResourceAdd("end", true), ResourceDelete("end", true)
+				, FreeLibrary(hFile)
+			return hFile:=LoadLibrary(CurrentFileName:=FileName,, 0x2)
+		}
+	}
+	return 0, ErrorLevel := 1 
+}
+
+;recupera todos los tipos de recursos (RT_ICON, RT_DIALOG, RT_VERSION...)
+;Sintaxis: ResourceEnumTypes( [cadena de texto que reprecenta el tipo (array-out)], [total (out)], [delimitador] )
+ResourceEnumTypes(ByRef StringTypes := "", ByRef Total := "", Delimiter := "`n") {
+	static lpEnumFunc
+	if (StringTypes=-1)
+		return lpEnumFunc?DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc):0, lpEnumFunc:=""
+	if !(hModule:=ResourceOpen())
+		return 0
+	if !lpEnumFunc
+		lpEnumFunc := RegisterCallback("EnumResTypeProc", "Fast", 3)
+	Param := {Index: 0, ResourceTypes: "", Delimiter: Delimiter, StringTypes: [], EnableST: IsByRef(StringTypes)}
+	, DllCall("Kernel32.dll\EnumResourceTypesW", "Ptr", hModule, "Ptr", lpEnumFunc, "Ptr", &Param)
+	return RTrim(Param.ResourceTypes, Delimiter ""), Total := Param.Index, StringTypes := Param.StringTypes
+}
+EnumResTypeProc(hModule, lpszType, lParam) {
+	static ResTypes := ResourceOpen(, 1)
+	Param := Object(lParam)
+	if ResTypes[lpszType] {
+		Param.Index++
+		Param.ResourceTypes .= lpszType Param.Delimiter
+		if Param.EnableST
+			Param.StringTypes[Param.Index] .= ResTypes[lpszType]
+	}
+	return true
+}
+
+;recupera todos los recursos dentro de un tipo de recurso espesificado
+;Sintaxis: ResourceEnumNames( [tipo de recurso], [total (out)], [delimitador] )
+ResourceEnumNames(ResourceType, ByRef Total := "", Delimiter := "`n") {
+	static ResTypes := ResourceOpen(, 2)
+	static lpEnumFunc
+	if (ResourceType=-1)
+		return lpEnumFunc?DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc):0, lpEnumFunc := ""
+	if !(hModule:=ResourceOpen())
+		return 0
+	if !lpEnumFunc
+		lpEnumFunc := RegisterCallback("EnumResNameProc", "Fast", 4)
+	Param := {Index: 0, ResourceNames: "", Delimiter: Delimiter}
+	, DllCall("Kernel32.dll\EnumResourceNamesW", "Ptr", hModule
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType, "Ptr", lpEnumFunc, "Ptr", &Param)
+	return RTrim(Param.ResourceNames, Delimiter ""), Total := Param.Index
+} ;http://ahkscript.org/boards/viewtopic.php?f=5&t=8659
+EnumResNameProc(hModule, lpszType, lpszName, lParam) {
+	Param := Object(lParam)
+	if lpszName
+		Param.Index += 1
+		, Param.ResourceNames .= lpszName Param.Delimiter 
+	return true
+}
+
+;obtiene el tamaño de un recurso en bytes
+;Sintaxis: ResourceSize( [tipo de recurso], [nombre del recurso] )
+ResourceSize(ResourceType, ResourceName) {
+	static ResTypes := ResourceOpen(, 2)
+	if !(hModule:=ResourceOpen())
+		return 0
+	hRes := DllCall("Kernel32.dll\FindResourceW", "Ptr", hModule, "Ptr", ResourceName+1=""?&ResourceName:ResourceName
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType)
+	return DllCall("Kernel32.dll\SizeofResource", "Ptr", hModule, "Ptr", hRes)
+}
+
+;obtiene los recursos específicos del idioma, del tipo y nombre específico.
+;Sintaxis: ResourceEnumLanguages( [tipo de recurso], [nombre del recurso], [total (out)], [delimitador] )
+;Ejemplo:
+	;ResourceOpen(ComSpec) ;cargar cmd.exe
+	;MsgBox % "Original: " (i:=ResourceEnumLanguages(16, 1)) "`nHex: " i " (" StrReplace(Hex(0 i), "x") ")`nA_Language: " A_Language
+	;ResourceOpen("free") ;liberar el archivo cargado en memoria (cmd.exe)
+	;ExitApp
+ResourceEnumLanguages(ResourceType, ResourceName, ByRef Total := "", Delimiter := "`n") {
+	static ResTypes := ResourceOpen(, 2)
+	static lpEnumFunc
+	if (ResourceType=-1)
+		return lpEnumFunc?DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc):0
+	if !(hModule:=ResourceOpen())
+		return 0
+	if !lpEnumFunc
+		lpEnumFunc := RegisterCallback("EnumResLangProc", "Fast", 5)
+	Param := {Index: 0, ResourceLanguages: "", Delimiter: Delimiter}
+	DllCall("Kernel32.dll\EnumResourceLanguagesW", "Ptr", hModule
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
+		, "Ptr", ResourceName, "Ptr", lpEnumFunc, "Ptr", &Param)
+	return Param.ResourceLanguages=""?0x0000:RTrim(Param.ResourceLanguages, Delimiter ""), Total := Param.Index
+}
+EnumResLangProc(hModule, lpszType, lpszName, wIDLanguage, lParam) {
+	Param := Object(lParam)
+	if lpszName
+		Param.ResourceLanguages .= wIDLanguage Param.Delimiter
+	return true
+}
+
+;copiar un recurso de un archivo a otro
+;Sintaxis: ResourceCopy( [archivo destino], [tipo], [nombre], [tipo (destino)], [nombre (destino)] )
+;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
+	;Sintaxis: ResourceCopy("end", [¿descartar los cambios?] )
+	;si va a copiar a un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
+	;utilizar '*' en el 1er parametro para referirse al último archivo espesificado a copiar los datos
+	;si no espesifica los 2 últimos parámetros se toman de los 2 primeros
+;EJEMPLO: copiar la informacion de version de nombre '1' de AutoHotkey.exe a File.exe con el mismo nombre
+	;ResourceOpen(A_Desktop "\AutoHotkey.exe") ;cargar archivo a copiar datos
+	;ResourceCopy(A_Desktop "\File.exe", "RT_VERSION", 1, "RT_VERSION", 1) ;copiar a File.exe
+	;ResourceCopy("*", "RT_ICON") ;copiar al archivo anterior(*) (File.exe) el icono con nombre 1(param 2, defecto 1) de AutoHotKey.exe
+	;ResourceCopy("end") ;aplicar cambios
+	;ResourceOpen("free") ;terminar
+	;ExitApp
+ResourceCopy(FileName, OutputResourceType := 0, OutputResourceName := 1, InputResourceType := "", InputResourceName := "") {
+	static ResTypes := ResourceOpen(, 2)
+	static hUpdateResource, hFile
+	if !(hModule:=ResourceOpen())
+		return 0
+	if (FileName="end")
+		return hUpdateResource?DllCall("Kernel32.dll\EndUpdateResourceW", "Ptr", hUpdateResource, "Int", OutputResourceType?1:0):0, hUpdateResource := ""
+	FileName := FileName="*"?hFile:FileName, InputResourceType := InputResourceType=""?OutputResourceType:InputResourceType
+	, InputResourceName := InputResourceName=""?OutputResourceName:InputResourceName
+	if hUpdateResource&&(hFile!=FileName)
+		DllCall("Kernel32.dll\EndUpdateResourceW", "Ptr", hUpdateResource, "Int", true), hUpdateResource := ""
+	hResource := DllCall("Kernel32.dll\FindResourceW", "Ptr", hModule, "Ptr", OutputResourceName
+		, "Ptr", ResTypes[OutputResourceType]>0?ResTypes[OutputResourceType]:OutputResourceType)
+	hResourceLoad := DllCall("Kernel32.dll\LoadResource", "Ptr", hModule, "Ptr", hResource)
+	lpResourceLock  := DllCall("Kernel32.dll\LockResource", "Ptr", hResourceLoad)
+	hUpdateResource := hUpdateResource?hUpdateResource:DllCall("Kernel32.dll\BeginUpdateResourceW", "Str", FileName, "Int", false)
+	return DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[InputResourceType]>0?ResTypes[InputResourceType]:InputResourceType
+		, "Str", InputResourceName, "UShort", ResourceEnumLanguages(OutputResourceType, OutputResourceName), "Ptr", lpResourceLock
+		, "UInt", DllCall("Kernel32.dll\SizeofResource", "Ptr", hModule, "Ptr", hResource)) ? 1
+		: DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[InputResourceType]>0?ResTypes[InputResourceType]:InputResourceType
+		, "Ptr", InputResourceName, "UShort", ResourceEnumLanguages(OutputResourceType, OutputResourceName), "Ptr", lpResourceLock
+		, "UInt", DllCall("Kernel32.dll\SizeofResource", "Ptr", hModule, "Ptr", hResource))
+		, hFile := FileName
+}
+
+;añadir un recurso
+;Sintaxis: ResourceAdd( [tipo], [nombre], [datos], [lenguaje id], [tipo de datos] )
+;Tipo de datos: si va a añadir cualquier tipo de archivo espesificar 'File', si va a añadir solo texto espesificar 'String' (defecto).
+;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
+	;Sintaxis: ResourceAdd("end", [¿descartar los cambios?] )
+	;si va a modificar un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
+ResourceAdd(ResourceType, ResourceName := 0, Data := "", Language := 0x0000, DataType := "String") {
+	static hUpdateResource
+	if !(hModule:=ResourceOpen(, 3))
+		return 0
+	if (ResourceType="end")
+		return hUpdateResource?DllCall("Kernel32.dll\EndUpdateResourceW", "Ptr", hUpdateResource, "Int", ResourceName?1:0):0, hUpdateResource := ""
+	hUpdateResource := hUpdateResource?hUpdateResource:DllCall("Kernel32.dll\BeginUpdateResourceW", "Str", hModule, "Int", false)
+	if (DataType="File") {
+		if !FileExist(Data)
+			return 0
+		VarSetCapacity(IpData, nSize:=FileGetSize(Data), 0), IpData := FileRead("*c " Data)
+	} else {
+		IpData := Data, nSize := StrLen(Data)
+	}
+	if !(nSize>0)
+		return 0
+	return DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
+		, "Str", ResourceName, "UShort", Language, "Ptr", &IpData, "UInt", nSize) ? 1
+		: DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
+		, "Ptr", ResourceName, "UShort", Language, "Ptr", &IpData, "UInt", nSize)
+}
+
+;eliminar recurso
+;Sintaxis: RecurseDelete( [tipo], [nombre], [lenguaje id] )
+;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
+	;Sintaxis: RecurseDelete("end", [¿descartar los cambios?] )
+	;si va a modificar un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
+ResourceDelete(ResourceType, ResourceName := 0, Language := "auto") {
+	static hUpdateResource
+	if !(hModule:=ResourceOpen(, 3))
+		return 0
+	if (ResourceType="end")
+		return hUpdateResource?DllCall("Kernel32.dll\EndUpdateResourceW", "Ptr", hUpdateResource, "Int", ResourceName?1:0):0, hUpdateResource := ""
+	hUpdateResource := hUpdateResource?hUpdateResource:DllCall("Kernel32.dll\BeginUpdateResourceW", "Str", hModule, "Int", false)
+	return DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
+		, "Ptr", ResourceName, "UShort", Language="auto"?ResourceEnumLanguages(ResourceType, ResourceName):Language, "Ptr", 0, "UInt", 0)?1
+		: DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hUpdateResource
+		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
+		, "Str", ResourceName, "UShort", Language="auto"?ResourceEnumLanguages(ResourceType, ResourceName):Language, "Ptr", 0, "UInt", 0)
+}
 
 
 
@@ -2082,6 +2399,17 @@ Base64Decode(pszString, nSize := 0) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------------------------
   ::::::::::::::::::::::::::::::::::::::::::::: PROCESOS ::::::::::::::::::::::::::::::::::
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2190,12 +2518,11 @@ ProcessExist(Proc*) {
 ProcessWait(ProcessName, Seconds := 0) {
 	if (Seconds = -1)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if ( ProcessId := ProcessExist( ProcessName ) )
 			return ProcessId, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -2209,12 +2536,11 @@ ProcessWait(ProcessName, Seconds := 0) {
 ProcessWaitClose(ProcessName, Seconds := 0) {
 	if (Seconds = -1)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if !ProcessExist( ProcessName )
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -2785,12 +3111,10 @@ ShowDesktop(Wait := -1, Redraw := 0) {
 
 ;obtener hWnd del control SysListView32 del escritorio (control de los iconos)
 GetDesktop(ByRef ShellWindow := "", ByRef DesktopWindow := "") {
-	if !IsByRef(ShellWindow)&&!IsByRef(DesktopWindow) {
-		hProgman := DllCall("User32.dll\FindWindowW", "Str", "Progman", "Ptr", 0)
-		hSDDefView := DllCall("User32.dll\FindWindowExW", "Ptr", hProgman, "Ptr", 0, "Str", "SHELLDLL_DefView", "Ptr", 0)
-		if !(hDesktop := DllCall("User32.dll\FindWindowExW", "Ptr", hSDDefView, "Ptr", 0, "Str", "SysListView32", "Str", "FolderView"))
-			hDesktop := DllCall("User32.dll\FindWindowExW", "Ptr", hSDDefView, "Ptr", 0, "Str", "SysListView32", "Ptr", 0)
-	}
+	hProgman := DllCall("User32.dll\FindWindowW", "Str", "Progman", "Ptr", 0)
+	hSDDefView := DllCall("User32.dll\FindWindowExW", "Ptr", hProgman, "Ptr", 0, "Str", "SHELLDLL_DefView", "Ptr", 0)
+	if !(hDesktop := DllCall("User32.dll\FindWindowExW", "Ptr", hSDDefView, "Ptr", 0, "Str", "SysListView32", "Str", "FolderView"))
+		hDesktop := DllCall("User32.dll\FindWindowExW", "Ptr", hSDDefView, "Ptr", 0, "Str", "SysListView32", "Ptr", 0)
 	return hDesktop, ShellWindow := IsByRef(ShellWindow) ? DllCall("User32.dll\GetShellWindow") : ""
 		, DesktopWindow := IsByRef(DesktopWindow) ? DllCall("User32.dll\GetDesktopWindow") : ""
 }
@@ -2891,23 +3215,59 @@ SaveScreenshot(Filename, Quality := 100) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;bloquear mouse y teclado & suspende el script
+;ejecuta el script como administrador, solo lo intenta una vez, si falla continua normal.
+;establece la prioridad en Alta.
+;modifica los privilegios para el correcto funcionamiento del script.
+;modifica retrasos y otras configuraciones del script.
+;NOTA: esta funcion es llamada automáticamente al inicio del script.
+RunAsAdmin() { ;//-->
+	static StaticRunAsAdmin := RunAsAdmin() ;llama a la funcion automáticamente al inicio del script.
+	if !StaticRunAsAdmin { ;evita que la funcion sea ejecutada mas de 1 vez.
+	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All") ;establece todos los privilegios disponibles para el proceso.
+	ProcessPriority := ProcessPriority(ProcessExist(), "High") ;establece la prioridad del proceso actual Alta.
+	;---------------------------------------------------------------------------------------------------------------------------------------------------------
+	;NOTA: esta parte es ejecutada solo una vez. o ninguna dependiedo si el script es ejecutado como administrador.
+	;si (no es ejecutado como administrador) y (el parametro 1 no es la ruta del script) y (el SO no es windows xp).
+	if !A_IsAdmin&&(%true%!=A_ScriptFullPath)&&(A_OSVersion!="WIN_XP") {
+		_ := A_IsCompiled?A_ScriptFullPath:A_AhkPath ;si esta compilado, ruta al script, de lo contrario usar ruta de autohotkey.
+		;Compilado: [ruta script] [ruta script (que establece el parametro 1)] [ruta script (solo funcional para sin compilar)].
+		;Sin Compilar: [ruta autohotkey] [ruta script] [ruta script (que establece el parametro 1]
+		Run, *RunAs "%_%" "%A_ScriptFullPath%" "%A_ScriptFullPath%",, UseErrorLevel
+		if !ErrorLevel ;si no ha ocurrido error al ejecutar el script nuevamente -->
+			ExitApp ;salir de la sesion actual. caso contrario, seguir normalmente. <--
+	} ;---------------------------------------------------------------------------------------------------------------------------------------------------------
+	SetWorkingDir, %A_ScriptDir% ;establece el directorio de trabajo.
+	SetBatchLines, -1 ;hace que el script trabaje a la máxima velocidad posible (afecta y es afectada por al uso de CPU).
+	SetTitleMatchMode, 2 ;el título de una ventana puede contener «WinTitle» en cualquier lugar dentro para ser valido.
+	SendMode, Input ;SendInput es generalmente mas rápido y mas fiable.
+	SetControlDelay, 10 ;establece algunos retrasos para mejorar la fiabilidad y/o velocidad de respuesta entre cada comando. -->
+	SetKeyDelay, 10, 10, 10
+	SetMouseDelay, 0
+	SetWinDelay, 50 ;<--
+	#NoEnv ;evita comprobar las variables vacías para ver si son variables de entorno (recomendado para todos los nuevos scripts).
+	#MaxMem 4095 ;establece la capacidad máxima de cada variable, en megabytes.
+	return true ;devuelve 1, esto establece la variable RunAsAdmin en 1 para evitar volver a ejecutar esta funcion mas de una vez.
+}} ;<-- //RunAsAdmin
+
+;bloquear mouse y teclado
 ;Sintaxis: BlockInput( [0|1] )
-BlockInput( OnOff ) {
-	static BlockInput := Func("BlockInput").Bind(-1)
-	if (OnOff=-1)
-		return DllCall("User32.dll\BlockInput", "Int", 1)
-	if !OnOff {
-		Suspend, Off
-		RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
+BlockInput(OnOff, Delay := 500, DisableTaskManager := true) {
+	static BlockInput := Func("BlockInput").Bind("Enable")
+	if (OnOff="Enable"||OnOff="Disable") { ;Enable | Disable = bloquear/desbloquear normal
+		return DllCall("User32.dll\BlockInput", "Int", OnOff="Enable"?true:false)
+	} else if (OnOff=0||OnOff="Off") { ;Off = desbloquear
 		SetTimer(BlockInput,  "Off")
-		return DllCall("User32.dll\BlockInput", "Int", 0)
-	}
-	Suspend, On
-	return DllCall("User32.dll\BlockInput", "Int", 1)
-		, SetTimer(BlockInput, 500)
-		, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
-}
+		RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
+		Suspend, Off
+		return DllCall("User32.dll\BlockInput", "Int", false)
+	} else if (OnOff=1||OnOff="On") { ;On = bloquear
+		Suspend, On
+		if (Delay>0)
+			SetTimer(BlockInput, Delay)
+		if DisableTaskManager
+			RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
+		return DllCall("User32.dll\BlockInput", "Int", true)
+}}
 
 ;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
 ;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
@@ -2970,12 +3330,21 @@ SystemEnvAdd(lpName, lpValue) {
 }
 
 ;cambiar fondo de pantalla
-;La imagen debe ser: .BMP
-SetDesktopBackground(Img_BMP) {
-    if !IsFile( Img_BMP )
-        return 0
-    SPI_SETDESKWALLPAPER := 0x0014, SPIF_UPDATEINIFILE := 0x0001, SPIF_SENDWININICHANGE := 0x0002
-    return DllCall("User32.dll\SystemParametersInfoW", "UInt", SPI_SETDESKWALLPAPER, "UInt", 0, "Str", Img_BMP, "UInt", SPIF_UPDATEINIFILE|SPIF_SENDWININICHANGE)
+;la imagen en lo posible debe ser .BMP, si no es bmp se intenta convertir a este formato.
+;Sintaxis: SetDesktopBackground( [imagen], [ancho], [alto] )
+;Nota: es necesario iniciar gdip si la imagen no es .BMP. Gdip_Startup()
+;Ejemplo:
+	;pToken := Gdip_Startup()
+	;SetDesktopBackground("C:\Image.JPG")
+	;Gdip_Shutdown(pToken)
+	;ExitApp
+SetDesktopBackground(Image, Width := "", Height := "") {
+    if !IsFile(Image)
+        return false
+	if (SplitPath(Image,,,, ImageName).Ext!="bmp") ;necesario Gdip_Startup() -->
+		ImageConvert(Image, _:=A_AppData "\AutoHotKey\Windows\desktopwallpaper\" ImageName ".bmp", Width, Height)
+		, Image := _ ;<--
+    return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0014, "UInt", 0, "Str", Image, "UInt", 0x0001|0x0002)
 }
 
 ;recupera la ruta y el nombre completo del archivo/carpeta especificado
@@ -3077,30 +3446,33 @@ PostMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef 
 
 ;Libera la biblioteca (DLL ) módulo cargado de vínculos dinámicos
 FreeLibrary(hModule) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683152%28v=vs.85%29.aspx
-	return DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule) 
+	return i:=DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule), ErrorLevel := !i
 }
 
 ;Carga los módulos especificados en el espacio de direcciones del proceso de llamada 
 ;el valor devuelto es un identificador para el módulo cargado
-LoadLibrary(lpFileName, hFile := 0, dwFlags := 0) {
-	return DllCall("Kernel32.dll\LoadLibraryExW", "Str", lpFileName, "UInt", hFile, "UInt", dwFlags) 
-}
+;Sintaxis: LoadLibrary( [archivo|dll], [0], [opciones] )
+LoadLibrary(lpFileName, hFile := false, dwFlags := false) {
+	if dwFlags
+		i:=DllCall("Kernel32.dll\LoadLibraryExW", "Str", lpFileName, "UInt", hFile, "UInt", dwFlags) 
+	else
+		i:=DllCall("Kernel32.dll\LoadLibraryW", "Str", lpFileName) 
+	return i, ErrorLevel := !i
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684179%28v=vs.85%29.aspx
 
-;Sintaxis: SetTimer( [Etiqueta], [Período] )
+;Sintaxis: SetTimer( [Etiqueta], [Período], [Prioridad -2147483648~2147483647] )
 SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0) {
-	try SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
+	SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
 }
 
 gosub(Label) {
-	if !IsLabel(Label)
-		return 0
-	gosub, %Label%
-	return Label
+	if IsLabel(Label)
+		gosub, %Label%
 }
 
 ;esperar (ms)
 ;Sintaxis: Sleep( [milisegundos], [¿usar mayor precisión?] )
-Sleep(Delay := 0, pc := 0) {
+Sleep(Delay := 0, pc := false) {
 	static Frequency
 	if (Delay>=-1) {
 		if !pc {
@@ -3120,7 +3492,10 @@ Sleep(Delay := 0, pc := 0) {
 ;reiniciar script
 Reload(Force := 0, ExitCode := 0) {
 	if Force {
-		Run( A_ScriptFullPath )
+		if A_IsCompiled
+			Run, "%A_ScriptFullPath%"
+		else
+			Run, "%A_AhkPath%" "%A_ScriptFullPath%"
 		ExitApp( Force, ExitCode )
 	}
 	Reload
@@ -3128,9 +3503,9 @@ Reload(Force := 0, ExitCode := 0) {
 
 ;termina el script
 ;Sintaxis: ExitApp( [¿forzar?], [codigo de salida (-2147483648~2147483647)] )
-ExitApp(Force := 0, ExitCode := 0) {
+ExitApp(Force := false, ExitCode := 0) {
 	if (Force)
-		ProcessClose( -1,,, ExitCode )
+		ProcessClose(ProcessExist(),,, ExitCode)
 	ExitApp, %ExitCode% ;DllCall("User32.dll\PostQuitMessage", "Int", 0)
 }
 
@@ -3144,29 +3519,42 @@ ExitApp(Force := 0, ExitCode := 0) {
 	;}
 ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/boards/viewtopic.php?p=46906#p46906
     static ending
-    if (Seconds = -1)
-        ExitApp( Force, ExitCode )
-    if !(Seconds > 0)
-        return (ending - A_TickCount()) / 1000.0
-    static fn := Func("ExitAppTimer").Bind( -1, Force, ExitCode )
-    SetTimer( fn, Seconds * -1000 )
-    ending := A_TickCount() + Seconds * 1000
+	static ExitAppTimer := Func("ExitAppTimer")
+    if (Seconds="ExitApp")
+        MsgBox(Force "`n" ExitCode), ExitApp(Force, ExitCode)
+    if !Seconds
+        return (ending - A_TickCount) / 1000.0
+    SetTimer(ExitAppTimer.Bind("ExitApp", Force, ExitCode), -(Seconds*1000))
+    ending := A_TickCount+(Seconds*1000)
 }
 
 ;potapapeles
 ;Sintaxis: Clipboard( [texto], [¿copiar seleccionado al portapapeles? (segundos a esperar)] )
 Clipboard(String := "", Selected := 0) {
 	if Selected {
-		Temp := ClipboardAll, Clipboard()
-		Send( "{LCtrl Down}c{LCtrl Up}" )
-		ClipWait( Selected>0?Selected:1 )
-		return Clipboard, Clipboard := Temp
+		try {
+			Temp := ClipboardAll, Clipboard()
+			Send("{LCtrl Down}c{LCtrl Up}")
+			ClipWait(Selected>0?Selected:1)
+			return Clipboard, Clipboard := Temp
+		} catch {
+			return ""
+		}
 	}
-	if (String = "") {
-		DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd)
+	if (String="") {
+		if !DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd) {
+			ElapsedTime := A_TickCount+3000
+			Loop {
+				if DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd)
+					break
+				if (A_TickCount>=ElapsedTime)
+					return 0
+				Sleep(100)
+			}
+		}
 		return DllCall("User32.dll\EmptyClipboard"), DllCall("User32.dll\CloseClipboard")
 	}
-	return Clipboard := String
+	try return Clipboard := String
 }
 
 ;recupera el tiempo que ha pasado (ms) desde que el script se inició
@@ -3177,15 +3565,14 @@ GetTickCount(ByRef TickCount := "") {
 ;espera a que el portapapeles contenga datos
 ;Sintaxis: ClipWait( [segundos], [¿cualquier tipo de datos?] )
 ClipWait( Seconds := -1, AnyFormats := 1 ) {
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if (AnyFormats&&DllCall("User32.dll\CountClipboardFormats"))
 		||(!AnyFormats&&(DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1)||DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15)))
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds>=0&&ElapsedTime>=Seconds)
+		if (Seconds>=0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
-		Sleep( 50 )
+		Sleep(50)
 	}
 }
 
@@ -3218,30 +3605,6 @@ FormatMessage(dwMessageId := "") {
 	nSize := VarSetCapacity(lpBuffer, 2024) - 1524
 	if DllCall("Kernel32.dll\FormatMessageW", "UInt", 0x1000, "Ptr", 0, "UInt", dwMessageId, "UInt", 0x800, "Str", lpBuffer, "UInt", nSize, "UInt", 0)
 		return lpBuffer
-}
-
-;ejecuta el script como administrador 
-;establece la prioridad en Alta
-;modifica los privilegios para el correcto funcionamiento del script
-;NOTA: esta funcion es llamada automáticamente al inicio del script
-RunAsAdmin() {
-	static RunAsAdmin := RunAsAdmin()
-	static ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All")
-	static ProcessPriority := ProcessPriority( ProcessExist(), "High")
-	static SetWorkingDir := SetWorkingDir(A_ScriptDir)
-	;static SetErrorMode := DllCall("Kernel32.dll\SetErrorMode", "UInt", 0x0001)
-	SetBatchLines, -1
-	SetTitleMatchMode, 2
-	SendMode, Input 
-	SetControlDelay, 10
-	SetKeyDelay, 10, 10, 10
-	SetMouseDelay, 0
-	SetWinDelay, 50
-	;if !A_IsAdmin {
-	;	Run, *RunAs "%A_ScriptFullPath%",, UseErrorLevel
-	;	if !ErrorLevel
-	;		ExitApp(1)
-	;} 
 }
 
 FormatTime(Time, Format := "yyyyMMddHmmss") {
@@ -3332,18 +3695,36 @@ Translate(String, From := "", To := "") {
 }
 
 ;obtener ancho y alto de una imagen
-;Sintaxis: ImageGetDimension( [imagen], [ancho], [alto] )
-ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
-	pToken := Gdip_Startup(), i := {}
+;Sintaxis: ImageGetDimension( [imagen], [ancho (out)], [alto (out)] )
+;Nota: es necesario iniciar gdip. Gdip_Startup()
+ImageGetDimension(Image, ByRef Width := "", ByRef Height := "", Free := true) {
 	pBitmap := Gdip_CreateBitmapFromFile(Image)
 	pGraphics := Gdip_GraphicsFromImage(pBitmap)
 	x:=Gdip_GetImageDimensions(pBitmap, Width, Height)
 	Gdip_DeleteGraphics(pGraphics)
 	Gdip_DisposeImage(pBitmap)
-	Gdip_Shutdown(pToken)
-	i.w := i.Width := Width, i.h := i.Height := Height
+	i := {}, i.w := i.Width := Width, i.h := i.Height := Height
 	return i, ErrorLevel := !x
 }
+
+;establecer dimenciones de la imagen y/o modificar extension a png, bmp, jpg, tiff o gif
+;Sintaxis: ImageConvert( [imagen], [directorio\nombre.ext (png|bmp|jpg|tiff|gif)], [ancho], [alto], [¿preservar la relacion de aspecto?], [profundidad de bits 24/32 (solo .bmp)] )
+;Nota: es necesario iniciar gdip. Gdip_Startup() - ver ejemplo: SetDesktopBackground()
+ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio := true, BitDepth := 32) {
+	SplitPath(Output,, ImageDir, ImageExt), pBitmapFile := Gdip_CreateBitmapFromFile(Image)
+	, CurrentWidth := Gdip_GetImageWidth(pBitmapFile), CurrentHeight := Gdip_GetImageHeight(pBitmapFile)
+	, NewWidth := Width=""?CurrentWidth:Width, NewHeight := Height=""?CurrentHeight:Height
+	if PreserveAspectRatio&&((r1:=CurrentWidth/NewWidth)>(r2:=CurrentHeight/NewHeight))
+		NewHeight := CurrentHeight/r1
+	else if PreserveAspectRatio
+		NewWidth := CurrentWidth/r2
+	if !IsDir(ImageDir) ;si el directorio donde se va a crear la imagen no existe
+		DirCreate(ImageDir) ;crearlo
+	pBitmap := Gdip_CreateBitmap(NewWidth, NewHeight, ImageExt="bmp"&&BitDepth=24?0x00021808:0x26200A)
+	, pGraphics := Gdip_GraphicsFromImage(pBitmap), Gdip_SetSmoothingMode(pGraphics, 4), Gdip_SetInterpolationMode(pGraphics, 7)
+	, Gdip_DrawImage(pGraphics, pBitmapFile, false, false, NewWidth, NewHeight), Gdip_DisposeImage(pBitmapFile)
+	, Gdip_SaveBitmapToFile(pBitmap, Output), Gdip_DisposeImage(pBitmap), Gdip_DeleteGraphics(pGraphics) 
+} ;http://ahkscript.org/boards/viewtopic.php?f=6&p=49878&sid=8974c43be898318cea6b8dc509f2e6df#p49878
 
 ;efecto de agua para una imagen. (ver notas)
 ;Sintaxis: ImageWaterCtrl( [ID], [Modo], [Opciones*] )
@@ -3641,7 +4022,7 @@ RegCopy(Key, KeyDest, Force := 0) {
 ;NOTA 2: omite si no hay claves, valores y el valor por defecto es 'valor no establecido' (devuelve 0 como si no existiera)
 ;NOTA 3: para evitar lo anterior, debe establecer 'forzar' en 1, pero puede ser lento dependiendo la cantidad de claves hermanas
 ;Sintaxis: RegExist( [clave], [valor], [¿forzar?] )
-RegExist(Key, ValueName := "", Force := 0) {
+RegExist(Key, ValueName := "", Force := false) {
 	;-----------------------------------------------------------------------------------------------------------
 	if (ValueName != "") { ; :::::::::: COMPROBAR SI EXISTE UN VALOR ::::::::::::::::
 		if Force { ;forzar
@@ -4278,23 +4659,22 @@ TC_HighlightItem(hWnd, Item := 0, State := 1) {
 
 
 
-
-
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;caja de mensaje: MessageBox
 ;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
 ;ErrorLevel: contiene el resultado (Yes, No, Ok ... )
+;NOTA: recomendado usar la variable global A_MsgBoxResult
 ;EJEMPLO:
-	;MsgBox % "Resultado: " MsgBox() "`nErrorLevel: " ErrorLevel
-	;MsgBox % "Resultado: " MsgBox( 0 ) "`nErrorLevel: " ErrorLevel
-	;MsgBox % "Resultado: " MsgBox(4112, "ERROR!",, 1 ) "`nErrorLevel: " ErrorLevel
-	;MsgBox % "Resultado: " MsgBox(20, "Título" ) "`nErrorLevel: " ErrorLevel
-	;MsgBox % "Resultado: " MsgBox(34,, "Texto" ) "`nErrorLevel: " ErrorLevel
-	;MsgBox % "Resultado: " MsgBox(16694, "Título", "Texto" ) "`nErrorLevel: " ErrorLevel
+	;MsgBox % "Resultado: " MsgBox() "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox( 0 ) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox(4112, "ERROR!",, 1 ) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox(20, "Título" ) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox(34,, "Texto" ) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox(16694, "Título", "Texto" ) "`nA_MsgBoxResult: " A_MsgBoxResult
 MsgBox(Options := "", Title := "", Text := "", Timeout := "") {
+	global A_MsgBoxResult ;AHKv2
 	if (Options=""&&Title=""&&Text="")
 		MsgBox, 0, *, Press OK to continue., %Timeout%
 	else if (Options!=""&&Title=""&&Text="")
@@ -4304,7 +4684,7 @@ MsgBox(Options := "", Title := "", Text := "", Timeout := "") {
 	;return ErrorLevel := A_MsgBoxResult ;AHKv2
 	Loop, Parse, % "Yes No Ok Cancel Abort Ignore Retry Timeout Continue TryAgain", %A_Space% ;AHKv1 -->
 		IfMsgBox, %A_LoopField%
-			return ErrorLevel := A_LoopField
+			return ErrorLevel := A_MsgBoxResult := A_LoopField
 }
 
 ;dialogo para elegir color
@@ -5237,7 +5617,7 @@ Shutdown(Code, Force := 0) {
 		Code := Code = 5 ? 0 : 1
 		return DllCall("PowrProf.dll\\SetSuspendState", "int", Code, "int", Force, "int", 0)
 	} else if Between( Code, 7, 9 ) {
-		Code := Code = 7 ? 2 : Code = 8 ? -1 : 1
+		Code := Code=7?2:Code=8?-1:1
 		hDesktop := DllCall("User32.dll\FindWindowW", "Str", "Progman", "Ptr", 0)
 		return SendMessage(hDesktop, 0x112, "UInt", 0xF170,, Code)
 	} else if Between( Code, 1, 4 ) {
@@ -5853,7 +6233,7 @@ WinVisible(hWnd) {
 
 ;comprueba si la ventana está minimizada
 WinMin(hWnd) {
-	return i := DllCall("User32.dll\IsIconic", "Ptr", hWnd)
+	return i:=DllCall("User32.dll\IsIconic", "Ptr", hWnd)
 		, ErrorLevel := !i
 }
 
@@ -5918,17 +6298,21 @@ EnumWindowsProc(hWnd, lParam) {
 
 ;minimiza todas las ventanas
 ;Sintaxis: WinMinimizeAll( [¿forzar?] )
-;NOTA: usar ShowDesktop() para obtener el foco en el escritorio
 ;NOTA: si se usa forzar, usar WinMinimizeAllUndo(1) para restaurarlas
+	;para dar foco al escritorio usar ShowDesktop()
 WinMinimizeAll(Force := 0) {
-	static Array ;array con las ventanas minimizadas para usar con WinMinimizeAllUndo()
+	static Array, ActiveWindow
+	if (Force="?"||Force="*")
+		return Force="?"?Array:ActiveWindow
+	ActiveWindow := IsWindow()
 	if Force {
-		if (Force="?")
-			return Array ;devuelve las ventanas minimizadas. WinMinimizeAllUndo()
-		Array := [], ok := 0, Count := 0
+		Array := "", Array := [], ok := Count := 0
 		Loop, Parse, % WinEnum(), `n
-			if !WinMin(A_LoopField)&&WinVisible(A_LoopField)
-				ok += WinMinimize( A_LoopField )?1:0, Count++, Array[A_Index] := A_LoopField
+			if !WinMin(A_LoopField)&&WinVisible(A_LoopField) {
+				Count++
+				if WinMinimize(A_LoopField)
+					ok++, Array[ok] := A_LoopField
+			}
 		return ok, ErrorLevel := ok=Count?0:1
 	}
 	if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
@@ -5939,13 +6323,14 @@ WinMinimizeAll(Force := 0) {
 ;restaura todas las ventanas
 ;Sintaxis: WinMinimizeAllUndo( [¿forzar?] )
 ;NOTA: si se usa forzar, restaura solo las ventanas minimizadas por WinMinimizeAll(1)
-WinMinimizeAllUndo(Force := 0) {
+WinMinimizeAllUndo(Force := false) {
 	if Force {
-		ok := 0, Count := 0
-		for Index, hWnd in WinMinimizeAll("?")
+		ok := Count := 0
+		for Index, hWnd in WinMinimizeAll("?") {
 			if WinMin(hWnd)&&WinVisible(hWnd)
 				ok += WinRestore(hWnd)?1:0, Count++
-		return ok, ErrorLevel := ok=Count?0:1
+		}
+		return ok, WinActivate(WinMinimizeAll("*")), ErrorLevel := ok=Count?0:1
 	}
 	if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
 		return ComObjCreate( "shell.application" ).UndoMinimizeALL()
@@ -6375,12 +6760,11 @@ WinSetEventHook(hWnd, Func := "", EventMin := "", EventMax := "") {
 WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if !IsWindow(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -6391,12 +6775,11 @@ WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := 
 WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if IsWinActive(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -6407,12 +6790,11 @@ WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title :=
 WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if !IsWinActive(hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -6423,12 +6805,11 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title
 WinWait(Title := "", Seconds := 0, Class := "", ProcessName := "", hWnd := "") {
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return 0
-	StartTime := A_TickCount
+	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if IsWindow( hWnd, Class, ProcessName, Title)
 			return 1, ErrorLevel := 0
-		ElapsedTime := (A_TickCount - StartTime) / 1000
-		if (Seconds > 0) AND (ElapsedTime >= Seconds)
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
 		Sleep( 100 )
 	}
@@ -7378,5 +7759,3 @@ MonGet(ByRef pdwCurrentBrightness := "", ByRef pdwCurrentContrast := "", ByRef p
 #Include <ImageButton_Class>
 #Include <CtlColors_Class>
 #Include <Gdip>
-#NoEnv
-#MaxMem 4095
