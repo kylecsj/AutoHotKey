@@ -1697,26 +1697,8 @@ Random(Min, Max) {
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: RECURSOS (.EXE & .DLL) ::::::::::::::::::::::::::::::::::
-;NOTA: para usar las funciones, primero es necesario establecer el archivo sobre el cual trabajar mediante ResourceOpen( [archivo] ).
+;NOTA: sin terminar.
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;carga/libera el archivo con el cual todas las funciones de abajo trabajan.
-;Sintaxis: ResourceOpen( [archivo], [¿cerrar?] )
-;Notas: una vez terminado de usar el archivo, espesificar 1 en el 2do parametro (o 'free' en el 1ero) para cerrar el archivo actual.
-	;debe espesificarce el archivo primero antes de utilizar cualquier otra funcion de abajo
-	;si espesifica un nuevo archivo ya habiendo otro cargado, libera el anterior y carga el nuevo. todo archivo no guardado se descarta.
-;EJEMPLO DE USO: obtener todos los tipos de recursos de cmd.exe y los recursos dentro de estos con el tamaño en bytes.
-	/*ResourceOpen(ComSpec)
-	Loop, Parse, % ResourceEnumTypes(StringType, Total), `n
-	{
-		SubItems := "", ResourceType := A_LoopField
-		Loop, Parse, % ResourceEnumNames(A_LoopField), `n
-			SubItems .= A_LoopField " (" ResourceSize(ResourceType, A_LoopField) " Bytes), "
-		Resources .= StringType[A_Index] ": " StrTrimRight(SubItems, 2) "`n"
-	}
-	MsgBox % LTrim(Resources, "`n")
-	ResourceOpen("free") ;necesario para cuando se termina de utilizar el archivo
-	ExitApp
-	*/
 ResourceOpen(FileName := "*", Free := false) {
 	static ResTypes := {1: "RT_CURSOR", 2: "RT_BITMAP", 3: "RT_ICON", 4: "RT_MENU", 5: "RT_DIALOG", 23: "RT_HTML"
 	, 6: "RT_STRING", 7: "RT_FONTDIR", 8: "RT_FONT", 9: "RT_ACCELERATOR", 10: "RT_RCDATA", 22: "RT_ANIICON"
@@ -1756,8 +1738,6 @@ ResourceOpen(FileName := "*", Free := false) {
 	return 0, ErrorLevel := 1 
 }
 
-;recupera todos los tipos de recursos (RT_ICON, RT_DIALOG, RT_VERSION...)
-;Sintaxis: ResourceEnumTypes( [cadena de texto que reprecenta el tipo (array-out)], [total (out)], [delimitador] )
 ResourceEnumTypes(ByRef StringTypes := "", ByRef Total := "", Delimiter := "`n") {
 	static lpEnumFunc
 	if (StringTypes=-1)
@@ -1782,8 +1762,6 @@ EnumResTypeProc(hModule, lpszType, lParam) {
 	return true
 }
 
-;recupera todos los recursos dentro de un tipo de recurso espesificado
-;Sintaxis: ResourceEnumNames( [tipo de recurso], [total (out)], [delimitador] )
 ResourceEnumNames(ResourceType, ByRef Total := "", Delimiter := "`n") {
 	static ResTypes := ResourceOpen(, 2)
 	static lpEnumFunc
@@ -1806,8 +1784,6 @@ EnumResNameProc(hModule, lpszType, lpszName, lParam) {
 	return true
 }
 
-;obtiene el tamaño de un recurso en bytes
-;Sintaxis: ResourceSize( [tipo de recurso], [nombre del recurso] )
 ResourceSize(ResourceType, ResourceName) {
 	static ResTypes := ResourceOpen(, 2)
 	if !(hModule:=ResourceOpen())
@@ -1817,13 +1793,6 @@ ResourceSize(ResourceType, ResourceName) {
 	return DllCall("Kernel32.dll\SizeofResource", "Ptr", hModule, "Ptr", hRes)
 }
 
-;obtiene los recursos específicos del idioma, del tipo y nombre específico.
-;Sintaxis: ResourceEnumLanguages( [tipo de recurso], [nombre del recurso], [total (out)], [delimitador] )
-;Ejemplo:
-	;ResourceOpen(ComSpec) ;cargar cmd.exe
-	;MsgBox % "Original: " (i:=ResourceEnumLanguages(16, 1)) "`nHex: " i " (" StrReplace(Hex(0 i), "x") ")`nA_Language: " A_Language
-	;ResourceOpen("free") ;liberar el archivo cargado en memoria (cmd.exe)
-	;ExitApp
 ResourceEnumLanguages(ResourceType, ResourceName, ByRef Total := "", Delimiter := "`n") {
 	static ResTypes := ResourceOpen(, 2)
 	static lpEnumFunc
@@ -1846,20 +1815,6 @@ EnumResLangProc(hModule, lpszType, lpszName, wIDLanguage, lParam) {
 	return true
 }
 
-;copiar un recurso de un archivo a otro
-;Sintaxis: ResourceCopy( [archivo destino], [tipo], [nombre], [tipo (destino)], [nombre (destino)] )
-;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
-	;Sintaxis: ResourceCopy("end", [¿descartar los cambios?] )
-	;si va a copiar a un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
-	;utilizar '*' en el 1er parametro para referirse al último archivo espesificado a copiar los datos
-	;si no espesifica los 2 últimos parámetros se toman de los 2 primeros
-;EJEMPLO: copiar la informacion de version de nombre '1' de AutoHotkey.exe a File.exe con el mismo nombre
-	;ResourceOpen(A_Desktop "\AutoHotkey.exe") ;cargar archivo a copiar datos
-	;ResourceCopy(A_Desktop "\File.exe", "RT_VERSION", 1, "RT_VERSION", 1) ;copiar a File.exe
-	;ResourceCopy("*", "RT_ICON") ;copiar al archivo anterior(*) (File.exe) el icono con nombre 1(param 2, defecto 1) de AutoHotKey.exe
-	;ResourceCopy("end") ;aplicar cambios
-	;ResourceOpen("free") ;terminar
-	;ExitApp
 ResourceCopy(FileName, OutputResourceType := 0, OutputResourceName := 1, InputResourceType := "", InputResourceName := "") {
 	static ResTypes := ResourceOpen(, 2)
 	static hUpdateResource, hFile
@@ -1887,12 +1842,6 @@ ResourceCopy(FileName, OutputResourceType := 0, OutputResourceName := 1, InputRe
 		, hFile := FileName
 }
 
-;añadir un recurso
-;Sintaxis: ResourceAdd( [tipo], [nombre], [datos], [lenguaje id], [tipo de datos] )
-;Tipo de datos: si va a añadir cualquier tipo de archivo espesificar 'File', si va a añadir solo texto espesificar 'String' (defecto).
-;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
-	;Sintaxis: ResourceAdd("end", [¿descartar los cambios?] )
-	;si va a modificar un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
 ResourceAdd(ResourceType, ResourceName := 0, Data := "", Language := 0x0000, DataType := "String") {
 	static hUpdateResource
 	if !(hModule:=ResourceOpen(, 3))
@@ -1917,11 +1866,6 @@ ResourceAdd(ResourceType, ResourceName := 0, Data := "", Language := 0x0000, Dat
 		, "Ptr", ResourceName, "UShort", Language, "Ptr", &IpData, "UInt", nSize)
 }
 
-;eliminar recurso
-;Sintaxis: RecurseDelete( [tipo], [nombre], [lenguaje id] )
-;Notas: tanto como para aplicar o descartar los cambios, volver a llamar a la funcion de la siguiente manera:
-	;Sintaxis: RecurseDelete("end", [¿descartar los cambios?] )
-	;si va a modificar un nuevo archivo sin guardar el actual, los cambios son automáticamente descartados
 ResourceDelete(ResourceType, ResourceName := 0, Language := "auto") {
 	static hUpdateResource
 	if !(hModule:=ResourceOpen(, 3))
