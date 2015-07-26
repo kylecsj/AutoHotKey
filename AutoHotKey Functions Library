@@ -3911,13 +3911,10 @@ SetRegView(RegView := "Default") {
 }
 
 ;leer en el registro
-;Sintáxis: RegRead( [Clave\SubClave], [Valores*] )
+;Sintáxis: RegRead( [Clave\SubClave], [Valor] )
 RegRead(Key, ValueName*) {
 	if ValueName.MaxIndex() {
-		for k, v in ValueName {
-			RegRead, _, %Key%, %v%
-			OutputVar .= (k=1?"":"`n") _
-		}
+		RegRead, OutputVar, %Key%, % ValueName[1]
 	} else
 		RegRead, OutputVar, %Key%
 	return OutputVar
@@ -3945,7 +3942,7 @@ RegDelete(Key, ValueName*) {
 ;escribe en el registro
 ;Sintáxis 1: RegWrite( [Tipo], [Clave\SubClave], [Valor], [Datos] )
 ;Sintáxis 2: RegWrite( [Clave\SubClave] )
-RegWrite(ValueType := 0, Key := "", ValueName := "", Value := "") {
+RegWrite(ValueType := 0, Key := "", ValueName := "", Value*) {
 	static ValueTypes := {"REG_BINARY": "REG_BINARY", "BINARY": "REG_BINARY"
 		, "REG_DWORD": "REG_DWORD", "DWORD": "REG_DWORD"
 		, "REG_EXPAND_SZ": "REG_EXPAND_SZ", "EXPAND": "REG_EXPAND_SZ"
@@ -3955,10 +3952,14 @@ RegWrite(ValueType := 0, Key := "", ValueName := "", Value := "") {
 		Key := Key?Key:ValueType, Type := "REG_SZ"
 	if !Key
 		return 0
-	if (ValueName="")
-		RegWrite, %Type%, %Key%,, %Value%
+	if (ValueName=""&&!Value.MaxIndex()) 
+		RegWrite, %Type%, %Key%
+	else if (ValueName="")
+		RegWrite, %Type%, %Key%,, % Value[1]
+	else if Value.MaxIndex()
+		RegWrite, %Type%, %Key%, %ValueName%, % Value[1]
 	else
-		RegWrite, %Type%, %Key%, %ValueName%, %Value%
+		RegWrite, %Type%, %Key%, %ValueName%
 	return ErrorLevel?false:Key
 }
 
