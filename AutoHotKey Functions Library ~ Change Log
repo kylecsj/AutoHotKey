@@ -1,7 +1,9 @@
 ###############################################################
-ACTUALIZACION 21/07/2015, 24/07 - AHK1.1.22.03
+ACTUALIZACION 21/07/2015, 24/07, 25/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
+	• RegisterTrayIconClickNotification()  ~ 25/07
+	• RegOpen()  ~ 25/07
 	• ImageConvert() ~ 24/07
 	• TC_GetItemCount()
 	• TC_GetItemFocus()
@@ -24,6 +26,11 @@ Funciones Agregadas:
 	• ImageWaterCtrl()
 
 Mejoras:
+	• StartPSN() / StopPSN() --> RegisterPowerSettingNotification()  ~ 25/07
+	• TrayTip()  ~ 25/07
+	• RegWrite()  ~ 25/07
+	• RegDelete()  ~ 25/07
+	• RegRead()  ~ 25/07
 	• LoadLibrary()  ~ 24/07
 	• WinMinimizeAll() ~ 24/07
 	• WinMinimizeAllUndo() ~ 24/07
@@ -32,6 +39,8 @@ Mejoras:
 	• MsgBox() ~ 24/07
 
 Correcciones:
+	• SaveScreenshot() (necesario iniciar Gdip)  ~ 25/07
+	• MouseGetPos()  ~ 25/07
 	• Reload() ~ 24/07
 	• BlockInput()
 	• SetTimer()
