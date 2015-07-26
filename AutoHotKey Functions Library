@@ -6,10 +6,10 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
-					escritorio & explorador & menu inicio, recursos, otros.
+					escritorio & explorador & menu inicio, recursos, notificaciones, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Viernes, 24 de julio de 2015
+Actualizado: AHK-U1.1.22.03 || Viernes, 25 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -119,13 +119,12 @@ _fspdtestex(Count, Func, Param*) { ;test de velocidad para una funcion, mayor pr
 ; ::::::::::::::::::::::::::::::::::::::::::::: ARCHIVOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;eliminar archivo(s)
-;devuelve el número de archivos eliminados
 ;Sintaxis: FileDelete( [archivo], [¿operar en subcarpetas?] )
 FileDelete(FilePattern, Recurse := 0) {
 	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName( FilePattern )
 		if !(i := DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" FilePattern))
-			FileSetAttrib( "-R", A_LoopFileLongPath, 0 )
+			FileSetAttrib("-R", A_LoopFileLongPath)
 			, i := DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" FilePattern)
 		return i, ErrorLevel := !i
 	}
@@ -361,7 +360,7 @@ FileGetAttrib(lpFileName, ByRef hAttrib := "", ByRef _cpath := "") {
 FileSetAttrib(Attributes, FilePattern, Mode := 0, Recurse := 0) {
 	static R := 0x1, A := 0x20, S := 0x4, H := 0x2, N := 0x80, O := 0x1000, T := 0x100
 	if !_wildc(FilePattern, Recurse)&&(Mode:="+") {
-		FileGetAttrib( FilePattern, hAttrib, lpFileName )
+		FileGetAttrib(FilePattern, hAttrib, lpFileName)
 		Loop, Parse, % Attributes
 			if !InVar(A_LoopField, "R,A,S,H,N,O,T") {
 				Mode := A_LoopField="+"||A_LoopField="-"||A_LoopField="^"?A_LoopField:"+"
@@ -751,8 +750,8 @@ Properties(Target, WaitClose := -1) {
 		return 0, ErrorLevel := 2
 	i := Run( "Properties " Chr(34) Target Chr(34) )
 	if (WaitClose>-1) {
-		WinWaitActive(, 5, "#32770", ProcessExist() )
-		return WinWaitClose(, WaitClose, "#32770", ProcessExist() )
+		WinWaitActive(, 5, "#32770", ProcessExist())
+		return WinWaitClose(, WaitClose, "#32770", ProcessExist())
 	}
 	return i, ErrorLevel := !i
 }
@@ -3082,11 +3081,11 @@ DesktopIconList(RowNumber := 1) {
 
 ;guardar captura de pantalla
 ;Sintaxis: SaveScreen( [Archivo] )
-SaveScreenshot(Filename, Quality := 100) {
-	pToken := Gdip_Startup()
+;NOTA: primero es necesario iniciar Gdip. pToken:=Gdip_Startup() / Gdip_Shutdown(pToken)
+SaveScreenshot(Filename) {
 	pBitmap := Gdip_BitmapFromScreen("0|0|" A_ScreenWidth "|" A_ScreenHeight, 0x40000000 + 0x00CC0020)
-	Gdip_SaveBitmapToFile(pBitmap, Filename, Quality), Gdip_DisposeImage(pBitmap), Gdip_Shutdown(pToken)
-	return pBitmap
+	Gdip_SaveBitmapToFile(pBitmap, Filename, 100)
+	Gdip_DisposeImage(pBitmap)
 }
 
 
@@ -3104,6 +3103,115 @@ SaveScreenshot(Filename, Quality := 100) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+; ::::::::::::::::::::::::::::::::::::::::::::: NOTIFICACIONES ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;registra los clics o movimientos del mouse en el icono del área de notificacion
+;Sintaxis: RegisterTrayIconClickNotification( [funcion a llamar al hacer clic] )
+;Mensajes que recibe la funcion:
+	;Parametro 1: Normal | RightClick | DoubleClick | MouseOver
+	;Parametro 2: Valor original sin modificar
+RegisterTrayIconClickNotification(Func, lParam := "*") {
+	static Event := {514: "Normal", 517: "RightClick", 515: "DoubleClick", 512: "MouseOver"}
+	static Call
+	if (lParam!="*") {
+		if IsFunc(Call)
+			return %Call%(Event[lParam], lParam), NormalClickCount := 0
+	} else if !IsFunc(Func)
+		return true, OnMessage(0x404, Call:="")
+	else
+		return OnMessage(0x404, A_ThisFunc), Call := Func
+}
+
+;registra el estado de la tapa del portatil
+;Sintaxis: RegisterPowerSettingNotification( [funcion a llamar cuando la tapa se abra/cierre] )
+;Mensajes que recibe la funcion:
+	;Parametro 1: Closed | Opened
+	;Parametro 2: Mensaje
+RegisterPowerSettingNotification(Func, IParam := "*") {
+	static Call, hPower
+	if (IParam!="*") {
+		if IsFunc(Call)
+			return %Call%(Func=0x8013?(Numget(IParam+20, 0, "UChar")?"Opened":"Closed"):"", Func)
+	} else if !IsFunc(Func) {
+		return DllCall("User32.dll\UnregisterPowerSettingNotification", "Ptr", hPower), OnMessage(0x218, Call:="")
+	} else {
+		VarSetCapacity(guid, 16), Numput(0xBA3E0F4D, guid, 0, "UInt"), Numput(0x4094B817, guid, 4, "UInt")
+		, Numput(0x63D5D1A2, guid, 8, "UInt"), Numput(0xF3A0E679, guid, 12, "UInt")
+		return hPower:=DllCall("User32.dll\RegisterPowerSettingNotification", "Ptr", A_ScriptHwnd, "Ptr", &guid, "UInt", 0)
+			, OnMessage(0x218, A_ThisFunc), Call := Func
+}}
+
+;registra para recibir notificaciones de cambio de sesión
+;Sintaxis: RegisterSessionNotification( [estado], [sesion], [funcion que recibe las notificaciones] )
+;Estado: 1 = activar | 0 = desactivar || Sesion: 1 = todas las sesiones | 0 = solo la sesion actual
+;Notificaciones: http://ahkscript.org/boards/viewtopic.php?p=49343&sid=7aec8109cd649383ae6743a2ef766c8d#p49343
+;Param1=valor modificado | param2=valor sin modificar
+RegisterSessionNotification(Status, Session := 1, Func := "") { 
+	if Status&&IsFunc(Func)&&DllCall("wtsapi32.dll\WTSRegisterSessionNotificationEx", "Ptr", 0, "Ptr", A_ScriptHwnd, "UInt", Session)
+        return 1, OnMessage(0x02B1, "WM_WTSSESSION_CHANGE"), WM_WTSSESSION_CHANGE(0,0,Func), ErrorLevel := 0
+    else if DllCall("wtsapi32.dll\WTSUnRegisterSessionNotificationEx", "Ptr", 0, "Ptr", A_ScriptHwnd)
+		return 1, OnMessage(0x02B1, ""), ErrorLevel := 0
+    return 0, Func := "", ErrorLevel := 1
+} ;http://ahkscript.org/boards/viewtopic.php?p=49343&sid=7aec8109cd649383ae6743a2ef766c8d#p49343
+WM_WTSSESSION_CHANGE(wParam, lParam, SetFunc := "*") {
+	static Func
+	static code := {0x1: "CONSOLE_CONNECT", 0x2: "CONSOLE_DISCONNECT", 0x4: "REMOTE_CONNECT"
+		, 0x4: "REMOTE_DISCONNECT", 0x5: "SESSION_LOGON", 0x6: "SESSION_LOGOFF"
+		, 0x7: "SESSION_LOCK", 0x8: "SESSION_UNLOCK", 0x9: "SESSION_REMOTE_CONTROL"}
+	return true, i:=SetFunc!="*"?(Func:=SetFunc):%Func%(code[wParam], wParam)
+} ;https://msdn.microsoft.com/library/aa383828%28vs.85,en-us%29
 
 
 
@@ -3184,6 +3292,7 @@ RunAsAdmin() { ;//-->
 	SetBatchLines, -1 ;hace que el script trabaje a la máxima velocidad posible (afecta y es afectada por al uso de CPU).
 	SetTitleMatchMode, 2 ;el título de una ventana puede contener «WinTitle» en cualquier lugar dentro para ser valido.
 	SendMode, Input ;SendInput es generalmente mas rápido y mas fiable.
+	CoordMode, Mouse, Screen
 	SetControlDelay, 10 ;establece algunos retrasos para mejorar la fiabilidad y/o velocidad de respuesta entre cada comando. -->
 	SetKeyDelay, 10, 10, 10
 	SetMouseDelay, 0
@@ -3299,33 +3408,6 @@ GetFullPathName(lpFileName) {
 	VarSetCapacity( lpBuffer, nBufferLength * 2 ) 
 	i := DllCall("Kernel32.dll\GetFullPathNameW", "Str", lpFileName, "UInt", nBufferLength, "Str", lpBuffer, "PtrP", 0)
 	return RTrim( lpBuffer, "\" ), ErrorLevel := !i
-}
-
-;ACCIÓN AL CERRAR/ABRIR TAPA DEL PORTATIL
-;Sintáxis: StartPSN( [FUNCIÓN] )
-;registrar
-StartPSN(Function := "WM_POWERBROADCAST") {
-  VarSetCapacity(guid, 16)
-  Numput(0xBA3E0F4D, guid, 0, "UInt"), Numput(0x4094B817, guid, 4, "UInt")
-  Numput(0x63D5D1A2, guid, 8, "UInt"), Numput(0xF3A0E679, guid, 12, "UInt")
-  if ( R := DllCall("User32.dll\RegisterPowerSettingNotification", "Ptr", A_ScriptHwnd, "Ptr", &guid, "UInt", 0) ) {
-      OnMessage(0x218, Function)
-      return R
-  }
-  return 0
-}
-;Sintáxis: StopPSN( [valor que devuelve StartPSN] )
-;anular
-StopPSN(H) {
-  return DllCall("User32.dll\UnregisterPowerSettingNotification", "Ptr", H), OnMessage(0x218, "")
-}
-;acción a tomar al cerrar o abrir (función)
-WM_POWERBROADCAST(wparam, lparam) {
-  if (wparam = 0x8013) { ;PBT_POWERSETTINGCHANGE 32787 (0x8013) --> Identificador de sucesos.
-      S := Numget(lparam + 20, 0, "uchar") ? 1 : 0 ;POWERBROADCAST_SETTING  --> https://msdn.microsoft.com/en-us/library/windows/desktop/hh448380%28v=vs.85%29.aspx
-      MsgBox, 4160, PowerSettingNotification, Estado: %S%
-  }
-  return 1
 }
 
 ComVar() { ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3964
@@ -3820,52 +3902,64 @@ ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
 
 
 
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: REGISTRO ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+SetRegView(RegView := "Default") {
+	SetRegView, %RegView%
+}
+
 ;leer en el registro
-;Sintáxis: RegRead( [Clave\SubClave], [Valor] )
+;Sintáxis: RegRead( [Clave\SubClave], [Valores*] )
 RegRead(Key, ValueName*) {
-	if (ValueName.MaxIndex() > 0)
-		RegRead, OutputVar, %Key%, % ValueName[1]
-	else
+	if ValueName.MaxIndex() {
+		for k, v in ValueName {
+			RegRead, _, %Key%, %v%
+			OutputVar .= (k=1?"":"`n") _
+		}
+	} else
 		RegRead, OutputVar, %Key%
 	return OutputVar
 }
-	
+
 ;elimina en el registro
-;Sintáxis: RegDelete( [Clave\SubClave], [Valor] )
-;en caso de éxito devuelve la clave
+;Sintáxis: RegDelete( [Clave\SubClave], [Valores*] )
+;NOTAS: para eliminar el valor por defecto, espesificar un valor vacio
+	;para eliminar la clave entera, no espesificar el 2do parametro.
+;Ejemplo: RegDelete("HKLM\SubKey", "Valor 1", "Valor 2", "Valor X")
 RegDelete(Key, ValueName*) {
 	if !Key
-		return 0
-	if (ValueName.MaxIndex() > 0) {
-		if (ValueName[1] = "")
-			return 0
-		RegDelete, %Key%, % ValueName[1]
+		return 0, ErrorLevel := true
+	if ValueName.MaxIndex() {
+		hRegKey := RegOpen(Key, 0x20006|0x20019)
+		for k, v in ValueName
+			Result := DllCall("Advapi32.dll\RegDeleteValueW", "Ptr", hRegKey, "Str", v)
+		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey)
+		ErrorLevel := Result?true:false
 	} else
 		RegDelete, %Key%
-	return ErrorLevel ? 0 : Key
+	return ErrorLevel?false:Key
 }
-	
+
 ;escribe en el registro
-;Sintáxis: RegWrite( [Tipo], [Clave\SubClave], [Valor], [Datos] )
+;Sintáxis 1: RegWrite( [Tipo], [Clave\SubClave], [Valor], [Datos] )
 ;Sintáxis 2: RegWrite( [Clave\SubClave] )
-;EJEMPLOS:
-	;RegWrite( "HKCC\2" )
-	;RegWrite(, "HKCC\2", "RSZ", "VAL_RSZ" )
-	;RegWrite( "TIPO INVÁLIDO", "HKCC\2", "RSZ2", "VAL_RSZ2" )
-	;RegWrite( "REG_DWORD", "HKCC\2", "RDW", 1024 ** 3 )
 RegWrite(ValueType := 0, Key := "", ValueName := "", Value := "") {
-	if !InVar( ValueType, "REG_BINARY,REG_DWORD,REG_EXPAND_SZ,REG_MULTI_SZ,REG_SZ" )
-		Key := Key ? Key : ValueType, ValueType := "REG_SZ"
+	static ValueTypes := {"REG_BINARY": "REG_BINARY", "BINARY": "REG_BINARY"
+		, "REG_DWORD": "REG_DWORD", "DWORD": "REG_DWORD"
+		, "REG_EXPAND_SZ": "REG_EXPAND_SZ", "EXPAND": "REG_EXPAND_SZ"
+		, "REG_MULTI_SZ": "REG_MULTI_SZ", "MULTI": "REG_MULTI_SZ"
+		, "REG_SZ": "REG_SZ", "SZ": "REG_SZ"}
+	if !(Type:=ValueTypes[ValueType])
+		Key := Key?Key:ValueType, Type := "REG_SZ"
 	if !Key
 		return 0
-	if (ValueName = "")
-		RegWrite, %ValueType%, %Key%,, %Value%
+	if (ValueName="")
+		RegWrite, %Type%, %Key%,, %Value%
 	else
-		RegWrite, %ValueType%, %Key%, %ValueName%, %Value%
-	return !ErrorLevel
+		RegWrite, %Type%, %Key%, %ValueName%, %Value%
+	return ErrorLevel?false:Key
 }
 
 ;importar clave
@@ -4012,10 +4106,6 @@ SplitKey(_Key, ByRef Key := "", ByRef SubKey := "") {
 		. "\" (SubKey := KeyPos?SubStr(_Key, (KeyPos + 1)):"")
 }
 
-SetRegView(RegView_32or64 := "Default") {
-	SetRegView, %RegView_32or64%
-}
-
 RegFNKey(Key, Force := 0, String := "(%A_Index%)") {
 	tmpkey := 0, Key := Trim( Key )
 	Loop {
@@ -4029,52 +4119,29 @@ RegFNKey(Key, Force := 0, String := "(%A_Index%)") {
 
 ;abrir clave en regedit
 ;Sintaxis: RegOpenKey( [clave\subclave], [¿comprobar si existe?], [¿forzar?] )
-RegOpenKey(Key, CheckExist := 0, Force := 0) {
+RegOpenKey(Key, CheckExist := false, Force := false) {
 	Key := Trim( Key )
-	if CheckExist && !RegExist( Key,, Force )
-		return 0, ErrorLevel := 1
-	Key := RegSKName( Key, 1 )
-	RegWrite(, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", Key )
-	return Run( A_WinDir "\RegEdit.exe" )
+	if CheckExist&&!RegExist(Key,, Force)
+		return false, ErrorLevel := true
+	Key := RegSKName(Key, true)
+	, RegWrite(, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", Key)
+	return Run(A_WinDir "\regedit.exe")
 }
 
-;Copia la clave de registro especificada, junto con sus valores y subclaves, a la clave de destino especificada.
-;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379768%28v=vs.85%29.aspx
-RegCopyTree(Key, Dest) {
-	;valores de las claves
-	HKEY_CLASSES_ROOT := HKCR := 0x80000000
-	HKEY_CURRENT_USER := HKCU := 0x8000000
-	HKEY_LOCAL_MACHINE := HKLM := 0x80000002
-	HKEY_USERS := HKU := 0x80000003
-	HKEY_CURRENT_CONFIG := HKCC := 0x80000005
-	
-	;inicio: clave\subclave
-	Key := Trim( Key ), Pos := InStr( Key, "\" )
-	SubKey := Pos ? StrTrimLeft( Key, Pos ) : "" ;subclave
-	Key := Pos ? StrLeft( Key, Pos - 1 ) : Key ;clave
-	
-	Dest := Trim( Dest ), Pos2 := InStr( Dest, "\" )
-	SubKey2 := Pos2 ? StrTrimLeft( Dest, Pos2 ) : "" ;subclave
-	Key2 := Pos2 ? StrLeft( Dest, Pos2 - 1 ) : Dest ;clave
-	
-	;abrir la clave
-	if !DllCall("Advapi32.dll\RegOpenKeyExW", "Ptr", %Key%, "Ptr", &SubKey, "UInt", 0, "UInt", 0x20019, "Ptr", hKey)
-		return 0, ErrorLevel := 2 ;ErrorLevel es 2 si ha ocurrido un error al abrir la clave a copiar
-	
-	;crear clave destino, si ya existe la abre
-	if !DllCall("Advapi32.dll\RegCreateKeyExW", "Ptr", %Key2%, "Ptr", &SubKey2, "UInt", 0, "Ptr", 0, "UInt", 0, "UInt", 0x0004, "Ptr", 0, "Ptr", hKey2, "Ptr", 0)
-		return 0, ErrorLevel := 3 ;ErrorLevel es 3 si ha ocurrido un error al abrir/crear la clave destino
-
-	;copiar clave
-	if !DllCall("Advapi32.dll\RegCopyTreeW", "Ptr", hKey, "Ptr", 0, hKey2)
-		return 0, ErrorLevel := 1 ;ErrorLevel es 1 si ha ocurrido un error al copir la clave
-	
-	;cerrar clave
-	if (SubKey != "")
-		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hKey)
-		, DllCall("Advapi32.dll\RegCloseKey", "Ptr", hKey2)
-	
-	return 1, ErrorLevel := 0
+;abre una clave
+;Sintaxis: RegOpen( [clave\subclave], [acceso] )
+;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878%28v=vs.85%29.aspx
+RegOpen(Key, DesiredAccess := 0xF003F) {
+	static Keys := {"HKEY_CLASSES_ROOT": 0x80000000, "HKCR": 0x80000000
+		, "HKEY_CURRENT_USER": 0x80000001, "HKCU": 0x80000001
+		, "HKEY_LOCAL_MACHINE": 0x80000002, "HKLM": 0x80000002
+		, "HKEY_USERS": 0x80000003, "HKU": 0x80000003
+		, "HKEY_CURRENT_CONFIG": 0x80000005, "HKCC": 0x80000005}
+	RegView := A_RegView="32"?0x0200:A_RegView="64"?0x0100:0, SplitKey(Key, Key, SubKey)
+	if !Keys[Key]
+		return 0, ErrorLevel := 1
+	i := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "UInt*", hRegKey)
+	return hRegKey, ErrorLevel := i
 }
 
 
@@ -4777,6 +4844,15 @@ ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 	;+M = sin sonido (0M, 1M, 2M, 3M)
 ;Nota: espesificar un número negativo en tiempo fuera para usar milisegundosundos
 TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
+	;-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+	;NOTA: esta parte es opcional, pero recomendado para asegurarce de que el TrayTip se muestra.
+	static EnableBalloonTips ;evita ejecutar esta parte mas de 1 vez
+	if !EnableBalloonTips {
+		RegWrite("REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "EnableBalloonTips", 2)
+		RegWrite("REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "Start_NotifyNewApps", 1)
+		EnableBalloonTips := true
+	}
+	;-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 	static TrayTip := Func("TrayTip").Bind()
 	SetTimer(TrayTip, "Off")
 	if (Text=""&&Title="")
@@ -4785,9 +4861,7 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 		TrayTip, %Title%, %Text%, 30, % RegExReplace(Options, "[^0-9]")+(InStr(Options, "M")?16:0)
 		if TimeOut
 			SetTimer(TrayTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
-	} ;necesario por si no funciona:
-	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "EnableBalloonTips", 2 )
-	;RegWrite( "REG_DWORD", "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "Start_NotifyNewApps", 1 )
+	}
 }
 
 ;estilo para los botones.
@@ -4831,10 +4905,14 @@ GuiButtonStyle(hWnd, Type := 1, Round := 0) { ;https://github.com/AHK-just-me/Cl
 		Foco := [0, 0x6AB5FF,, 0xffffff]
 		Precionado := [0, 0x808080,, 0xffffff]
 		Deshabilitado := [0, 0x80F0F0F0,, 0x00DFDFDF, 0,, 0x80A7A7A7, 1]
-	} else if (Type = 9) { ;boton minimizar #2 (celeste y blanco)
+	} else if (Type = 9) { ;fondo azul, texto blanco
 		Normal := [0, 0x182E46,, 0xffffff,,, 0x4E668C, 1]
 		Foco := [0, 0xFF7171,, 0xffffff,,, 0x4E668C, 1]
 		Precionado := [3, 0xFF0000, 0xFF7171, 0xffffff,,, 0x4E668C, 1]
+	} else if (Type = 10) { ;fondo negro, texto verde
+		Normal := [0, 0x353535, 0x80FF00, 0x5CF884, 0,, 0x4E668C, 1]
+		Foco := [3, 0x45DA6A,, "Black",,, 0x4E668C, 1]
+		Precionado := [0, 0x353535,, "Blue",,, 0x4E668C, 1]
 	}
    ;------------------------------------------------------------------------------------------------------------------------------
    return ImageButton.Create(hWnd, Normal, Foco, Precionado, Deshabilitado, Fallido, Tab)
@@ -5404,15 +5482,8 @@ MouseMove(x, y, Speed := "", R := -1) {
 ;recupera la posicion del cursor
 ;MouseGetPos / CursorGetPos
 MouseGetPos(ByRef x := "", ByRef y := "", ByRef  Win := "", ByRef Control := "", Mode := 0) {
-	if !IsByRef(Control)&&!IsByRef(Win)
-		MouseGetPos, x, y,,, %Mode%
-	else if IsByRef(Control)&&!IsByRef(Win)
-		MouseGetPos, x, y,, Control, %Mode%
-	else if !IsByRef(Control)&&IsByRef(Win)
-		MouseGetPos, x, y, Win,, %Mode%
-	else
-		MouseGetPos, x, y, Win, Control, %Mode%
-	i := {}, i.x := x, i.y := y, i.Win := i.hWnd := Win, i.Control := i.ctrl := Control, i.Mode := Mode
+	MouseGetPos, x, y, Win, Control, %Mode%
+	i := {}, i.x := x, i.y := y, i.Win := i.hWnd := Win, i.Control := i.ctrl := Control
 	return i
 }
 
@@ -5663,25 +5734,6 @@ SysGetVersion() { ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff5
 		i.ProductType := NumGet(RTL_OSVIEX, 282, "UChar" )
 	return i ? i : Set( A_ThisFunc, i )
 }
-
-;registra para recibir notificaciones de cambio de sesión
-;Sintaxis: RegisterSessionNotification( [estado], [sesion], [funcion que recibe las notificaciones] )
-;Estado: 1 = activar | 0 = desactivar || Sesion: 1 = todas las sesiones | 0 = solo la sesion actual
-;Notificaciones: http://ahkscript.org/boards/viewtopic.php?p=49343&sid=7aec8109cd649383ae6743a2ef766c8d#p49343
-RegisterSessionNotification(Status, Session := 1, Func := "") { 
-	if Status&&IsFunc(Func)&&DllCall("wtsapi32.dll\WTSRegisterSessionNotificationEx", "Ptr", 0, "Ptr", A_ScriptHwnd, "UInt", Session)
-        return 1, OnMessage(0x02B1, "WM_WTSSESSION_CHANGE"), WM_WTSSESSION_CHANGE(0,0,Func), ErrorLevel := 0
-    else if DllCall("wtsapi32.dll\WTSUnRegisterSessionNotificationEx", "Ptr", 0, "Ptr", A_ScriptHwnd)
-		return 1, OnMessage(0x02B1, ""), ErrorLevel := 0
-    return 0, Func := "", ErrorLevel := 1
-} ;http://ahkscript.org/boards/viewtopic.php?p=49343&sid=7aec8109cd649383ae6743a2ef766c8d#p49343
-WM_WTSSESSION_CHANGE(wParam, lParam, SetFunc := "*") {
-	static Func
-	static code := {0x1: "WTS_CONSOLE_CONNECT", 0x2: "WTS_CONSOLE_DISCONNECT", 0x4: "WTS_REMOTE_CONNECT"
-		, 0x4: "WTS_REMOTE_DISCONNECT", 0x5: "WTS_SESSION_LOGON", 0x6: "WTS_SESSION_LOGOFF"
-		, 0x7: "WTS_SESSION_LOCK", 0x8: "WTS_SESSION_UNLOCK", 0x9: "WTS_SESSION_REMOTE_CONTROL"}
-	return true, i:=SetFunc!="*"?(Func:=SetFunc):%Func%(code[wParam])
-} ;https://msdn.microsoft.com/library/aa383828%28vs.85,en-us%29
 
 ;recupera la ruta completa de una carpeta WIN_V+
 SHGetKnownFolderPath(GUID) {
