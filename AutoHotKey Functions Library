@@ -6,10 +6,11 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
-					escritorio & explorador & menu inicio, recursos, notificaciones, otros.
+					escritorio & explorador & menu inicio & papelera de reciclaje, recursos,
+					notificaciones, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK-U1.1.22.03 || Sábado, 25 de julio de 2015
+Actualizado: AHK1.1.22.03 U32 & U64 || Martes, 28 de julio de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -80,6 +81,10 @@ _fspdtestex(Count, Func, Param*) { ;test de velocidad para una funcion, mayor pr
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;####################################################################################################################
+
+
+
+
 
 
 
@@ -389,11 +394,11 @@ SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtens
 ;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
 ;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
 FileCopy(Source, Dest, Overwrite := 0, Recurse := 0) {
-	Flags := Overwrite ? 0x00001000 : 0x00000001|0x00001000
-	Flags_ := Overwrite ? 0 : 0x00000001, Dest := RTrim( Dest, "\" )
+	Flags := Overwrite?0x00001000:0x00000001|0x00001000
+	Flags_ := Overwrite?0:0x00000001, Dest := RTrim( Dest, "\" )
 	if !_wildc(Source, Recurse) {
-		Source := GetFullPathName( Source )
-		_ := IsDir( Dest ) ? Dest "\" SplitPath(Source).FileName : Dest
+		Source := GetFullPathName(Source), Dest := GetFullPathName(Dest)
+		_ := IsDir(Dest)?Dest "\" SplitPath(Source).FileName:Dest
 		if DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
 		|| DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags_)
 			return 1, ErrorLevel := 0
@@ -839,14 +844,12 @@ FileWait(FileName, Seconds := 0, NotExist := false) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;eliminar carpeta
 ;Sintaxis: DirDelete( [carpeta], [¿eliminar archivos y subcarpetas?] )
-DirDelete(lpPathName, Recurse := 0) {
-	lpPathName := RTrim( Trim( lpPathName ), "\" )
-	if !Recurse {
-		lpPathName := GetFullPathName( lpPathName )
-		return DllCall("Kernel32.dll\RemoveDirectoryW", "Str", "\\?\" lpPathName)
-	}
+DirDelete(lpPathName, Recurse := 0, Empty := false) {
 	FileRemoveDir, %lpPathName%, %Recurse%
-	return !ErrorLevel
+	Error := ErrorLevel
+	if Empty
+		DirCreate(lpPathName)
+	return !Error, ErrorLevel := Error
 }
 
 ;eliminar carpeta(s) al reiniciar
@@ -1698,6 +1701,7 @@ Random(Min, Max) {
 ; ::::::::::::::::::::::::::::::::::::::::::::: RECURSOS (.EXE & .DLL) ::::::::::::::::::::::::::::::::::
 ;NOTA: sin terminar.
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*
 ResourceOpen(FileName := "*", Free := false) {
 	static ResTypes := {1: "RT_CURSOR", 2: "RT_BITMAP", 3: "RT_ICON", 4: "RT_MENU", 5: "RT_DIALOG", 23: "RT_HTML"
 	, 6: "RT_STRING", 7: "RT_FONTDIR", 8: "RT_FONT", 9: "RT_ACCELERATOR", 10: "RT_RCDATA", 22: "RT_ANIICON"
@@ -1879,7 +1883,7 @@ ResourceDelete(ResourceType, ResourceName := 0, Language := "auto") {
 		, "Ptr", ResTypes[ResourceType]>0?ResTypes[ResourceType]:ResourceType
 		, "Str", ResourceName, "UShort", Language="auto"?ResourceEnumLanguages(ResourceType, ResourceName):Language, "Ptr", 0, "UInt", 0)
 }
-
+*/
 
 
 
@@ -1944,7 +1948,7 @@ ResourceDelete(ResourceType, ResourceName := 0, Language := "auto") {
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;------------------------------------------------------------------------------------------------------------------------------------------------------------- 
 ;obtiene un array con el texto entre comillas
 ;Sintaxis: SplitTextBetweenQuotes( [texto], [cantidad] )
 ;EJEMPLO: MsgBox % SplitTextBetweenQuotes(Chr(34) "AA" Chr(34) 1 Chr(34) "BB" Chr(34), 2)[2]
@@ -2029,8 +2033,8 @@ StrRight(String, Length := 1) {
 InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
 		if (!CaseSensitive&&(Haystack=A_LoopField))||(CaseSensitive&&(Haystack==A_LoopField))
-			return 1
-	return 0
+			return true
+	return false
 }
 
 ;If [var] contains [ .. ]
@@ -2039,8 +2043,8 @@ InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
 		if InStr( Haystack, A_LoopField, CaseSensitive )
-			return 1
-	return 0
+			return true
+	return false
 }
 
 ;obtener un nombre válido para un archivo
@@ -2635,7 +2639,8 @@ ProcessSetPrivilege(ProcessName, Privileges, Set := true) {
 		, PrivilegesLuid[A_Index] := lpLuid
 	for k, v in PrivilegesLuid
 		ti := "", VarSetCapacity(ti, 16, 0), NumPut(1, ti, 0, "UInt"), NumPut(v, ti, 4, "Int64"), NumPut(2, ti, 12, "UInt")
-		, i := i+(DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", !Set, "Ptr", &ti, "UInt", 0, "Ptr", 0, "Ptr", 0)?1:0)
+		, i := i+(DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", Privileges="All"&&!Set?true:false
+			, "Ptr", &ti, "UInt", 0, "Ptr", 0, "Ptr", 0)?1:0)
 	DllCall("kernel32.dll\CloseHandle", "Ptr", hToken)
 	DllCall("kernel32.dll\CloseHandle", "Ptr", hProcess)
 	return i, ErrorLevel := PrivilegesLuid.MaxIndex()!=i
@@ -3026,10 +3031,28 @@ TaskBarRedraw(ByRef hTaskBar := "", ByRef hNotifArea := "", ByRef hOverFNotifAre
 
 
 
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+; ::::::::::::::::::::::::::::::::::::::::::::: ESCRITORIO, EXPLORADOR, PAPELERA DE RECICLAJE & MENU INICIO ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;recupera el tamaño de la papelera de reciclaje (en bytes) y el número de elementos que contiene para una unidad especificada.
+;Sintaxis: RecycleBinGetSize( [unidad], [unidades (KB|MB|GB)], [tamaño (salida)], [elementos (salida)] )
+RecycleBinGetSize(Path, Units := "", ByRef i64Size := "", ByRef i64NumItems := "") {
+	static KB := 1024, MB := 1024 ** 2, GB := 1024 ** 3
+	cbSize := VarSetCapacity(SHQUERYRBINFO, A_PtrSize=4?20:36, 0)
+	NumPut(cbSize, SHQUERYRBINFO, 0, "UInt")
+	Result :=  DllCall("Shell32.dll\SHQueryRecycleBinW", "Str", StrLeft(Trim(Path)) ":\", "Ptr", &SHQUERYRBINFO)
+	i64Size := NumGet(SHQUERYRBINFO, 4, "Int64"), i64NumItems := NumGet(SHQUERYRBINFO, 12, "Int64")
+	return %Units%?i64Size/%Units%:i64Size, ErrorLevel := Result
+}
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-; ::::::::::::::::::::::::::::::::::::::::::::: ESCRITORIO, EXPLORADOR & MENU INICIO ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;vacía la Papelera de reciclaje en la unidad especificada.
+;Sintaxis: RecycleBinEmpty( [unidad], [¿ocultar dialgos de confirmacion?], [¿ocultar dialogos de progreso?], [¿no reproducir sonidos?] )
+RecycleBinEmpty(Path, NoConfirmation := true, NoProgressUI := true, NoSound := true) {
+	Result := DllCall("Shell32.dll\SHEmptyRecycleBinW", "Ptr", A_ScriptHwnd, "Str", StrLeft(Trim(Path)) ":\"
+		, "UInt", (NoConfirmation?0x00000001:0)|(NoProgressUI?0x00000002:0)|(NoSound?0x00000004:0))
+	return Result?false:true, ErrorLevel := Result
+}
+
 ;reiniciar explorador de windows
 RestartWindowsExplorer() {
 	if ProcessClose( "explorer.exe*", 5 )
@@ -3275,7 +3298,7 @@ WM_WTSSESSION_CHANGE(wParam, lParam, SetFunc := "*") {
 RunAsAdmin() { ;//-->
 	static StaticRunAsAdmin := RunAsAdmin() ;llama a la funcion automáticamente al inicio del script.
 	if !StaticRunAsAdmin { ;evita que la funcion sea ejecutada mas de 1 vez.
-	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All") ;establece todos los privilegios disponibles para el proceso.
+	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All", true) ;establece todos los privilegios disponibles para el proceso.
 	ProcessPriority := ProcessPriority(ProcessExist(), "High") ;establece la prioridad del proceso actual Alta.
 	;---------------------------------------------------------------------------------------------------------------------------------------------------------
 	;NOTA: esta parte es ejecutada solo una vez. o ninguna dependiedo si el script es ejecutado como administrador.
@@ -3302,15 +3325,33 @@ RunAsAdmin() { ;//-->
 	return true ;devuelve 1, esto establece la variable RunAsAdmin en 1 para evitar volver a ejecutar esta funcion mas de una vez.
 }} ;<-- //RunAsAdmin
 
+;determina si el script ya se está ejecutando
+;Ejemplo de uso:
+	;#SingleInstance Off
+	;#Persistent
+	;MsgBox % Instance()
+Instance() {
+	;ERROR_ALREADY_EXISTS = 183
+	;ERROR_ACCESS_DENIED = 0x00000005
+	hMutex := DllCall("Kernel32.dll\CreateMutexW", "Ptr", 0, "Int", false, "Str", "Local\AutoHotKey" A_AhkVersion)
+	return A_LastError=183?(hMutex?hMutex:true):false, ErrorLevel := A_LastError=0x00000005?true:false
+}
+
 ;bloquear mouse y teclado
 ;Sintaxis: BlockInput( [0|1] )
 BlockInput(OnOff, Delay := 500, DisableTaskManager := true) {
+	static TaskManager
 	static BlockInput := Func("BlockInput").Bind("Enable")
 	if (OnOff="Enable"||OnOff="Disable") { ;Enable | Disable = bloquear/desbloquear normal
 		return DllCall("User32.dll\BlockInput", "Int", OnOff="Enable"?true:false)
 	} else if (OnOff=0||OnOff="Off") { ;Off = desbloquear
 		SetTimer(BlockInput,  "Off")
-		RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
+		if DisableTaskManager {
+			if !TaskManager
+				RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
+			else
+				RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", TaskManager)
+		}
 		Suspend, Off
 		return DllCall("User32.dll\BlockInput", "Int", false)
 	} else if (OnOff=1||OnOff="On") { ;On = bloquear
@@ -3318,7 +3359,8 @@ BlockInput(OnOff, Delay := 500, DisableTaskManager := true) {
 		if (Delay>0)
 			SetTimer(BlockInput, Delay)
 		if DisableTaskManager
-			RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
+			TaskManager := RegRead("HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger")
+			, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
 		return DllCall("User32.dll\BlockInput", "Int", true)
 }}
 
@@ -3615,9 +3657,9 @@ GetWorkingDir() {
 }
 
 ;A_LastError
-GetLastError(ByRef FormatMessage := "") {
+GetLastError(ByRef FormatMessage := "", dwFlags := 0x1000) {
 	return LastError := DllCall("Kernel32.dll\GetLastError")
-		, FormatMessage := IsByRef( FormatMessage ) ? FormatMessage( LastError ) : ""
+		, FormatMessage := IsByRef(FormatMessage)?FormatMessage(LastError, dwFlags):""
 }
 
 ;establece A_LastError
@@ -3626,10 +3668,10 @@ SetLastError(num) {
 }
 
 ;descripcion del error
-FormatMessage(dwMessageId := "") {
+FormatMessage(dwMessageId := "", dwFlags := 0x1000) {
 	dwMessageId := dwMessageId != "" ? dwMessageId : GetLastError()
 	nSize := VarSetCapacity(lpBuffer, 2024) - 1524
-	if DllCall("Kernel32.dll\FormatMessageW", "UInt", 0x1000, "Ptr", 0, "UInt", dwMessageId, "UInt", 0x800, "Str", lpBuffer, "UInt", nSize, "UInt", 0)
+	if DllCall("Kernel32.dll\FormatMessageW", "UInt", dwFlags, "Ptr", 0, "UInt", dwMessageId, "UInt", 0x800, "Str", lpBuffer, "UInt", nSize, "UInt", 0)
 		return lpBuffer
 }
 
@@ -3896,13 +3938,6 @@ ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
 
 
 
-
-
-
-
-
-
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: REGISTRO ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3924,18 +3959,23 @@ RegRead(Key, ValueName*) {
 ;Sintáxis: RegDelete( [Clave\SubClave], [Valores*] )
 ;NOTAS: para eliminar el valor por defecto, espesificar un valor vacio
 	;para eliminar la clave entera, no espesificar el 2do parametro.
-;Ejemplo: RegDelete("HKLM\SubKey", "Valor 1", "Valor 2", "Valor X")
 RegDelete(Key, ValueName*) {
 	if !Key
 		return 0, ErrorLevel := true
 	if ValueName.MaxIndex() {
-		hRegKey := RegOpen(Key, 0x20006|0x20019)
+		hRegKey := RegOpen(Key, 0x0002)
 		for k, v in ValueName
 			Result := DllCall("Advapi32.dll\RegDeleteValueW", "Ptr", hRegKey, "Str", v)
 		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey)
 		ErrorLevel := Result?true:false
-	} else
+	} else {
 		RegDelete, %Key%
+		;hRegKey := RegOpen(SplitPath(Key, SubKey).Dir, 0x00010000|0x0008|0x0001)
+		;Result := DllCall("Shlwapi.dll\SHDeleteKeyW", "Ptr", hRegKey, "Str", SubKey) ;WIN_XP+
+			;Result := DllCall("Advapi32.dll\RegDeleteTreeW", "Ptr", hRegKey, "Ptr", 0) ;WIN_V+
+		;DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey)
+		;ErrorLevel := Result?true:false
+	}
 	return ErrorLevel?false:Key
 }
 
@@ -3965,126 +4005,104 @@ RegWrite(ValueType := 0, Key := "", ValueName := "", Value*) {
 
 ;importar clave
 ;sintaxis: RegImport( [Archivo], [¿Esperar?] )
-RegImport(Filename, Wait := 0) {
-	return Start((Wait?"*":"") A_WinDir "\regedit.exe", "-v", "-s", Filename)
+RegImport(FileName, Wait := false) {
+	if !IsFile(FileName)
+		return false, ErrorLevel := true
+	if Wait
+		RunWait, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
+	else
+		Run, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
+	return !ErrorLevel
 }
-	
+
 ;exportar clave
-;sintaxis: RegExport( [Archivo], [Clave], [¿Esperar?] )
-RegExport(Filename, Key, Wait := 0) {
-	return Start((Wait?"*":"") A_WinDir "\regedit.exe", "-e", Filename, RegSKName(Key, 1))
+;sintaxis: RegExport( [Clave], [Archivo], [¿Esperar?], [¿reescribir si ya existe el archivo?] )
+RegExport(Key, FileName, Wait := false, OverWrite := true) {
+	if !OverWrite&&FileExist(FileName)
+		return false, ErrorLevel := true
+	Key := RegSKName(Key, true)
+	if Wait
+		RunWait, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
+	else
+		Run, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
+	return !ErrorLevel
 }
 
 ;renombrar un valor/clave
-;Sintaxis: RegRename( [clave], [valor], [nuevo nombre], [¿forzar?] )
-;NOTA 1: para renombrar una clave, dejar vacio 'valor' (el segundo parámetro). Puede ser MUY LENTO dependiendo de las subclaves y valores
-;NOTA 2: el cuarto parámetro (forzar) aumenta la precision. renombra la clave aún si no hay subclaves, valores ni valor por defecto, pero lo hace mas lento dependiendo la cantidad de claves hermanas y/o valores
-;A_LastError SE ESTABLECE EN:
-	;1 = error al renombrar el valor o la clave.
-	;0 = sin errores
-	;-1 = el valor o clave a renombrar no existe
-	;-2 = ya existe un valor o clave con el mismo nombre
-RegRename(Key, ValueName := "", NewName := "", Force := 0) {
-	;-----------------------------------------------------------------------------------------------------------
-	NewName := StrReplace(StrReplace(NewName, "["), "]") ;quitar '[' y ']' en el nuevo nombre
-	if (NewName = "") ;sin nombre
-		return 0, SetLastError( 1 )
-	;-----------------------------------------------------------------------------------------------------------
-	if (ValueName != "") { ; ::::::::::::::::: RENOMBRAR VALOR :::::::::::::::::
-		if !( ValueType := RegExist(Key, ValueName, Force) ) ;si no existe el valor
-			return 0, SetLastError( -1 )
-		if RegExist(Key, NewName, Force) ;si ya existe un valor con el nuevo nombre
-			return 0, SetLastError( -2 )
-		ValueData := RegRead(Key, ValueName) ;leer datos
-			, RegDelete(Key, ValueName) ;eliminar
-			, RegWrite(ValueType, Key, NewName, ValueData) ;crear
-		return !ErrorLevel, SetLastError( ErrorLevel )
-	} 
-	;-----------------------------------------------------------------------------------------------------------
-	return RegCopy(Key, SplitPath(Key).Dir "\" NewName, Force), RegDelete( Key )
-} ;-----------------------------------------------------------------------------------------------------------
-
-RegMove(Key, KeyDest, Force := 0) {
-	if !RegCopy(Key, KeyDest, Force)
-		return 0
-	return RegDelete( Key )
+;Sintaxis: RegRename( [clave], [valor], [nuevo nombre] )
+;NOTA: para renombrar una clave, dejar vacio el 2do parametro.
+;Ejemplo 1: RegRename("HKLM\Software\AutoHotKey",, "AutoHotKey_Rename")
+;Ejemplo 2: RegRename("HKLM\Software\AutoHotKey\Ahk2Exe", "LastBinFile", "LastBinFile_Rename")
+RegRename(Key, ValueName := "", NewName := "") {
+	if ((NewName:=StrReplace(StrReplace(NewName, "["), "]")) = "")
+		return false, ErrorLevel := true
+	if (ValueName!="") {
+		Loop, Reg, %Key%, V
+			if (A_LoopRegName=ValueName) {
+				if RegWrite(A_LoopRegType, Key, NewName, RegRead(Key, ValueName))
+					return RegDelete(Key, ValueName)
+				break
+			}
+	}  else {
+		if RegCopy(Key, SplitPath(Key).Dir "\" NewName)
+			return RegDelete(Key)
+	}
+	return false, ErrorLevel := true
 }
 
-;copia una clave a otra nueva
-;Sintaxis: Copy( [clave a copiar], [destino], [¿Forzar?] )
-;A_LastError SE ESTABLECE EN:
-	;1 = error al copiar
-	;0 = sin errores
-	;-1 = la clave a copiar no existe
-	;-2 = la clave destino ya existe
-RegCopy(Key, KeyDest, Force := 0) {
-	Key := RegSKName(Key, 1, KeyLen)
-	if !InStr(Key, "\") OR !InStr(KeyDest, "\") ;clave inválida
-		return 0, SetLastError( 1 )
-	if !RegExist(Key,, Force) ;la clave a renombrar no existe -1
-			return 0, SetLastError( -1 )
-	if RegExist(KeyDest,, Force) ;la clave destino ya existe
-			return 0, SetLastError( -2 )
-	DefaultValue := RegRead(Key) ;leer valor por defecto
-	if !ErrorLevel
-		RegWrite(, KeyDest,, DefaultValue) ;establecer valor por defecto
-	Loop, Reg, %Key%, KVR ;busca claves(K) y valores(V) includas todas las subclaves(R)
-	{
-		if (A_LoopRegType = "KEY") { ;si es una clave
-			SKey_ := KeyDest "\" RegExReplace(SubStr(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, (KeyLen + 2)), "\\+$")
-				, RegWrite( SKey_ )
-			if ErrorLevel
-				return 0, SetLastError( 1 )
-		} else if SKey_ { ;si es un valor
-			DefaultValue := RegRead(A_LoopRegKey "\" A_LoopRegSubKey) ;leer valor por defecto
-				, RegWrite(, SKey_,, DefaultValue) ;establecer valor por defecto
-			if ErrorLevel
-				return 0, SetLastError( 1 )
-			ValueName := RegRead(A_LoopRegKey "\" A_LoopRegSubKey, A_LoopRegName) ;leer datos
-				, RegWrite(A_LoopRegType, SKey_, A_LoopRegName, ValueName) ;establecer datos
-			if ErrorLevel
-				return 0, SetLastError( 1 )
-		}
+;mover valor/clave
+;Sintaxis: RegMove( [clave], [valor], [destino], [¿forzar?] )
+;NOTA: para mover una clave, dejar vacio el 2do parametro
+;Ejemplo 1: RegMove("HKLM\Software\AutoHotKey",, "HKCU\AutoHotKey")
+;Ejemplo 2: RegMove("HKLM\Software\AutoHotKey\Ahk2Exe", "LastBinFile", "HKLM\Software\AutoHotKey")
+RegMove(Key, ValueName := "", KeyDest := "") {
+	if (KeyDest&&ValueName="") {
+		if RegCopy(Key, KeyDest)
+			return RegDelete(Key)
+	} else if KeyDest {
+		Loop, Reg, %Key%, V
+			if (A_LoopRegName=ValueName) {
+				if RegWrite(A_LoopRegType, KeyDest, ValueName, RegRead(Key, ValueName))
+					return RegDelete(Key, ValueName)
+				break
+			}
 	}
-	Loop, Reg, %Key%, V ;copiar valores
-	{
-		ValueData := RegRead(A_LoopRegKey "\" A_LoopRegSubkey, A_LoopRegName) ;leer datos
-			, RegWrite(A_LoopRegType, KeyDest, A_LoopRegName, ValueData) ;establecer datos
-		if ErrorLevel
-			return 0, SetLastError( 1 )
-	}
-	return 1, SetLastError( 0 )
+	return false, ErrorLevel := true
+}
+
+;copiar clave junto con todas las subclaves y valores 
+;Sintaxis: RegCopy( [clave\subclave], [clave\subclave (destino)] )
+;Nota: si la clave destino no existe, la crea.
+;Ejemplo: RegCopy("HKLM\Software\AutoHotKey", "HKCU\AutoHotKey")
+RegCopy(Key, KeyDest) {
+	hRegKey := RegOpen(Key, 0x20019)
+	hRegKeyDest := RegOpen(KeyDest, 0x0004, true)
+	Result := DllCall("Shlwapi.dll\SHCopyKeyW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest, "UInt", 0) ;WIN_XP+
+	if (ErrorLevel=-4) ;comprueba si SHCopyKeyW() no existe en Shlwapi.dll
+		Result := DllCall("Advapi32.dll\RegCopyTreeW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest) ;WIN_V+
+	Error := ErrorLevel
+	Loop, Reg, %Key%, V
+		RegWrite(A_LoopRegType, KeyDest, A_LoopRegName, RegRead(Key, A_LoopRegName))
+	RegWrite(, KeyDest,, RegRead(Key))
+	return !Error, ErrorLevel := Error
+		, DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKeyDest)
+		, DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey)
 }
 
 ;comprueba si existe una clave o un valor
-;NOTA 1: VALOR: devuelve el tipo de valor | CLAVE: devuelve la fecha de modificacion (solo si se usa 'forzar')
-;NOTA 2: omite si no hay claves, valores y el valor por defecto es 'valor no establecido' (devuelve 0 como si no existiera)
-;NOTA 3: para evitar lo anterior, debe establecer 'forzar' en 1, pero puede ser lento dependiendo la cantidad de claves hermanas
-;Sintaxis: RegExist( [clave], [valor], [¿forzar?] )
-RegExist(Key, ValueName := "", Force := false) {
-	;-----------------------------------------------------------------------------------------------------------
-	if (ValueName != "") { ; :::::::::: COMPROBAR SI EXISTE UN VALOR ::::::::::::::::
-		if Force { ;forzar
-			Loop, Reg, %Key%, V
-				if (A_LoopRegName = ValueName)
-					return A_LoopRegType ? A_LoopRegType : 1
-			return 0
-		} ;normal
-		RegRead(Key, ValueName)
-		return !ErrorLevel
-	} ;-----------------------------------------------------------------------------------------------------------
-	if Force { ; ::::::::::::: COMPROBAR SI EXISTE UNA CLAVE ::::::::::::::
-		SplitPath( Key, KeyName, Key_ ) ;forzar
-		Loop, Reg, %Key_%, K
-			if (A_LoopRegName = KeyName)
-				return A_LoopRegTimeModified ? A_LoopRegTimeModified : 1
-		return RegExist(Key)
-	} ;normal
-	Loop, Reg, %key%, KV
-		return 1
-	RegRead(key)
-	return !ErrorLevel
-} ;-----------------------------------------------------------------------------------------------------------
+;Sintaxis: RegExist( [clave], [valor], [¿buscar en subclaves?] )
+RegExist(Key, ValueName := "", Recurse := false) {
+	if (ValueName!="") {
+		Loop, Reg, %Key%, % Recurse?"VKR":"V"
+			if (A_LoopRegName=ValueName)
+				return true
+	} else {
+		Loop, Reg, % SplitPath(Key, KeyName).Dir, K
+			if (A_LoopRegName=KeyName)
+				return true
+	}
+	return false, ErrorLevel := true
+}
 
 ;transforma una clave en su forma larga/corta
 ;Sintaxis: RegSKName( [clave], [¿forma larga?] )
@@ -4098,10 +4116,11 @@ RegSKName(Key, Full := 0, ByRef Len := "") {
 		HKCR := "HKEY_CLASSES_ROOT", HKCC := "HKEY_CURRENT_CONFIG",  HKCU := "HKEY_CURRENT_USER", HKLM := "HKEY_LOCAL_MACHINE", HKU := "HKEY_USERS"
 	else
 		HKEY_CLASSES_ROOT := "HKCR", HKEY_CURRENT_CONFIG := "HKCC",  HKEY_CURRENT_USER := "HKCU", HKEY_LOCAL_MACHINE := "HKLM", HKEY_USERS := "HKU"
-	return FullKey := ( ( %Key% ? %Key% : Key ) SubKey ), Len := IsByRef(Len) ? StrLen(FullKey) : ""
+	return FullKey := ((%Key%?%Key%:Key)SubKey), Len := IsByRef(Len)?StrLen(FullKey):""
 }
 
 ;separa una clave en clave, subclave
+;Sintaxis: SplitKey( [clave], [clave (salida)], [subclave (salida)] )
 SplitKey(_Key, ByRef Key := "", ByRef SubKey := "") {
 	return (Key := (KeyPos:=InStr(_Key, "\"))?SubStr(_Key, 1, KeyPos - 1):_Key)
 		. "\" (SubKey := KeyPos?SubStr(_Key, (KeyPos + 1)):"")
@@ -4130,23 +4149,26 @@ RegOpenKey(Key, CheckExist := false, Force := false) {
 }
 
 ;abre una clave
-;Sintaxis: RegOpen( [clave\subclave], [acceso] )
+;Sintaxis: RegOpen( [clave\subclave], [acceso], [¿crear la clave si no existe?] )
 ;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878%28v=vs.85%29.aspx
-RegOpen(Key, DesiredAccess := 0xF003F) {
+;Claves: HKCR|HKCU|HKLM|HKU|HKPD|HKCC
+RegOpen(Key, DesiredAccess := 0xF003F, CreateIfNotExist := false) {
 	static Keys := {"HKEY_CLASSES_ROOT": 0x80000000, "HKCR": 0x80000000
 		, "HKEY_CURRENT_USER": 0x80000001, "HKCU": 0x80000001
 		, "HKEY_LOCAL_MACHINE": 0x80000002, "HKLM": 0x80000002
 		, "HKEY_USERS": 0x80000003, "HKU": 0x80000003
+		, "HKEY_PERFORMANCE_DATA": 0x80000004, "HKPD": 0x80000004
 		, "HKEY_CURRENT_CONFIG": 0x80000005, "HKCC": 0x80000005}
 	RegView := A_RegView="32"?0x0200:A_RegView="64"?0x0100:0, SplitKey(Key, Key, SubKey)
 	if !Keys[Key]
 		return 0, ErrorLevel := 1
-	i := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "UInt*", hRegKey)
-	return hRegKey, ErrorLevel := i
+	if CreateIfNotExist ;ERROR_SUCCESS = 0 (RegCreateKeyExW devuelve 0 si no hubo errores)
+		Result := DllCall("Advapi32.dll\RegCreateKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "Ptr", 0, "UInt", 0
+			, "UInt", DesiredAccess|RegView, "Ptr", 0, "PtrP", hRegKey, "Ptr", 0)
+	else ;ERROR_SUCCESS = 0 (RegOpenKeyExW devuelve 0 si no hubo errores)
+		Result := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "PtrP", hRegKey)
+	return hRegKey, ErrorLevel := Result 
 }
-
-
-
 
 
 
@@ -5380,32 +5402,39 @@ MouseClick(WhichButton, x := "", y := "", ClickCount := 1, Speed := 0, DU := "",
 }
 
 ;Envia pulsaciones de teclado clics del ratón a la ventana activa.
-;se aplica a: Send, SendInput, SendRaw
 ;Sintaxis: Send( [Texto], [¿Repetir?], [Retraso en cada repeticion (ms)] )
 Send(Keys, Count := 1, Delay := -2) {
-	if !(ok := 0) AND (Count <= 1) {
+	if !(ok:=0)&&!(Count>1) {
 		SendInput, %Keys%
-		return !ErrorLevel, Sleep( Delay )
+		return !ErrorLevel, Sleep(Delay)
 	}
 	Loop, %Count%
-		ok += Send( Keys,, A_Index = Count ? -2 : Delay )
-	return ok, ErrorLevel := ok = Count ? 0 : 1
+		ok += Send(Keys,, A_Index=Count?-2:Delay)
+	return ok, ErrorLevel := ok=Count?0:1
 }
-SendInput(Keys, Count := 1, Delay := 0) {
-	return Send( Keys, Count, Delay )
+SendInput(Keys, Count := 1, Delay := -2) {
+	return Send(Keys, Count, Delay)
 }
-
-SendRaw(Keys, Count := 1, Delay := 0) {
-	return Send( "{raw}" Keys, Count, Delay )
+SendRaw(Keys, Count := 1, Delay := -2) {
+	return Send("{raw}" Keys, Count, Delay)
+}
+SendPlay(Keys, Count := 1, Delay := -2) {
+	if !(ok:=0)&&!(Count>1) {
+		SendPlay, %Keys%
+		return !ErrorLevel, Sleep(Delay)
+	}
+	Loop, %Count%
+		ok += SendPlay(Keys,, A_Index=Count?-2:Delay)
+	return ok, ErrorLevel := ok=Count?0:1
 }
 
 ;espera por una tecla a ser precionada o liberada
-;Sintaxis: KeyWait( [tecla], [opciones], [tiempo fuera en segundos] )
+;Sintaxis: KeyWait( [tecla], [opciones], [tiempo fuera, en segundos] )
 ;OPCIONES:
 	;D = espera a que la tecla sea precionada
 	;[Vacío] (defecto) = espera a que la tecla sea liberada por el usuario
 KeyWait(KeyName, Options := "", TimeOut := 0) {
-	KeyWait, %KeyName%, % Options (TimeOut ? " T" TimeOut : "")
+	KeyWait, %KeyName%, % Options (TimeOut?" T" TimeOut:"")
 	return !ErrorLevel
 }
 
@@ -5415,7 +5444,7 @@ KeyWait(KeyName, Options := "", TimeOut := 0) {
 ;Ejemplos: Mouse.Trails( 10 ) | Mouse.Trails( 0 ) | Mouse.Trails(  )
 MouseTrails(N := "") {
 	if (N != "")
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005D, "UInt", N, "Str", 0, "UInt", 0)
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005D, "UInt", N, "Str", 0, "UInt", 0x0001|0x0002)
 	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005E, "UInt", 0, "UIntP", N, "UInt", 0)
 	return N
 }
@@ -5436,7 +5465,7 @@ MouseSetCursor(T := "R", C := "") { ;http://ahkscript.org/boards/viewtopic.php?f
 ;Sintáxis: MouseSpeed( [establecer velocidad / dejar vacio] )
 MouseSpeed(Vel := "") {
 	if (Vel := RegExReplace(Vel, "[^0-9]"))
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x71, "UInt", 0, "UInt", Vel > 20 ? 20 : Vel < 1 ? 1 : Vel, "UInt", 0)
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x71, "UInt", 0, "UInt", Vel > 20 ? 20 : Vel < 1 ? 1 : Vel, "UInt", 0x0001|0x0002)
 	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x70, "UInt", 0, "UIntP", Vel, "UInt", 0)
 	return Vel
 }
@@ -5444,8 +5473,8 @@ MouseSpeed(Vel := "") {
 ;recupera/cambia el número de líneas para desplazarse cuando se mueve la rueda ratón verticalmente
 MouseScrollLines(Lines := -1) {
 	if (Lines >= 0)
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x69, "UInt", Lines, "UInt", 0, "UInt", 0)
-	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x68, "UInt", 0, "UIntP", Lines, "UInt", 0)
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0069, "UInt", Lines, "UInt", 0, "UInt", 0x0001|0x0002)
+	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0068, "UInt", 0, "UIntP", Lines, "UInt", 0)
 	return Lines
 }
 
@@ -6610,16 +6639,16 @@ WinGetBorder(hWnd, ByRef Width := "", ByRef Height := "") {
 ;obtiene el estilo de la ventana
 ;para convertirlo a hexadecimal: Hex( Style, 8, 1 )
 WinGetStyle(hWnd) { ;0x40000 = resize
-	if !(Style := DllCall("User32.dll\GetWindowLongPtrW", "Ptr", hWnd, "Int", -16))
-		Style := DllCall("User32.dll\GetWindowLongW", "Ptr", hWnd, "Int", -16)
+	Style := DllCall("User32.dll\" (A_PtrSize=4?"GetWindowLongW":"GetWindowLongPtrW")
+		, "Ptr", hWnd, "Int", -16)
 	return Style, ErrorLevel := !Style
 }
 
 ;obtiene el estilo extendido de la ventana
 ;para convertirlo a hexadecimal: Hex( ExStyle, 8, 1 )
 WinGetExStyle(hWnd) {
-	if !(ExStyle := DllCall("User32.dll\GetWindowLongPtrW", "Ptr", hWnd, "Int", -20))
-		ExStyle := DllCall("User32.dll\GetWindowLongW", "Ptr", hWnd, "Int", -20)
+	ExStyle := DllCall("User32.dll\" (A_PtrSize=4?"GetWindowLongW":"GetWindowLongPtrW")
+		, "Ptr", hWnd, "Int", -20)
 	return ExStyle, ErrorLevel := !ExStyle
 }
 
@@ -6629,9 +6658,8 @@ WinGetExStyle(hWnd) {
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600%28v=vs.85%29.aspx
 WinSetStyle(hWnd, Style) {
 	Style := _mnum(WinGetStyle(hWnd), Style)
-	if ErrorLevel||(!DllCall("User32.dll\SetWindowLongPtrW", "Ptr", hWnd, "Int", -16, "Int", Style)
-	&&!DllCall("User32.dll\SetWindowLongW", "Ptr", hWnd, "Int", -16, "Int", Style))
-			return 0, ErrorLevel := 1
+	if ErrorLevel||!DllCall("User32.dll\" (A_PtrSize=4?"SetWindowLongW":"SetWindowLongPtrW"), "Ptr", hWnd, "Int", -16, "Int", Style)
+		return 0, ErrorLevel := 1
 	return 1, ErrorLevel := 0
 }
 
@@ -6641,9 +6669,8 @@ WinSetStyle(hWnd, Style) {
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543%28v=vs.85%29.aspx
 WinSetExStyle(hWnd, ExStyle) {
 	ExStyle := _mnum(WinGetExStyle(hWnd), ExStyle)
-	if ErrorLevel||(!DllCall("User32.dll\SetWindowLongPtrW", "Ptr", hWnd, "Int", -20, "Int", ExStyle)
-	&&!DllCall("User32.dll\SetWindowLongW", "Ptr", hWnd, "Int", -20, "Int", ExStyle))
-			return 0, ErrorLevel := 1
+	if ErrorLevel||!DllCall("User32.dll\" (A_PtrSize=4?"SetWindowLongW":"SetWindowLongPtrW"), "Ptr", hWnd, "Int", -20, "Int", ExStyle)
+		return 0, ErrorLevel := 1
 	return 1, ErrorLevel := 0
 }
 
@@ -6722,6 +6749,11 @@ WinSetRegion( hWnd, Region ) {
 ;Sintaxis: WinSetAlwaysOnTop( [ID], [0|1] )
 WinSetAlwaysOnTop(hWnd, State := 1) {
 	return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", State ? -1 : -2, "Int", 0, "Int", 0 "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+}
+
+;comprueba si la ventana tiene el estilo extendido AlwaysOnTop
+WinAlwaysOnTop(hWnd) {
+	return (WinGetExStyle(hWnd)&0x00000008)?true:false
 }
 
 ;registrar eventos para una ventana
@@ -7240,7 +7272,7 @@ ServiceGetDescription(IpName, Mode := "Fast") {
 }
 
 ;establece la informacion del servicio
-;Sintaxis: ServiceSetDescription( [servicio], [descripcion] )
+;Sintaxis: ServiceSetDescription( [servicio], [descripcion], [Fast|Slow] )
 ServiceSetDescription(IpName, Description := "", Mode := "Slow") {
 	Description := Trim(StrReplace(Description, A_Tab, A_Space))
 	if (Mode="F"||Mode="Fast") { ;Fast: establece desde el registro (no recomendado, puede dar problemas con permisos)
