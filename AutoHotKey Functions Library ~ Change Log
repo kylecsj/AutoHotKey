@@ -1,4 +1,60 @@
 ###############################################################
+ACTUALIZACION 28/07/2015 - AHK1.1.22.03
+###############################################################
+Funciones Agregadas:
+	• SendPlay() 
+	• Instance() (comprueba si ya se está ejecutando una instancia del script)
+	• RecycleBinGetSize() (obtener el tamaño y cantidad de elementos de la papelera de reciclaje espesificada)
+	• RecycleBinEmpty() (vaciar papelera de reciclaje para la unidad espesificada)
+
+Mejoras:
+	• RegImport()
+	• RegExport() (cambio de sintaxis)
+	• RegMove() (cambio de sintaxis, afectado por RegCopy)
+	• RegOpen() (abrir claves en el registro)
+	• RegRename() (afectado por RegCopy)
+	• RegExist() (cambio de sintaxis, quitado forzar y usar directamente LoopReg)
+	• RegCopy() (cambio de sintaxis, ahora usa SHCopyKey)
+	
+Correcciones:
+	• MouseScrollLines() (los cambios surten efecto al instante y son guardados)
+	• MouseSpeed() (los cambios surten efecto al instante y son guardados)
+	• MouseTrails() (los cambios surten efecto al instante y son guardados)
+	• BlockInput() (al bloquear el adm de tareas, si hay algún programa que reemplaza al adm de tareas, no modificarlo)
+	• FileCopy()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 21/07/2015, 24/07, 25/07 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
