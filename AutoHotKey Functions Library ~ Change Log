@@ -1,13 +1,24 @@
 ###############################################################
-ACTUALIZACION 28/07/2015 - AHK1.1.22.03
+ACTUALIZACION 28/07/2015, 01/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
+	• TrayIconAnimate() (animar icono en el área de notificacion cambiando entre distintos iconos)  ~ 01/08
+	• LV_IsItemVisible() ~ 01/08
+	• LOWORD() ~ 01/08
+	• HIWORD() ~ 01/08
+	• LOBYTE() ~ 01/08
+	• HIBYTE() ~ 01/08
+	• StrPutVar() ~ 01/08
 	• SendPlay() 
 	• Instance() (comprueba si ya se está ejecutando una instancia del script)
 	• RecycleBinGetSize() (obtener el tamaño y cantidad de elementos de la papelera de reciclaje espesificada)
 	• RecycleBinEmpty() (vaciar papelera de reciclaje para la unidad espesificada)
 
 Mejoras:
+	• Instance() (modificado para permitir otros scripts, distinto directorio y/o nombre) ~ 01/08
+	• LV_GetItemText() ~ 01/08
+	• LV_RedrawItem() ~ 01/08
+	• WinEnum() (quitado variables globales, añadido parametro para modificar delimitador y obtener la cantidad de ventanas) ~ 01/08
 	• RegImport()
 	• RegExport() (cambio de sintaxis)
 	• RegMove() (cambio de sintaxis, afectado por RegCopy)
@@ -17,11 +28,16 @@ Mejoras:
 	• RegCopy() (cambio de sintaxis, ahora usa SHCopyKey)
 	
 Correcciones:
+	• ExitAppTimer() (quitado MsgBox de prueba) ~ 01/08
+	• NetGetString() ~ 01/08
 	• MouseScrollLines() (los cambios surten efecto al instante y son guardados)
 	• MouseSpeed() (los cambios surten efecto al instante y son guardados)
 	• MouseTrails() (los cambios surten efecto al instante y son guardados)
 	• BlockInput() (al bloquear el adm de tareas, si hay algún programa que reemplaza al adm de tareas, no modificarlo)
 	• FileCopy()
+	
+Notas:
+	• Mejoras generales ~ 01/08
 ###############################################################
 
 
