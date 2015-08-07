@@ -6001,16 +6001,16 @@ SysGetVersion() { ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff5
 	return i ? i : Set( A_ThisFunc, i )
 }
 
-SystemSetFontInfo(ByRef Name := "", ByRef Size := 0, ByRef Weight := 0, ByRef IsItalic := 0) {
+SystemGetFontInfo(ByRef Name := "", ByRef Size := "", ByRef Weight := "", ByRef IsItalic := "") {
 	nSize := VarSetCapacity(NCM, 500, 0), NumPut(nSize, &NCM, 0, "UInt")
 	, i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0029, "UInt", nSize, "Ptr", &NCM, "UInt", 0)
 	, Name := StrGet(&NCM+408+28, 32), Height := NumGet(&NCM+408, 0, "Int")
-	, Size   := DllCall("MulDiv", "Int", -Height, "Int", 72, "Int", A_ScreenDPI)
-	, Weight   := NumGet(&NCM + 408 + 16, 0, "Int"), IsItalic := NumGet(&NCM + 408 + 20, 0, "UChar")
+	, Size := DllCall("MulDiv", "Int", -Height, "Int", 72, "Int", A_ScreenDPI)
+	, Weight := NumGet(&NCM + 408 + 16, 0, "Int"), IsItalic := NumGet(&NCM + 408 + 20, 0, "UChar")
 	return i, ErrorLevel := !i
 }
 
-SystemGetFontInfo(Name := "", Size := "", Weight := "", IsItalic := "") {
+SystemSetFontInfo(Name := "", Size := "", Weight := "", IsItalic := "") {
 	nSize := VarSetCapacity(NCM, 500, 0), NumPut(nSize, &NCM, 0, "UInt")
 	, DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0029, "UInt", nSize, "Ptr", &NCM, "UInt", 0)
 	, Name := Name?StrPut(Name, &NCM+408+28, 32):Name
