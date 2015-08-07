@@ -1,4 +1,83 @@
 ###############################################################
+ACTUALIZACION 07/08/2015 - AHK1.1.22.03
+###############################################################
+Funciones Agregadas:
+	• DesktopGetIconsPos() (guarda la posicion de todos los iconos del escritorio)
+	• DesktopSetIconsPos() (restaura la posicion de todos los iconos del escritorio)
+	• LV_SetItemPos()
+	• LV_GetItemPos()
+	• LV_GetItemPosEx()
+	• LV_GetIconSpacing()
+	• WinSet()
+	• WinGet()
+	• TrayTipEx()
+	• WinGetText()
+	• ControlGetFocus()
+	• ControlExist()
+	• ControlClick()
+	• ControlMove()
+	• Control()
+	• SystemSetFontInfo()
+	• SystemGetFontInfo()
+	• TwipToPixel()
+	• PixelToTwip()
+
+Mejoras:
+	• FileGetSize()
+	• WinChild()
+	• WinAnimate()
+	• FileWrite()
+	• A_Tab()
+	• A_Space()
+	• A_Quote()
+	• ControlGetPos()
+	• ControlSend()
+
+Correcciones:
+	• RecycleBinGetSize() (cambio de sintaxis)
+	
+Notas:
+	• Ahora todas las funciones con ventanas aceptan '-1' en el ID para referirse a la ventana activa,
+		. '-2' para referirse a la ventana bajo el cursor, y '-3' para referirse a la última ventana espesificada.
+	• Ahora todas las funciones con controles aceptan '-1' en el ID para referirse al control que tiene el foco
+		. en la ventana espesificada, '-2' para referirse al control bajo el cursor y '-3' para referirse al último 
+		. control espesificado.
+	• Mejoras generales.
+	• WinSetParent(), WinSetBottom(), WinSetRegion(), WinSetTransparent() & WinSetAlwaysOnTop() 
+		se han eliminado, usar WinSet().
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 28/07/2015, 01/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
