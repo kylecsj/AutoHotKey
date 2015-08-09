@@ -759,7 +759,7 @@ Start(Target := "", Param*) {
 	;• cuando se espesifica tiempo fuera, primero busca y cierra todas las demás ventanas
 		;de propiedades abiertas por el proceso actual; ya que sino, esperaría a que todas las
 		;ventanas se cierren, y solo queremos esperar la que espesificamos para el archivo.
-;Ejemplo: Properties(comspec, false), ExitApp()
+;Ejemplo: Properties(comspec, false, true), ExitApp()
 Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 	if !FileExist(Target)
 		return 0, ErrorLevel := 2
@@ -770,7 +770,7 @@ Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 		, hWnd := WinWait(, 5, "#32770", CurrentProcessId)
 		if AlwaysOnTop
 			WinSet(hWnd, "+AlwaysOnTop")
-		return WinWaitClose(hWnd)
+		return WinWaitClose(hWnd, WaitClose)
 	} else {
 		i := Run("Properties " Chr(34) Target Chr(34))
 		if AlwaysOnTop
