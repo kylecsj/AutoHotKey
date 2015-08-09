@@ -3987,7 +3987,7 @@ __SetIcon(FileName, Icon, IconID := 159) {
 ;Sintaxis: SplitTime( [YYYYMMDDHH24MISS], [año], [mes], [dia], [hora], [min], [seg], [AM/PM] )
 ;Nota: devuelve un Array con el tiempo en el siguiente orden: año, mes, día, hora, min, seg, am/pm.
 SplitTime(Time, ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef Hour := "", ByRef Min := "", ByRef Sec := "", ByRef Mark := "") {
-	FormatTime, Time, %Time%, yyyy,MM,dd,HH,mm,sus,tt
+	FormatTime, Time, %Time%, yyyy,MM,dd,HH,mm,ss,tt
 	Time := StrSplit(Time, ",")
 	Loop, Parse, % "Year,Mon,Day,Hour,Min,Sec,Mark", `,
 		%A_LoopField% := Time[A_Index]
