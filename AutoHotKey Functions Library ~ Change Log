@@ -1,7 +1,21 @@
 ###############################################################
-ACTUALIZACION 07/08/2015 - AHK1.1.22.03
+ACTUALIZACION 07/08/2015, 09/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
+	• WinCloseEx() ~ 09/08
+	• SplitTime() ~ 09/08
+	• SystemSetTime() ~ 09/08
+	• SystemGetTime() ~ 09/08
+	• A_Year() ~ 09/08
+	• A_Mon() ~ 09/08
+	• A_DD() ~ 09/08
+	• A_Hour() ~ 09/08
+	• A_Min() ~ 09/08
+	• A_Sec() ~ 09/08
+	• A_MSec() ~ 09/08
+	• A_WDay() ~ 09/08
+	• DirGetSize() ~ 09/08
+	• DirEmpty() ~ 09/08
 	• DesktopGetIconsPos() (guarda la posicion de todos los iconos del escritorio)
 	• DesktopSetIconsPos() (restaura la posicion de todos los iconos del escritorio)
 	• LV_SetItemPos()
@@ -23,6 +37,11 @@ Funciones Agregadas:
 	• PixelToTwip()
 
 Mejoras:
+	• Properties() (ahora cuando se espesifica tiempo fuera, cierra todas las demás ventanas de propiedades del proceso actual) ~ 09/08
+	• FileCreateShortcut() ~ 09/08
+	• DirCopy() ~ 09/08
+	• DirRename() ~ 09/08
+	• WinWait() (ahora devuelve el ID de la ventana) ~ 09/08
 	• FileGetSize()
 	• WinChild()
 	• WinAnimate()
@@ -34,9 +53,20 @@ Mejoras:
 	• ControlSend()
 
 Correcciones:
+	• WinSetIcon() (correcion cuando se espesifica el índice de un icono contenido en una .dll) ~ 09/08
+	• DirRDelete() ~ 09/08
+	• DirSDelete() ~ 09/08
+	• DirRename() ~ 09/08
+	• DirMove() ~ 09/08
 	• RecycleBinGetSize() (cambio de sintaxis)
 	
 Notas:
+	• 09/08: ahora las funciones con procesos aceptan:  ~ 09/08
+		--> '-1' para referirse al proceso actual.
+		--> '-2' para referirse al Thread actual. (Thread: http://www.rastersoft.com/OS2/CURSO/THREAD.HTM)
+		--> '-3' para referirse al último proceso espesificado.
+	• 09/08: se han eliminado: GetSystemTime(), SetSystemTime(), GetLocalTime(), SetLocalTime()
+		--> usar SystemSetTime() y SystemGetTime().
 	• Ahora todas las funciones con ventanas aceptan '-1' en el ID para referirse a la ventana activa,
 		. '-2' para referirse a la ventana bajo el cursor, y '-3' para referirse a la última ventana espesificada.
 	• Ahora todas las funciones con controles aceptan '-1' en el ID para referirse al control que tiene el foco
