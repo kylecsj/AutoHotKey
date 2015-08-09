@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.03 U32 & U64 || Viernes, 07 de agosto de 2015
+Actualizado: AHK1.1.22.03 U32 & U64 || Domingo, 09 de agosto de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -45,12 +45,6 @@ _mnum(f,s){
 	return v,a[s]:=v
 }Get(v, ByRef s:=""){
 	return s:=Set("?",v)
-}_wpname(h,p,x:=0,i:=0){
-	if p&&InStr(p,".")
-		WinGetPID(h?h:x,,i)
-	else if p
-		i:=WinGetPID(h?h:x)
-	return i
 }_fspdtest(c,f,p*){
 	s:=A_TickCount
 	Loop, %c%
@@ -65,8 +59,15 @@ _mnum(f,s){
 		%f%(p*)
 	DllCall("Kernel32.dll\QueryPerformanceCounter", "Int64*", u)
 	return (u-s)/r
-}_pgetpid(p){
-	return InStr(p, ".")||p=-1||p=-2?ProcessExist(p):p
+}_getpid(h,z*){
+	if z.MaxIndex() {
+		p:=z[1],x:=z[2],i:=z[3]
+		if p&&InStr(p,".")
+			WinGetPID(h?h:x,,i)
+		else if p
+			i:=WinGetPID(h?h:x)
+		return i
+	} return Set("LastProcessId",InStr(h,".")||h=-1||h=-2?ProcessExist(h):h=-3?Get("LastProcessId"):h)
 }_gethwnd(ByRef h,ByRef c:=""){
 	if IsByRef(h)
 		h:=h=-1?IsWindow():h=-2?MouseGetPos().Win:h=-3?Get("LastWindowId"):h
@@ -83,7 +84,6 @@ _mnum(f,s){
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;####################################################################################################################
-
 
 
 
@@ -390,12 +390,21 @@ FileCopy(Source, Dest, Overwrite := 0, Recurse := 0) {
 	return ok, ErrorLevel := ok = i ? 0 : 1
 }
 
+;obtener informacion de un acceso directo
+;Sintaxis: FileGetShortcut( [acceso directo], [comando], [directorio de trabajo], [parámetros], [descripcion], [icono], [índice], [modo de inicio] )
+;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
+;Nota: si el archivo espesificado no es un acceso directo válido, devuelve el archivo espesificado.
 FileGetShortcut(ShortcutFile, ByRef OutTarget := "", ByRef OutDir := "", ByRef OutArgs := "", ByRef OutDescription := "", ByRef OutIcon := "", ByRef OutIconNum := "", ByRef OutRunState := "") {
 	FileGetShortcut, %ShortcutFile%, OutTarget, OutDir, OutArgs, OutDescription, OutIcon, OutIconNum, OutRunState
-	return ErrorLevel ? ShortcutFile : OutTarget ? OutTarget : ShortcutFile
+	return ErrorLevel?ShortcutFile:(OutTarget?OutTarget:ShortcutFile)
 }
 
-FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Description := "", IconFile := "", ShortcutKey := "", IconNumber := "", RunState := "") {
+;crear acceso directo
+;Sintaxis: FileCreateShortcut( [comando], [acceso directo], [parámetros], [descricpion], [icono], [tecla de acceso], [índice], [modo de inicio] )
+;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
+;Nota: espesificar A_Tab en el 4to parametro (descripcion) para establecer la descripcion por defecto del archivo.
+FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Description := "", IconFile := "", ShortcutKey := "", IconNumber := 1, RunState := 1) {
+	Description := Description=A_Tab?FileGetInfo(Target, "FileDescription"):Description
 	FileCreateShortcut, %Target%, %ShortcutFile%, %WorkingDir%, %Args%, %Description%, %IconFile%, %ShortcutKey%, %IconNumber%, %RunState%
 	return !ErrorLevel
 }
@@ -403,19 +412,15 @@ FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Descripti
 ;dialogo para seleccionar archivos
 ;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones/VentanaID], [Título de la ventana] )
 FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
-	if (StrLen(Options) >= 3) AND IsWindow( Options )
-		WinDisable( Options ), i := 1
 	FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar, i:=i?WinEnable(Options):""
+	return OutputVar
 }
 
 ;dialogo para guardar archivo
 ;Sintaxis: FileSave( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
 FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
-	if (StrLen(Options) >= 3) AND IsWindow( Options )
-		WinDisable( Options ), i := 1
 	FileSelectFile, OutputVar, S%Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar, i:=i?WinEnable(Options):""
+	return OutputVar
 }
 
 ;leer archivo
@@ -748,25 +753,31 @@ Start(Target := "", Param*) {
 }
 
 ;abrir propiedades de un archivo/carpeta
-;Sintaxis: Properties( [archivo/carpeta], [esperar (segundos)] )
-;Nota: para esperar indefinidamente, espesificar 0 (segundo parametro)
-;EJEMPLO: i:=Properties( comspec, 0 ) ExitApp()
-Properties(Target, WaitClose := -1) {
+;Sintaxis: Properties( [archivo/carpeta], [esperar (segundos)], [¿AlwaysOnTop?] )
+;Notas: 
+	;• para esperar indefinidamente, espesificar 0 (segundo parametro)
+	;• cuando se espesifica tiempo fuera, primero busca y cierra todas las demás ventanas
+		;de propiedades abiertas por el proceso actual; ya que sino, esperaría a que todas las
+		;ventanas se cierren, y solo queremos esperar la que espesificamos para el archivo.
+;Ejemplo: Properties(comspec, false), ExitApp()
+Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 	if !FileExist(Target)
 		return 0, ErrorLevel := 2
-	i := Run( "Properties " Chr(34) Target Chr(34) )
 	if (WaitClose>-1) {
-		WinWaitActive(, 5, "#32770", ProcessExist())
-		return WinWaitClose(, WaitClose, "#32770", ProcessExist())
+		CurrentProcessId := ProcessExist()
+		, WinCloseEx(, "#32770", CurrentProcessId, true)
+		, i := Run("Properties " Chr(34) Target Chr(34))
+		, hWnd := WinWait(, 5, "#32770", CurrentProcessId)
+		if AlwaysOnTop
+			WinSet(hWnd, "+AlwaysOnTop")
+		return WinWaitClose(hWnd)
+	} else {
+		i := Run("Properties " Chr(34) Target Chr(34))
+		if AlwaysOnTop
+			hWnd := WinWait(, 5, "#32770", CurrentProcessId:=ProcessExist())
+			, WinSet(hWnd, "+AlwaysOnTop")
 	} return i, ErrorLevel := !i
 }
-
-
-
-
-
-
-
 
 
 
@@ -829,80 +840,88 @@ Properties(Target, WaitClose := -1) {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: CARPETAS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;eliminar carpeta
+;eliminar directorio
 ;Sintaxis: DirDelete( [carpeta], [¿eliminar archivos y subcarpetas?] )
-DirDelete(lpPathName, Recurse := 0, Empty := false) {
-	FileRemoveDir, %lpPathName%, %Recurse%
-	Error := ErrorLevel
-	if Empty
-		DirCreate(lpPathName)
-	return !Error, ErrorLevel := Error
-}
-
-;eliminar carpeta(s) al reiniciar
-DirRDelete(FilePattern, Recurse := 0) {
-	ok := 0
-	Loop, Files, %FilePattern%, % Recurse ? "DR" : "D"
-		error := !DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" A_LoopFileLongPath, "Ptr", 0, "UInt", 0x4)
-		, ok := error ? ok : ok + 1
-	return ok, ErrorLevel := error
-}
-
-;eliminar carpeta de forma segura
-;Sintáxis: DirSDelete( [carpeta], [pasadas] )
-DirSDelete(Filename, Pases := 1) {
-	Filename := RTrim(Filename, "\")
-	, ok := FileSDelete( Filename "\*.*", Pases, 1 )
-	, ok := FileSetTime( 2000, Filename, "MAC", 2 ) + ok
-	return DirDelete(Filename, 1) + ok
-}
-
-;renombrar carpeta(s)
-;Sintaxis: Rename( [Carpeta], [Nuevo Nombre], [¿Incluir carpetas en subdirectorios?] )
-DirRename(Source, NewName, Recurse := 0) {
-	ValidateName( NewName ), ok := 0
-	if (NewName = "")
-		return 0
-	Loop, Files, %Source%, % Recurse ? "DR" : "D"
-		SplitPath( A_LoopFileLongPath,, Dir )
-		, ok += DirMove( A_LoopFileLongPath, Dir "\" NewName, "R")
-	return ok, ErrorLevel := !ok
-}
-
-;Mover carpeta
-DirMove(Source, Dest, Flag := "") {
-	Source := RTrim(Source, "\"), Dest := RTrim(Dest, "\")
-	FileMoveDir, %Source%, %Dest%, %Flag%
+DirDelete(DirName, Recurse := false) {
+	FileRemoveDir, %DirName%, %Recurse%
 	return !ErrorLevel
 }
 
-;copiar carpeta
-DirCopy(Source, Dest, Flag := 0) {
-	Source := RTrim(Source, "\"), Dest := RTrim(Dest, "\")
-	FileCopyDir, %Source%, %Dest%, %Flag%
+;vaciar directorio sin eliminarlo
+;Sintaxis: DirEmpty( [directorio], [¿incluir subdirectorios?] )
+DirEmpty(DirName, Recurse := false) {
+	Loop, Files, %DirName%\*.*, FD
+		FileDelete(A_LoopFileFullPath)
+		, DirDelete(A_LoopFileFullPath, Recurse)
+	Loop, Files, %DirName%\*.*, F
+		return 0, ErrorLevel := true
+	return 1, ErrorLevel := false
+}
+
+;eliminar directorio al reiniciar
+;Sintaxis: DirRDelete( [directorio] )
+DirRDelete(DirName) {
+	DirName := GetFullPathName(DirName)
+	return i:=DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" DirName, "Ptr", 0, "UInt", 0x4)
+		, ErrorLevel := !i
+}
+
+;eliminar directorio de forma segura
+;Sintáxis: DirSDelete( [directorio], [pasadas] )
+DirSDelete(DirName, Pases := 1) {
+	if !IsDir(DirName)
+		return true, ErrorLevel := false
+	return FileSDelete(DirName "\*.*", Pases, true)
+		+ FileSetTime(2000, DirName, "MAC")
+		+ DirDelete(DirName, true)
+}
+
+;renombrar directorio
+;Sintaxis: Rename( [directorio], [nuevo nombre], [eliminar] )
+;Eliminar: 1 = si ya existe una carpeta con el mismo nombre eliminarla.
+;ErrorLevel: devuelve 2 si la carpeta ya existe y OverWrite es falso.
+DirRename(DirName, NewName, OverWrite := false) {
+	if ((NewName:=ValidateName(NewName))="")
+		return 0, ErrorLevel := true
+	SplitPath(DirName,, Dir)
+	if IsDir(Dir "\" NewName) {
+		if !OverWrite
+			return 0, ErrorLevel := 2
+		DirDelete(Dir "\" NewName, true)
+	} return DirMove(DirName, Dir "\" NewName, "R")
+}
+
+;mover directorio
+;Sintaxis: DirMove( [directorio], [destino], [opciones] )
+;Opciones: 1 = sobreescribir archivos | 2 = eliminar destino antes de copiar.
+DirMove(DirName, Dest, OverWrite := false) {
+	if (OverWrite=2)
+		DirDelete(Dest, true)
+	FileMoveDir, % RTrim(DirName, "\"), % RTrim(Dest, "\"), % OverWrite="R"?"R":(OverWrite?true:false)
+	return !ErrorLevel
+}
+
+;copiar directorio
+;Sintaxis: DirCopy( [directorio], [destino], [opciones] )
+;Opciones: 1 = sobreescribir archivos | 2 = eliminar destino antes de copiar.
+DirCopy(Source, Dest, OverWrite := false) {
+	if (OverWrite=2)
+		DirDelete(Dest, true)
+	FileCopyDir, % RTrim(Source, "\"), % RTrim(Dest, "\"), % OverWrite?true:false
 	return !ErrorLevel
 }
 
 ;crear carpeta
-;devuelve el número de carpetas creadas (+subcarpetas)
-DirCreate(lpPathName) {
-	ok := 0, ValidatePath(lpPathName)
-	if IsDir(lpPathName)
-		return true, ErrorLevel := false
-	Loop, Parse, % lpPathName, \, %A_Space%%A_Tab%
-	{ path .= A_LoopField "\"
-		if (A_Index > 1)
-			ok += DllCall("Kernel32.dll\CreateDirectoryW", "Str", "\\?\" RTrim(path, "\"), "Ptr", 0)
-	} return ok, ErrorLevel := !ok
+DirCreate(DirName) {
+	FileCreateDir, %DirName%
+	return !ErrorLevel
 }
 
 ;dialogo: seleccionar carpeta
 ;Sintaxis: DirSelect( [Directorio], [Opciones/VentanaID], [Título] )
 DirSelect(StartingFolder := "", Options := 1,  Prompt := "") {
-	if (StrLen(Options) >= 3) AND IsWindow( Options )
-		WinDisable( Options ), i := 1
 	FileSelectFolder, OutputVar, %StartingFolder%, %Options%, %Prompt%
-	return RTrim( OutputVar, "\" ), i:=i?WinEnable(Options):""
+	return RTrim(OutputVar, "\")
 }
 
 ;comprueba si es carpeta
@@ -911,8 +930,8 @@ IsDir(DirName, ByRef FullPathName := "") {
 	if IsByRef(FullPathName)
 		FullPathName := GetFullPathName(DirName)
 	return InStr(FileExist(DirName),"D")
-} IsFolder(DirName) {
-	return InStr(FileExist(DirName),"D")
+} IsFolder(DirName, ByRef FullPathName := "") {
+	return IsByRef(FullPathName)?IsDir(DirName, FullPathName):IsDir(DirName)
 }
 
 ;comprueba si el directorio existe
@@ -928,7 +947,7 @@ DirExist(ByRef FilePattern, Recurse := 0) {
 ;Sintaxis: DirOpen( [carpeta], [abrir en una nueva ventana] ) 
 DirOpen(Dir, NewWindow := 0) {
 	if !DirExist( Dir )
-		return 0
+		return 0, ErrorLevel := true
 	return Run( A_WinDir "\explorer.exe " (NewWindow?"/n,":"") Chr(34) Dir Chr(34) )
 }
 
@@ -976,7 +995,7 @@ DirGetInfo(Dirname, ValidatePath := 0) {
 
 ;esperar a que un directorio exista o no
 ;Sintaxis: DirWait( [directorio], [segundos], [¿esperar a que no exista?] )
-DirWait(DirName, Seconds := 0, NotExist := 0) {
+DirWait(DirName, Seconds := 0, NotExist := false) {
 	if (Seconds=-1)
 		return 0
 	DirName := GetFullPathName(DirName)
@@ -989,8 +1008,15 @@ DirWait(DirName, Seconds := 0, NotExist := 0) {
 		Sleep(500)
 }}
 
-
-
+;obtener tamaño de un directorio
+;Sintaxis: DirGetSize( [directorio], [KB|MB|GB], [¿incluir subcarpetas?] )
+DirGetSize(DirName, Units := "", Recurse := true) {
+	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+	Size := 0
+	Loop, Files, %DirName%\*.*, % Recurse?"FR":"F"
+		Size += A_LoopFileSize
+	return _[Units]?Size/_[Units]:Size, ErrorLevel := !IsFolder(DirName)
+}
 
 
 
@@ -1246,18 +1272,18 @@ Add(num1, num2, Prefect := false) {
 ;obtiene el mayor numero
 ;EJEMPLO: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max( "5,2,8,-44,7" )
 Max(n*) {
-	n := n.MaxIndex() = 1 ? StrSplit( n[1], ",", A_Space ) : n, _ := n[1]
+	n := n.MaxIndex()=1?StrSplit(n[1], ",", A_Space):n, _ := n[1]
 	Loop, % n.MaxIndex()
-		_ := _ < n[A_Index+1] ? n[A_Index+1] : _
+		_ := _<n[A_Index+1]?n[A_Index+1]:_
 	return _
 }
 
 ;obtiene el menor numero
 ;EJEMPLO: MsgBox % Min( 7, 9, 0, 222, -0.2 ) "`n" Min( "5,2,8,-44,7" )
 Min(n*) {
-	n := n.MaxIndex() = 1 ? StrSplit( n[1], ",", A_Space ) : n, _ := n[1]
+	n := n.MaxIndex()=1?StrSplit(n[1], ",", A_Space):n, _ := n[1]
 	Loop, % n.MaxIndex()
-		_ := _ > n[A_Index+1] ? (n[A_Index+1] = "" ? _ : n[A_Index+1]) : _
+		_ := _>n[A_Index+1]?(n[A_Index+1]=""?_:n[A_Index+1]):_
 	return _
 }
 
@@ -2359,11 +2385,14 @@ Base64Decode(pszString, nSize := 0) {
 
 
 
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------------------------
   ::::::::::::::::::::::::::::::::::::::::::::: PROCESOS ::::::::::::::::::::::::::::::::::
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 NOTAS: las funciones aceptan el PID y Nombre del proceso (este último lo hace mas lento)
-	- puede espesificar -1 para trabajar con el proceso actual.
+	• espesificar -1 para referirse al proceso actual.
+	• espesificar -2 para referirse al Thread actual. (Thread: http://www.rastersoft.com/OS2/CURSO/THREAD.HTM)
+	• espesificar -3 para referirse al último proceso espesificado.
 */
 ;devuelve una lista de todos los procesos + informacion
 ;ErrorLevel es 1 si ha ocurrido un error
@@ -2396,7 +2425,7 @@ ProcessEnum() {
 
 ;Recupera información sobre el uso de memoria del proceso especificado en bytes
 ProcessMemoryInfo(ProcessName) {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0010|0x0400, "UInt", 0, "UInt", ProcessId)
 	, nSize := VarSetCapacity(memCounters, A_PtrSize = 8 ? 72 : 40), NumPut(nSize, memCounters)
 	if !DllCall("Psapi.dll\GetProcessMemoryInfo", "Ptr", hProcess, "UInt", &memCounters, "UInt", nSize) {
@@ -2420,7 +2449,7 @@ ProcessMemoryInfo(ProcessName) {
 ;uso de CPU del proceso
 ProcessCPULoad(ProcessName) {
 		Static oldKrnlTime, oldUserTime, newKrnlTime, newUserTime
-		ProcessId := _pgetpid(ProcessName)
+		ProcessId := _getpid(ProcessName)
 		, oldKrnlTime := newKrnlTime, oldUserTime := newUserTime
 		, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId)
 		, DllCall("Kernel32.dll\GetProcessTimes", "Uint", hProcess, "int64P", CreationTime, "int64P", ExitTime, "int64P", newKrnlTime, "int64P", newUserTime) 
@@ -2430,8 +2459,11 @@ ProcessCPULoad(ProcessName) {
 ;comprueba si el proceso existe
 ;Sintaxis: ProcessExist( [ProcessName] )
 ;NOTAS:
-	;Devuelve el PID o 0 en caso de error
-	;ErrorLevel se establece en el PID o 0 en caso de error
+	;• Devuelve el PID o 0 en caso de error
+	;• ErrorLevel se establece en el PID o 0 en caso de error
+	;• epsesificar -1 para obtener el PID del proceso actual.
+	;• espesificar -2 para obtener el ThreadId del proceso actual.
+	;• espesificar -3 para obtener el PID del último proceso espesificado/encontrado.
 ProcessExist(Proc*) {
 	ProcessName := Trim( Proc[1] )
 	if (ProcessName = "")&&Proc.MaxIndex()
@@ -2439,9 +2471,10 @@ ProcessExist(Proc*) {
 	;---------------------------------------------------------------------------------------------------------------------
 	if (ProcessName = -1)||!Proc.MaxIndex()
 		return DllCall("Kernel32.dll\GetCurrentProcessId")
-	;---------------------------------------------------------------------------------------------------------------------
 	if (ProcessName = -2)
 		return DllCall("Kernel32.dll\GetCurrentThreadId")
+	if (ProcessName = -3)
+		return Get("LastProcessId")
 	;---------------------------------------------------------------------------------------------------------------------
 	dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
@@ -2450,7 +2483,7 @@ ProcessExist(Proc*) {
 		ProcessId := NumGet(lppe, 8, "UInt")
 		ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260, "CP0")
 		if (ProcessId = ProcessName) OR (ProcessExe = ProcessName)
-			return ProcessId, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := ProcessId
+			return Set("LastProcessId", ProcessId), DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := ProcessId
 		if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
 			return 0, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := 0
 }}
@@ -2490,7 +2523,7 @@ ProcessWaitClose(ProcessName, Seconds := 0) {
 }} WaitForSingleObject(ProcessName, Seconds := 0) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032%28v=vs.85%29.aspx
 	if (Seconds = -1)
 		return false
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x00100000, "UInt", 0, "UInt", ProcessId)
 	, i := DllCall("Kernel32.dll\WaitForSingleObject", "Ptr", hProcess, "UInt", Seconds > 0 ? Seconds : 0xFFFFFFFF)
 	return i = 0 OR i = -1 ? (ProcessId ? ProcessId : 1) : 0
@@ -2501,21 +2534,21 @@ ProcessWaitClose(ProcessName, Seconds := 0) {
 ;obtener/establecer prioridad 
 ;Sintaxis: ProcessPriority( [Nombre o PID], [Prioridad] )
 ;Nota: dejar vacio el segundo parametro para recuperar la prioridad
-ProcessPriority(ProcessName, dwPriorityClass := 0, Spa := 0) {
+ProcessPriority(ProcessName, dwPriorityClass := 0, Spa := false) {
 	static r32 := "Normal", r64 := "Low", r128 := "High" , r256 := "RealTime", r16384 := "BelowNormal", r32768 := "AboveNormal"
 	static rn32 := "Normal", rn64 := "Baja", rn128 := "Alta" , rn256 := "Tiempo real", rn16384 := "Debajo de lo normal", rn32768 := "Arriba de lo normal"
 	static rNormal := rN := 32, rLow := rL := 64, rHigh := rH := 128 , rRealTime := rR := 256, rBelowNormal := rB := 16384, rAboveNormal := rA := 32768
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	if !dwPriorityClass {
 		hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId)
 		, hCPriority := DllCall("Kernel32.dll\GetPriorityClass", "Ptr", hProcess)
-		return Spa ? (rn%hCPriority% ? rn%hCPriority% : hCPriority) : (r%hCPriority% ? r%hCPriority% : hCPriority)
+		return Spa?(rn%hCPriority%?rn%hCPriority%:hCPriority):(r%hCPriority%?r%hCPriority%:hCPriority)
 			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-			, ErrorLevel := Spa ? (rn%hCPriority% ? 1 : 0) : (r%hCPriority% ? 1 : 0)
+			, ErrorLevel := Spa?(rn%hCPriority%?1:0):(r%hCPriority%?1:0)
 	} hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0200, "UInt", 0, "UInt", ProcessId)
-	return i := DllCall("kernel32.dll\SetPriorityClass", "Ptr", hProcess, "UInt", r%dwPriorityClass% ? r%dwPriorityClass% : dwPriorityClass)
+	return i := DllCall("kernel32.dll\SetPriorityClass", "Ptr", hProcess, "UInt", r%dwPriorityClass%?r%dwPriorityClass%:dwPriorityClass)
 		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-		, ErrorLevel := r%dwPriorityClass% ? !i : 0
+		, ErrorLevel := r%dwPriorityClass%?!i:0
 }
 	
 ;cerrar proceso(s)
@@ -2542,7 +2575,7 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 					return RTrim(hList, "`n"), DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
 	}}
 	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
 	if SubProcess { ;termina el proceso junto con todos sus subprocesos
 		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
@@ -2567,7 +2600,7 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 ;recupera la ruta completa al archivo ejecutable del proceso
 ;Sintaxis: ProcessPath( [ID], [nombre del ejecutable (out)] )
 ProcessPath(ProcessName, ByRef ProcessEName := "") {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
 	, FileNameSize := VarSetCapacity(ModuleFileName, (260 + 1) * 2, 0) / 2
 	if !DllCall("Psapi.dll\GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize)
@@ -2579,7 +2612,7 @@ ProcessPath(ProcessName, ByRef ProcessEName := "") {
 
 ;recupera el nombre del archivo ejecutable del proceso
 ProcessName(ProcessName) {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
 	, nSize := VarSetCapacity(lpBaseName, (260 + 1) * 2, 0) / 2
 	if !DllCall("Psapi.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
@@ -2592,7 +2625,7 @@ ProcessName(ProcessName) {
 ;establece el tamaño de conjunto de trabajo máximo y mínimo para el proceso especificado
 ;Sintaxis: ProcessSetWorkingSetSize( [Proceso], [Min], [Max] )
 ProcessSetWorkingSetSize(ProcessName, Min := -1, Max := -1) {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0100, "UInt", 0, "UInt", ProcessId)
 	return i := DllCall("Kernel32.dll\SetProcessWorkingSetSize", "Ptr", hProcess, "UPtr", Min, "UPtr", Max)
 		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess), ErrorLevel := !i
@@ -2601,7 +2634,7 @@ ProcessSetWorkingSetSize(ProcessName, Min := -1, Max := -1) {
 ;obtiene el tamaño de conjunto de trabajo máximo y mínimo para el proceso especificado
 ;Sintaxis: ProcessGetWorkingSetSize( [Proceso], [Min (salida)], [Max (salida)] )
 ProcessGetWorkingSetSize(ProcessName, ByRef Min := "", ByRef Max := "") {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId), i := {}
 	, r := DllCall("Kernel32.dll\GetProcessWorkingSetSize", "Ptr", hProcess, "UPtrP", Min, "UPtrP", Max)
 	, i.Min := Min, i.Max := Max
@@ -2618,7 +2651,7 @@ ProcessSetPrivilege(ProcessName, Privileges, Set := true) {
 		. "SeTimeZonePrivilege,SeIncreaseBasePriorityPrivilege,SeManageVolumePrivilege,SeRemoteShutdownPrivilege,"
 		. "SeSecurityPrivilege,SeTakeOwnershipPrivilege,SeBackupPrivilege,SeProfileSingleProcessPrivilege,SeRestorePrivilege,"
 		. "SeSystemEnvironmentPrivilege,SeSystemProfilePrivilege"
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400, "UInt", 0, "UInt", ProcessId)
 	, DllCall("Advapi32.dll\OpenProcessToken", "Ptr", hProcess, "UInt", 0x0020|0x00000008, "UIntP", hToken)
 	, PrivilegesLuid := [], i := 0
@@ -2635,7 +2668,7 @@ ProcessSetPrivilege(ProcessName, Privileges, Set := true) {
 
 ;suspender
 ProcessSuspend(ProcessName) {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0800, "UInt", 0, "UInt", ProcessId)
 	, DllCall("ntdll.dll\NtSuspendProcess", "Ptr", hProcess)
 	return hProcess, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
@@ -2643,7 +2676,7 @@ ProcessSuspend(ProcessName) {
 	
 ;reanudar
 ProcessResume(ProcessName) {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0800, "UInt", 0, "UInt", ProcessId)
 	, DllCall("ntdll.dll\NtResumeProcess", "Ptr", hProcess)
 	return hProcess, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
@@ -2652,7 +2685,7 @@ ProcessResume(ProcessName) {
 ;obtiene el SID, opcional también el nombre de usuario y dominio del proceso
 ;Sintaxis: ProcessGetSID( [proceso], [nombre de usuario (salida)], [dominio (salida)] )
 ProcessGetSID(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
-	ProcessId := _pgetpid(ProcessName)
+	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x00020000, "UInt", 0, "UInt", ProcessId)
 	, i := DllCall("Advapi32.dll\GetSecurityInfo", "Ptr", hProcess, "UInt", 6, "UInt", 1, "PtrP", PSID, "PtrP", 0, "PtrP", 0, "PtrP", 0)
 	if IsByRef( UserName ) OR IsByRef( UserDomain )
@@ -2661,14 +2694,15 @@ ProcessGetSID(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
 	return PSID, ErrorLevel := i
 }
 
-;obtener una lista de los Hilos del proceso espesificado
+;obtener una lista de los Threads del proceso espesificado
 ;Sintaxis: ProcessThreadList( [ID], [Delimitador] )
 ;EJEMPLO:
 	;for k, v in ProcessThreadList()
 		;if (i:=ProcessName(v.ProcessId))
 			;MsgBox % "ThreadId: " v.ThreadId ", OwnerProcessId: " v.ProcessId " (" i ")"
 ProcessThreadList(ProcessName := "", Delimiter := "`n") {
-	dwSize := VarSetCapacity(THREADENTRY32, A_PtrSize = 4 ? 28 : 40, 0)
+	ProcessName := _getpid(ProcessName)
+	, dwSize := VarSetCapacity(THREADENTRY32, A_PtrSize = 4 ? 28 : 40, 0)
 	, NumPut(dwSize, THREADENTRY32, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000004, "UInt", 0)
 	, DllCall("Kernel32.dll\Thread32First", "Ptr", hSnapshot, "Ptr", &THREADENTRY32)
@@ -3113,16 +3147,18 @@ DesktopGetIconsPos(ByRef hDesktop := "", ByRef ProcessId := "") {
 DesktopSetIconsPos(IconsPos, ByRef hDesktop := "", ByRef ProcessId := "") {
 	i := 0
 	Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
-		if (IconsPos[A_LoopField][1]!="")
-			i+=LV_SetItemPosEx(hDesktop, A_Index, IconsPos[A_LoopField][1], IconsPos[A_LoopField][2], ProcessId)
+	{	if (IconsPos[A_LoopField][1]!="") {
+			IconIndex := "", ItemName := A_LoopField
+			Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
+			{	if (A_LoopField=ItemName) {
+					IconIndex := A_Index
+					break
+			}} if (IconIndex="")
+					continue
+			i+=LV_SetItemPosEx(hDesktop, IconIndex, IconsPos[A_LoopField][1], IconsPos[A_LoopField][2], ProcessId)
 			, r := A_Index
-	return i=r, ErrorLevel := !(i=r)
+	}} return i=r, ErrorLevel := !(i=r)
 }
-
-
-
-
-
 
 
 
@@ -3947,7 +3983,16 @@ __SetIcon(FileName, Icon, IconID := 159) {
 	return true
 }
 
-
+;separar tiempo
+;Sintaxis: SplitTime( [YYYYMMDDHH24MISS], [año], [mes], [dia], [hora], [min], [seg], [AM/PM] )
+;Nota: devuelve un Array con el tiempo en el siguiente orden: año, mes, día, hora, min, seg, am/pm.
+SplitTime(Time, ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef Hour := "", ByRef Min := "", ByRef Sec := "", ByRef Mark := "") {
+	FormatTime, Time, %Time%, yyyy,MM,dd,HH,mm,sus,tt
+	Time := StrSplit(Time, ",")
+	Loop, Parse, % "Year,Mon,Day,Hour,Min,Sec,Mark", `,
+		%A_LoopField% := Time[A_Index]
+	return Time
+}
 
 
 
@@ -5911,58 +5956,33 @@ Shutdown(Code, Force := 0) {
 	} return false, ErrorLevel := true
 }
 
-;establecer fecha
-;EJEMPLO: MsgBox % SetSystemTime({"Year": 2050, "Mon": 25})
-SetSystemTime(Time) {
-	VarSetCapacity(SYSTEMTIME, 16), i := GetSystemTime()
-	, NumPut(Time.Year != "" ? Time.Year : i.Year, SYSTEMTIME,  0, "UShort") ;año = Year
-	, NumPut(Time.Mon != "" ? Time.Mon : i.Mon, SYSTEMTIME,  2, "UShort") ;mes = Mon
-	, NumPut(Time.WD != "" ? Time.WD : i.WD, SYSTEMTIME,  4, "UShort") ;día de la semana = WD
-	, NumPut(Time.Day != "" ? Time.Day : i.Day, SYSTEMTIME,  6, "UShort") ;día  = Day
-	, NumPut(Time.Hour != "" ? Time.Hour : i.Hour, SYSTEMTIME,  8, "UShort") ;hora = Hour
-	, NumPut(Time.Min != "" ? Time.Min : i.Min, SYSTEMTIME, 10, "UShort") ;minutos = Min
-	, NumPut(Time.Sec != "" ? Time.Sec : i.Sec, SYSTEMTIME, 12, "UShort") ;segundos = Seg
-	, NumPut(Time.MS != "" ? Time.MS : i.MS, SYSTEMTIME, 14, "UShort") ;milisegundos = MS
-	return DllCall("kernel32.dll\SetSystemTime", "Ptr", &SYSTEMTIME)
-} SetLocalTime(Time) {
-	VarSetCapacity(SYSTEMTIME, 16), i := GetLocalTime()
-	, NumPut(Time.Year != "" ? Time.Year : i.Year, SYSTEMTIME,  0, "UShort") ;año = Year
-	, NumPut(Time.Mon != "" ? Time.Mon : i.Mon, SYSTEMTIME,  2, "UShort") ;mes = Mon
-	, NumPut(Time.WD != "" ? Time.WD : i.WD, SYSTEMTIME,  4, "UShort") ;día de la semana = WD
-	, NumPut(Time.Day != "" ? Time.Day : i.Day, SYSTEMTIME,  6, "UShort") ;día  = Day
-	, NumPut(Time.Hour != "" ? Time.Hour : i.Hour, SYSTEMTIME,  8, "UShort") ;hora = Hour
-	, NumPut(Time.Min != "" ? Time.Min : i.Min, SYSTEMTIME, 10, "UShort") ;minutos = Min
-	, NumPut(Time.Sec != "" ? Time.Sec : i.Sec, SYSTEMTIME, 12, "UShort") ;segundos = Seg
-	, NumPut(Time.MS != "" ? Time.MS : i.MS, SYSTEMTIME, 14, "UShort") ;milisegundos = MS
-	return DllCall("kernel32.dll\SetLocalTime", "Ptr", &SYSTEMTIME)
+;cambiar fecha y hora
+;Sintaxis: SystemSetTime( [tiempo], [Local / System] )
+;Nota: el tiempo debe ser un array con el formato año/mes/día/hora/min/seg/ms
+;Ejemplo: SystemSetTime( [2020,12,09,,,01] )
+SystemSetTime(Time, Mode := "Local") {
+	VarSetCapacity(SYSTEMTIME, 8 * 2, 0)
+	, NumPut(Time[1]=""?A_Year:Time[1], SYSTEMTIME, 0, "UShort")
+	, NumPut(Time[2]=""?A_Mon:Time[2], SYSTEMTIME, 2, "UShort")
+	, NumPut(Time[7]=""?A_WDay:Time[7], SYSTEMTIME, 4, "UShort")
+	, NumPut(Time[3]=""?A_DD:Time[3], SYSTEMTIME, 6, "UShort")
+	, NumPut(Time[4]=""?A_Hour:Time[4], SYSTEMTIME, 8, "UShort")
+	, NumPut(Time[4]=""?A_Min:Time[5], SYSTEMTIME, 10, "UShort")
+	, NumPut(Time[5]=""?A_Sec:Time[5], SYSTEMTIME, 12, "UShort")
+	, NumPut(Time[6]=""?A_MSec:Time[6], SYSTEMTIME, 14, "UShort")
+	return i:=DllCall("kernel32.dll\Set" Mode "Time", "Ptr", &SYSTEMTIME)
+		, ErrorLevel := !i
 }
 
-;obtener fecha
-;EJEMPLO: GetSystemTime().Year
-GetSystemTime() { ;sistema
-	VarSetCapacity(lpSystemTime, 16, 0), NumPut(16, lpSystemTime, "UShort")
-	ErrorLevel := !DllCall("kernel32.dll\GetSystemTime", "Ptr", &lpSystemTime)
-	i := {}, i.Year := NumGet(lpSystemTime, 0, "UShort") ;año = Year
-		, i.Mon := NumGet(lpSystemTime, 2, "UShort") ;mes = Mon
-		, i.WD := NumGet(lpSystemTime, 4, "UShort") ;día de la semana = WD
-		, i.Day := NumGet(lpSystemTime, 6, "UShort") ;día  = Day
-		, i.Hour := NumGet(lpSystemTime, 8, "UShort") ;hora = Hour
-		, i.Min := NumGet(lpSystemTime, 10, "UShort") ;minutos = Min
-		, i.Sec := NumGet(lpSystemTime, 12, "UShort") ;segundos = Seg
-		, i.MS := NumGet(lpSystemTime, 14, "UShort") ;milisegundos = MS
-	return i
-} GetLocalTime() { ;local
-	VarSetCapacity(lpSystemTime, 16, 0), NumPut(16, lpSystemTime, "UShort")
-	ErrorLevel := !DllCall("kernel32.dll\GetLocalTime", "Ptr", &lpSystemTime)
-	i := {}, i.Year := NumGet(lpSystemTime, 0, "UShort") ;año = Year
-		, i.Mon := NumGet(lpSystemTime, 2, "UShort") ;mes = Mon
-		, i.WD := NumGet(lpSystemTime, 4, "UShort") ;día de la semana = WD
-		, i.Day := NumGet(lpSystemTime, 6, "UShort") ;día  = Day
-		, i.Hour := NumGet(lpSystemTime, 8, "UShort") ;hora = Hour
-		, i.Min := NumGet(lpSystemTime, 10, "UShort") ;minutos = Min
-		, i.Sec := NumGet(lpSystemTime, 12, "UShort") ;segundos = Seg
-		, i.MS := NumGet(lpSystemTime, 14, "UShort") ;milisegundos = MS
-	return i
+;obtener fecha y hora
+;Sintaxis: SystemGetTime( [Local / System] )
+;Nota: devuelve un array con el formato año/mes/día/hora/min/seg/ms
+SystemGetTime(Mode := "Local") {
+	nSize := VarSetCapacity(SYSTEMTIME, 8 * 2, 0), NumPut(nSize, SYSTEMTIME, "UShort")
+	i := DllCall("kernel32.dll\Get" Mode "Time", "Ptr", &SYSTEMTIME), Time := []
+	Loop, Parse, % "0,2,6,8,10,12,14", `,
+		Time[A_Index] := NumGet(SYSTEMTIME, A_LoopField, "UShort")
+	return Time, ErrorLevel := !i
 }
 
 ;Recupera información sobre el uso actual del sistema de memoria tanto física como virtual.
@@ -6371,6 +6391,28 @@ A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
 }
 ;######################################
 
+A_Year(Year := "") {
+	return Year=""?A_Year:SystemSetTime([Year])
+} A_Mon(Mon := "") {
+	return Mon=""?A_Mon:SystemSetTime([, Mon])
+} A_DD(Day := "") {
+	return Day=""?A_DD:SystemSetTime([,, Day])
+} A_Hour(Hour := "") {
+	return Hour=""?A_Hour:SystemSetTime([,,, Hour])
+} A_Min(Min := "") {
+	return Min=""?A_Min:SystemSetTime([,,,, Min])
+} A_Sec(Sec := "") {
+	return Sec=""?A_Sec:SystemSetTime([,,,,, Sec])
+} A_MSec(MSec := "") {
+	return MSec=""?A_MSec:SystemSetTime([,,,,,, MSec])
+} A_WDay(WDay := "") {
+	return WDay=""?A_WDay:SystemSetTime([,,,,,,, WDay])
+}
+
+
+
+
+
 
 
 
@@ -6452,13 +6494,13 @@ IsWindow(hWnd*) {
 				continue
 			if hWnd[4]&&(WinGetTitle(A_LoopField)!=hWnd[4])
 				continue
-			if hWnd[3]&&(_wpname(A_LoopField,hWnd[3])!=hWnd[3])
+			if hWnd[3]&&(_getpid(A_LoopField,hWnd[3])!=hWnd[3])
 				continue
 			return Set("LastWindowId", A_LoopField), ErrorLevel := 0
 	}} if !hWnd[1]||!DllCall("User32.dll\IsWindow", "Ptr", hWnd[1])
 	||(hWnd[2]&&(WinGetClass(hWnd[1])!=hWnd[2]))
 	||(hWnd[4]&&(WinGetTitle(hWnd[1])!=hWnd[4]))
-	||(hWnd[3]&&(_wpname(hWnd[1],hWnd[3])!=hWnd[3]))
+	||(hWnd[3]&&(_getpid(hWnd[1],hWnd[3])!=hWnd[3]))
 		return 0, ErrorLevel := 1
 	return Set("LastWindowId", hWnd[1]), ErrorLevel := 0
 }
@@ -6510,7 +6552,7 @@ IsWinActive(hWnd := "", Class := "", ProcessName := "", Title := "") {
 	||(hWnd&&(ActiveWindowId!=hWnd))
 	||(Class&&(WinGetClass(hWnd?hWnd:ActiveWindowId)!=Class))
 	||(Title&&(WinGetTitle(hWnd?hWnd:ActiveWindowId)!=Title))
-	||(ProcessName&&(_wpname(hWnd,ProcessName,ActiveWindowId) != ProcessName))
+	||(ProcessName&&(_getpid(hWnd,ProcessName,ActiveWindowId) != ProcessName))
 		return 0, ErrorLevel := 1
 	return 1, ErrorLevel := 0
 }
@@ -6744,7 +6786,22 @@ WinClose(hWnd, Seconds := -1, Force := false) {
 } WinKill(hWnd, Seconds := -1) {
 	_gethwnd(hWnd)
 	return WinClose(hWnd, Seconds, true)?true
-		: DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", 1)
+		: DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", true)
+}
+
+;cierra todas las ventanas que coincidan con los datos espesificados
+;Sintaxis: WinCloseEx( [ID], [Clase], [Proceso/PID], [¿forzar?], [¿afectar a las ventanas ocultas?] )
+WinCloseEx(hWnd := "", Class := "", ProcessName := "", Force := false, DetectHiddenWindows := true) {
+	Win := Total := 0
+	Loop, Parse, % WinEnum(, DetectHiddenWindows), `n
+	{ if hWnd&&(hWnd!=A_LoopField)
+			continue
+		if Class&&!(WinGetClass(A_LoopField)==Class)
+			continue
+		if ProcessName&&(_getpid(A_LoopField,ProcessName)!=ProcessName)
+			continue
+		Win += WinClose(A_LoopField,, Force), Total++
+	} return Win=Total, ErrorLevel := !(Win=Total)
 }
 
 ;minimiza la ventana
@@ -6950,7 +7007,7 @@ WinSetTitle(hWnd, NewTitle := "") {
 ;cambia el icono de la ventana
 ;Sintaxis: WinSetIcon( [ID], [Icono/DLL/Ejecutable], [Índice] )
 WinSetIcon(hWnd, lpszExeFileName, nIconIndex := 0) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632643%28v=vs.85%29.aspx
-	if !(hIcon := DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Str", lpszExeFileName, "UInt", nIconIndex))
+	if !(hIcon := DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Str", lpszExeFileName, "UInt", nIconIndex>0?nIconIndex-1:0))
 		return false, ErrorLevel := 2
 	_gethwnd(hWnd)
 	, SendMessage(hWnd, 0x0080,,,, hIcon), SendMessage(hWnd, 0x0080,, 1,, hIcon)
@@ -6998,7 +7055,7 @@ WinSetStyle(hWnd, Style) {
 
 ;establecer estilo extendido
 ;Sintaxis: WinSetExStyle( [ID], [+-^Estilo] )
-;Estilo: +(añadir) -(quitar) ^(alternar) || defecto es +(añadir)
+;Estilo: +(añadir, defecto) -(quitar) ^(alternar)
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543%28v=vs.85%29.aspx
 WinSetExStyle(hWnd, ExStyle) {
 	_gethwnd(hWnd), ExStyle := _mnum(WinGetExStyle(hWnd), ExStyle)
@@ -7079,16 +7136,17 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title
 
 ;esperar a que una ventana exista
 ;Sintaxis: WinWait( [Título], [Segundos], [clase], [proceso/pid], [ID] )
+;Nota: devuelve el ID 
 WinWait(Title := "", Seconds := 0, Class := "", ProcessName := "", hWnd := "") {
 	_gethwnd(hWnd)
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
-		return 0
+		return false
 	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
-		if IsWindow(hWnd, Class, ProcessName, Title)
-			return 1, ErrorLevel := 0
+		if (i:=IsWindow(hWnd, Class, ProcessName, Title))
+			return i, ErrorLevel := false
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
-			return 0, ErrorLevel := 1
+			return false, ErrorLevel := true
 		Sleep( 100 )
 }}
 
@@ -7211,7 +7269,7 @@ MenuSelectItem(hWnd, MenuItemId := "", MenuItemName := "") {
 ;Invoca un elemento de menú de la barra de menú de la ventana especificada
 ;Sintaxis: MenuSelect( [ID], [Menu Principal], [Submenus*] )
 ;EJEMPLO: MenuSelect( IsWindow(), "Archivo", "Abrir..." )
-;VER: MenuGetItemList(), MenuSelectItem()
+;VER: MenuSelectItem()
 MenuSelect(hWnd, Menu, Submenu*) {
 	if !Submenu.MaxIndex()
 		return MenuSelectItem(hWnd,, Menu)
@@ -7524,7 +7582,7 @@ ServiceGetDescription(IpName, Mode := "Fast") {
 ;Sintaxis: ServiceSetDescription( [servicio], [descripcion], [Fast|Slow] )
 ServiceSetDescription(IpName, Description := "", Mode := "Slow") {
 	Description := Trim(StrReplace(Description, A_Tab, A_Space))
-	if (Mode="F"||Mode="Fast") { ;Fast: establece desde el registro (no recomendado, puede dar problemas con permisos)
+	if (Mode="F"||Mode="Fast") { ;Fast: establece desde el registro (puede dar problemas con permisos)
 		return RegWrite("HKLM\SYSTEM\CurrentControlSet\Services\" IpName, "Description", Description)
 	} else if (Mode="S"||Mode="Slow") { ;Slow: abre el servicio para establecer la descripcion (recomendado)
 		hService := ServiceOpen(IpName,, 0x0002)
@@ -7628,7 +7686,7 @@ ServiceInfo(IpName) {
 ;Test (Fast vs Slow): MsgBox % "Fast: " _fspdtestex(999, "ServiceExist", "Spooler") "`nSlow: " _fspdtestex(999, "ServiceExist", "Spooler", "S")
 ServiceExist(lpDisplayName, Mode := "Fast") {
 	if (Mode="F"||Mode="Fast") ;Fast: comprueba si existe desde el registro. (recomendado)
-		return i:=RegExist("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
+		return RegExist("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
 	if (Mode="S"||Mode="Slow") ;Slow: abre y cierra el servicio para comprobar si existe. (mas lento)
 		return i:=DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", ServiceOpen(lpDisplayName)), ErrorLevel:=!i
 	return 0, ErrorLevel := 1
