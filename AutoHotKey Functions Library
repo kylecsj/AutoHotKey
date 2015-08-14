@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.03 U32 & U64 || Domingo, 09 de agosto de 2015
+Actualizado: AHK1.1.22.03 U32 & U64 || Viernes, 14 de agosto de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -141,7 +141,7 @@ FileDelete(FilePattern, Recurse := 0) {
 }
 
 ;eliminar archivo(s) al reiniciar
-FileRDelete(FilePattern, Recurse := 0) {
+FileRDelete(FilePattern, Recurse := false) {
 	if !_wildc(FilePattern, Recurse) {
 		FilePattern := GetFullPathName(FilePattern)
 		return i := DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" FilePattern, "Ptr", 0, "UInt", 0x4)
@@ -174,21 +174,15 @@ FileSDelete(FilePattern, Pases := 1, Recurse := 0) {
 	return ok, ErrorLevel := ok = i ? 0 : 1
 }
 
-;renombrar archivo(s)
-;Sintaxis: Rename( [Archivo], [Nuevo Nombre] )
-;devuelve la cantidad de archivos renombrados
-FileRename(FilePattern, NewName, Recurse := 0) {
-	ValidateName( NewName )
-	if (NewName = "")
-		return 0
-	if !_wildc(FilePattern, Recurse) {
-		FilePattern := GetFullPathName(FilePattern)
-		, SplitPath(FilePattern,, Directory)
-		return i := FileMove( FilePattern, Directory "\" NewName ), ErrorLevel := !i
-	} ok := i := 0
-	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileRename( A_LoopFileLongPath, NewName ), i++
-	return ok, ErrorLevel := ok = i ? 1 : 0
+;renombrar archivo
+;Sintaxis: Rename( [archivo], [nuevo nombre], [¿sobreescribir?] )
+FileRename(FileName, NewName, OverWrite := false) {
+	if ((NewName:=ValidateName(NewName))="")
+		return false, ErrorLevel := true
+	SplitPath(FileName,, DirName)
+	if !OverWrite&&FileExist(DirName "\" NewName)
+		return false, ErrorLevel := 2
+	return FileMove(FileName, DirName "\" NewName, OverWrite)
 }
 
 FileGetVersion(Filename) {
@@ -258,16 +252,16 @@ FileCreate(lpFileName, dwDesiredAccess := 28, dwShareMode := 7, lpSecurityAttrib
 }
 
 ;mover archivo
-;Sintaxis: FileMove( [archivo], [archivo destino], [sobreescribir] )
-FileMove(Source, Dest, Flag := 0) {
-	if !IsFile( Source )
-		return 0, ErrorLevel := 2
-	FileMove, %Source%, %Dest%, %Flag%
+;Sintaxis: FileMove( [archivo], [destino], [sobreescribir] )
+FileMove(FileName, Dest, OverWrite := false) {
+	if !IsFile(FileName)
+		return false, ErrorLevel := 2
+	FileMove, %FileName%, %Dest%, %OverWrite%
 	return !ErrorLevel
 }
 
 ;Sintaxis: FileSetTime( [fecha], [archivo], [M|C|A], [0(F)|1(FD)|2(D)], [0|1(R)] )
-FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders := 0, Recurse := 0) {
+FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders := false, Recurse := false) {
 	Loop, Parse, % WhichTimeMCA
 		FileSetTime, %Time%, %FilePattern%, %A_LoopField%, %OperateOnFolders%, %Recurse%
 	return !ErrorLevel
@@ -305,7 +299,7 @@ FileRecycle(FilePattern, Recurse := 0) {
 		return !ErrorLevel
 	} ok := i := 0
 	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileRecycle( A_LoopFileLongPath ), i++
+		ok += FileRecycle(A_LoopFileFullPath), i++
 	return ok, ErrorLevel := ok = i ? 1 : 0
 }
 
@@ -323,12 +317,12 @@ IsFile(Filename, ByRef FullPathName := "") {
 FileGetAttrib(lpFileName, ByRef hAttrib := "", ByRef _cpath := "") {
 	static List := {"R": 0x1, "A": 0x20, "S": 0x4, "H": 0x2, "N": 0x80, "D": 0x10, "O": 0x1000, "C": 0x800, "T": 0x100, "E": 0x4000, "V": 0x10000}
 	if ((hAttrib:=DllCall("Kernel32.dll\GetFileAttributesW", "Str", "\\?\" _cpath(lpFileName, _cpath)))=-1)
-		return 0, ErrorLevel := 1
-	return _cstr(List, hAttrib, "&", "."), ErrorLevel := 0
+		return false, ErrorLevel := true
+	return _cstr(List, hAttrib, "&", "."), ErrorLevel := false
 }
 
 ;cambiar atributo(s)
-;Sintaxis: FileSetAttrib( [atributos], [archivos/carpeta], [modo] )
+;Sintaxis: FileSetAttrib( [atributos], [archivo(s)/carpeta(s)], [modo] )
 ;NOTA: devuelve el número de archivos/carpetas modificadas
 ;ATRIBUTOS (ejemplo: R-SH+A): 
 	;R = solo lectura (modificable)
@@ -370,13 +364,13 @@ SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtens
 }
 
 ;copiar archivo(s); devuelve el número de archivos copiados
-;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
+;Sintaxis 1: FileCopy( [archivo], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
 ;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
-FileCopy(Source, Dest, Overwrite := 0, Recurse := 0) {
-	Flags := Overwrite?0x00001000:0x00000001|0x00001000
-	, Flags_ := Overwrite?0:0x00000001, Dest := RTrim( Dest, "\" )
+FileCopy(Source, Dest, OverWrite := false, Recurse := false) {
+	Flags := OverWrite?0x00001000:0x00000001|0x00001000, Dest := GetFullPathName(Dest)
+	, Flags_ := OverWrite?0:0x00000001, Dest := RTrim( Dest, "\" )
 	if !_wildc(Source, Recurse) {
-		Source := GetFullPathName(Source), Dest := GetFullPathName(Dest)
+		Source := GetFullPathName(Source)
 		_ := IsDir(Dest)?Dest "\" SplitPath(Source).FileName:Dest
 		if DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)
 		|| DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" _, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags_)
@@ -459,7 +453,7 @@ FileAppendLine(Text, Filename, LineNum, Encoding := "") {
 	Loop, Read, %Filename%
 		ThisContent.Push(A_LoopReadLine)
 	if (ThisContent.MaxIndex()<LineNum) {
-		i := FileOpen(Filename, "a`n", Encoding)
+		i := FileOpen(Filename, "a", Encoding)
 		Loop, % (LineNum-ThisContent.MaxIndex())
 			ThisContent.Push(""), i.Write("`n")
 		i.Close()
@@ -472,9 +466,9 @@ FileAppendLine(Text, Filename, LineNum, Encoding := "") {
 ;Sintáxis: FileWrite( [Texto], [*Archivo], [codificación] )
 FileWrite(Text, Filename, Encoding := "") {
 	if InStr(FileName, "*") {
-		i := FileOpenEx(Filename, "w`n", Encoding) 
+		i := FileOpenEx(Filename, "w", Encoding) 
 		return i.RawWrite(Text, StrLen(Text))
-	} return FileOpenEx(Filename, "w`n", Encoding).Write(Text)
+	} return FileOpenEx(Filename, "w", Encoding).Write(Text)
 }
 
 ;escribir en un número de linea de un archivo (reemplazar linea entera)
@@ -484,7 +478,7 @@ FileWriteLine(Text, Filename, LineNum, Encoding := "") {
 	Loop, Read, %Filename%
 		ThisContent.Push(A_LoopReadLine)
 	if (ThisContent.MaxIndex()<LineNum) {
-		i := FileOpen(Filename, "a`n", Encoding)
+		i := FileOpen(Filename, "a", Encoding)
 		Loop, % (LineNum-ThisContent.MaxIndex())
 			ThisContent.Push(""), i.Write("`n")
 		i.Close()
@@ -516,6 +510,7 @@ FileFNPath(Filename, String := "(%A_Index%)", Add := 1) {
 }}}
 
 ;obtiene informacion sobre un archivo
+;Sintaxis: FileGetInfo( [archivo], [tipo de informacion] )
 ;EJEMPLOS:
 	;MsgBox % FileGetInfo( comspec ).CompanyName
 	;MsgBox % FileGetInfo( comspec, "FileDescription" )
@@ -766,17 +761,16 @@ Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 	if (WaitClose>-1) {
 		CurrentProcessId := ProcessExist()
 		, WinCloseEx(, "#32770", CurrentProcessId, true)
-		, i := Run("Properties " Chr(34) Target Chr(34))
+		, Run("Properties " Chr(34) Target Chr(34))
 		, hWnd := WinWait(, 5, "#32770", CurrentProcessId)
 		if AlwaysOnTop
 			WinSet(hWnd, "+AlwaysOnTop")
 		return WinWaitClose(hWnd, WaitClose)
 	} else {
-		i := Run("Properties " Chr(34) Target Chr(34))
-		if AlwaysOnTop
-			hWnd := WinWait(, 5, "#32770", CurrentProcessId:=ProcessExist())
-			, WinSet(hWnd, "+AlwaysOnTop")
-	} return i, ErrorLevel := !i
+		r := Run("Properties " Chr(34) Target Chr(34))
+		if AlwaysOnTop&&(hWnd:=WinWait(, 5, "#32770", ProcessExist()))
+			WinSet(hWnd, "+AlwaysOnTop")
+	} return hWnd?hWnd:r, ErrorLevel := !r
 }
 
 
@@ -870,7 +864,7 @@ DirRDelete(DirName) {
 ;Sintáxis: DirSDelete( [directorio], [pasadas] )
 DirSDelete(DirName, Pases := 1) {
 	if !IsDir(DirName)
-		return true, ErrorLevel := false
+		return !(i:=IsFile(DirName)), ErrorLevel := i
 	return FileSDelete(DirName "\*.*", Pases, true)
 		+ FileSetTime(2000, DirName, "MAC")
 		+ DirDelete(DirName, true)
@@ -884,7 +878,7 @@ DirRename(DirName, NewName, OverWrite := false) {
 	if ((NewName:=ValidateName(NewName))="")
 		return 0, ErrorLevel := true
 	SplitPath(DirName,, Dir)
-	if IsDir(Dir "\" NewName) {
+	if FileExist(Dir "\" NewName) {
 		if !OverWrite
 			return 0, ErrorLevel := 2
 		DirDelete(Dir "\" NewName, true)
@@ -945,10 +939,10 @@ DirExist(ByRef FilePattern, Recurse := 0) {
 
 ;abrir carpeta con explorer.exe
 ;Sintaxis: DirOpen( [carpeta], [abrir en una nueva ventana] ) 
-DirOpen(Dir, NewWindow := 0) {
-	if !DirExist( Dir )
-		return 0, ErrorLevel := true
-	return Run( A_WinDir "\explorer.exe " (NewWindow?"/n,":"") Chr(34) Dir Chr(34) )
+DirOpen(Dir, NewWindow := false) {
+	if !DirExist(Dir)
+		return false, ErrorLevel := true
+	return Run(A_WinDir "\explorer.exe " (NewWindow?"/n,":"") Chr(34) Dir Chr(34))
 }
 
 ;obtiene informacion sobre un directorio
@@ -2962,7 +2956,7 @@ TaskBarGetPos(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "
 ;obtiene hWnd de la barra de tareas, opcional: área de notificacion, reloj y boton inicio
 ;Sintaxis: GetTaskBar( [área de notificacion], [área de notificacion (iconos ocultos)], [reloj], [boton inicio] )
 ;EJEMPLO: leer hora que indica el reloj de la barra de tareas. para otro ejemplo ver TaskBarGetPos()
-	;MsgBox % ControlGetText( "TrayClockWClass1", GetTaskBar() ) ;[control], [ventana id o hWnd]
+	;MsgBox % ControlGetText(GetTaskBar(), "TrayClockWClass1") ;[control], [ventana id o hWnd]
 GetTaskBar(ByRef hNotifArea := "", ByRef hOverFNotifArea := "", ByRef hTrayClock := "", ByRef hStartButton := "") {
 	hTaskBar := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
 	if IsByRef(hNotifArea)||IsByRef(hOverFNotifArea)||IsByRef(hTrayClock) {
@@ -3522,6 +3516,13 @@ SetDesktopBackground(Image, Width := "", Height := "") {
     return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0014, "UInt", 0, "Str", Image, "UInt", 0x0001|0x0002)
 }
 
+;obtener imagen de fondo de escritorio
+GetDesktopBackground() {
+	nSize := VarSetCapacity(DESKWALLPAPER, 260 * 2, 0)
+	i := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0073, "UInt", nSize, "Str", DESKWALLPAPER, "UInt", 0)
+	return DESKWALLPAPER, ErrorLevel := !i
+}
+
 ;recupera la ruta y el nombre completo del archivo/carpeta especificado
 GetFullPathName(lpFileName) {
 	if InStr(lpFileName, ":")&&(StrLen(lpFileName)=2)
@@ -3986,7 +3987,8 @@ __SetIcon(FileName, Icon, IconID := 159) {
 ;separar tiempo
 ;Sintaxis: SplitTime( [YYYYMMDDHH24MISS], [año], [mes], [dia], [hora], [min], [seg], [AM/PM] )
 ;Nota: devuelve un Array con el tiempo en el siguiente orden: año, mes, día, hora, min, seg, am/pm.
-SplitTime(Time, ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef Hour := "", ByRef Min := "", ByRef Sec := "", ByRef Mark := "") {
+;Ejemplo: MsgBox % (i:=SplitTime()) i[3] "/" i[2] "/" i[1] " (" i[4] ":" i[5] ":" i[6] ")"
+SplitTime(Time := "", ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef Hour := "", ByRef Min := "", ByRef Sec := "", ByRef Mark := "") {
 	FormatTime, Time, %Time%, yyyy,MM,dd,HH,mm,ss,tt
 	Time := StrSplit(Time, ",")
 	Loop, Parse, % "Year,Mon,Day,Hour,Min,Sec,Mark", `,
@@ -4335,6 +4337,301 @@ RegOpen(Key, DesiredAccess := 0xF003F, CreateIfNotExist := false) {
 
 
 
+/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+::::::::::::::::::::::::::::::::::::::::::::: EDIT CONTROL ::::::::::::::::::::::::::::::::::
+NOTAS:
+	;para establecer o quitar un estilo, usar WinSetStyle(hWnd, Estilo)
+	;para obtener el estilo, usar WinGetStyle(hWnd)
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+*/
+;obtiene el número de líneas
+;Sintaxis: EM_GetLineCount( [hWnd] )
+;Nota: si no hay texto en el control, devuelve 1. el valor nunca será inferior a 1.
+Edit_GetLineCount(hWnd) {
+	return SendMessage(hWnd, 0x00BA)
+}
+
+;obtiene el texto de una linea
+;Sintaxis: Edit_GetLineText( [hWnd], [Linea] )
+Edit_GetLineText(hWnd, Line := -1) {
+	nSize := 32767 ;SendMessage(hWnd, 0x00C1,, Line-1)
+	, Line := Line=-1?Edit_GetCurrentLine(hWnd):Line
+	, VarSetCapacity(LineText, nSize, 0), NumPut(nSize, LineText, 0, "UShort")
+	, SendMessage(hWnd, 0x00C4,, Line-1,, &LineText)
+	return LineText 
+}
+
+;obtiene el índice de la línea que contiene el índice de caracteres especificado en un control de edición multilínea
+;Sintaxis: Edit_GetCurrentLine( [hWnd], [índice] )
+;Nota: por defecto obtiene la linea actual.
+Edit_GetCurrentLine(hWnd, Line := -1) {
+	return SendMessage(hWnd, 0x00C9,, Line=-1?-1:Line-1)+1
+}
+
+;obtiene el número de columna en el que reside el cursor (punto de inserción de texto). 
+;Sintaxis: Edit_GetColumn( [hWnd], [inicio (salida)], [fin (salida)] )
+;Inicio: columna donde empieza la seleccion
+;Fin: columna donde termina la seleccion
+;Notas: 
+	;si no hay texto seleccionado, el 2do y 3er parametro devuelven el mismo resultado.
+	;la primera columna es 1.
+	;si hay texto seleccionado en el control, devuelve el número de columna donde comienza la selección.
+Edit_GetColumn(hWnd, ByRef Starting := "", ByRef End := "") {
+	VarSetCapacity(s, 4), VarSetCapacity(e, 4)
+	, SendMessage(hWnd, 0x00B0,, &s,, &e)
+	, Starting := NumGet(s, 0, "UInt")+1, End := NumGet(e, 0, "UInt")+1
+	return Starting
+}
+
+;obtiene el hWnd del Edit de un ComboBox. opcional también el del DropDownList
+;Sintaxis: Edit_GetComboBoxEdit( [hWnd ComboBox], [DropDownList (salida)] )
+Edit_GetComboBoxEdit(hWnd, ByRef DropDownList := "",ByRef EditRect := "", ByRef DDLRect := "") {
+	nSize := VarSetCapacity(COMBOBOXINFO, 40+(A_PtrSize*3), 0)
+	, NumPut(nSize, COMBOBOXINFO, 0, "UInt")
+	, r:=DllCall("User32.dll\GetComboBoxInfo", "Ptr", hWnd, "Ptr", &COMBOBOXINFO)
+	return NumGet(COMBOBOXINFO, 40+A_PtrSize, "UPtr")
+		, DropDownList := IsByRef(DropDownList)?NumGet(COMBOBOXINFO, 44+A_PtrSize, "UPtr"):""
+		, EditRect := IsByRef(EditRect)?NumGet(COMBOBOXINFO, 28+A_PtrSize, "Ptr"):""
+		, DDLRect := IsByRef(DDLRect)?NumGet(COMBOBOXINFO, 12+A_PtrSize, "Ptr"):""
+		, ErrorLevel := !r
+}
+
+;obtiene el texto
+;Sintaxis: Edit_GetText( [hWnd] )
+Edit_GetText(hWnd) {
+	nSize := SendMessage(hWnd, 0x000E)
+	, VarSetCapacity(Text, (nSize * 2) + 1, 0)
+	, SendMessage(hWnd, 0x000D, "UInt", nSize+1,, &Text)
+	return Text
+}
+
+;recupera informacion de la barra de desplazamiento.
+;Sintaxis: Edit_GetScrollBarInfo( [hWnd], [barra], [enabled], [pressed], [offscreen], [visible], [coordenadas] )
+;Barra: 0 = horizontal | 1 = vertical (defecto)
+;Enabled: la barra está deshabilitada. (0|1)
+;Pressed: se pulsa sobre la barra. (0|1)
+;OffScreen: la ventana tiene un tamaño tal que la barra no se muestra actualmente. (0|1)
+;Visible: indica que la barra existe. (0|1)
+;Nota: si la barra no es visible, el 3er parametro será siempre 0
+Edit_GetScrollBarInfo(hWnd, ScrollBar := 1, ByRef Enabled := "", ByRef Pressed := "", ByRef OffScreen := "", ByRef Visible := "", ByRef RECT := "") {
+	VarSetCapacity(SCROLLBARINFO, 60, 0), NumPut(60, SCROLLBARINFO, 0, "UInt")
+	return r:=DllCall("User32.dll\GetScrollBarInfo", "Ptr", hWnd
+		, "Int", ScrollBar=0?0xFFFFFFFA:ScrollBar=1?0xFFFFFFFB:ScrollBar
+		, "Ptr", &SCROLLBARINFO), SBInfo := NumGet(SCROLLBARINFO, 36, "UInt")
+	, RECT := IsByRef(RECT)?NumGet(SCROLLBARINFO, 16, "Ptr"):"", Visible := SBInfo&0x8000?false:true, ErrorLevel := !r
+	, Pressed := SBInfo&0x8?true:false, OffScreen := SBInfo&0x10000?true:false, Enabled := Visible?(SBInfo&0x1?false:true):false
+}
+
+;obtiene la señal textual que se muestra por el control de edición
+;Sintaxis: Edit_GetCueBannerText( [hWnd] )
+Edit_GetCueBannerText(hWnd, nSize := 2048) {
+	VarSetCapacity(Text, nSize, 0)
+	, SendMessage(hWnd, 0x1502,, &Text, "UInt", nSize)
+	return Text
+}
+
+;obtiene el carácter de contraseña que se muestra en el control
+;Sintaxis: Edit_GetPasswordChar( [hWnd] )
+;Nota: solo es válido para un Edit de una sola linea.
+Edit_GetPasswordChar(hWnd) {
+	SendMessage(hWnd, 0x00D2)
+}
+
+;obtiene las coordenadas del control
+;Sintaxis: Edit_GetPos( [hWnd], [x], [y], [ancho], [alto] )
+Edit_GetPos(hWnd, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
+	VarSetCapacity(RECT, 16, 0)
+	, r:=DllCall("User32.dll\GetWindowRect", "Pr", hWnd, "Ptr", &RECT)
+    , i := {}, i.w := i.Width := Width := NumGet(RECT, 8, "Int")-NumGet(RECT, 0, "Int")
+	, i.h := i.Height := Height := NumGet(RECT, 12, "Int")-NumGet(RECT, 4, "Int")
+	, DllCall("User32.dll\ScreenToClient", "Ptr", DllCall("User32.dll\GetParent", "Ptr", hWnd), "Ptr", &RECT)
+	, i.x := x := NumGet(RECT, 0, "Int"), i.y := y := NumGet(RECT, 4, "Int")
+	return i, ErrorLevel := !r
+}
+
+;--------------------------------------------------------------------------------------------------------------------------
+
+;establece el límite de texto
+;Sintaxis: Edit_SetLimitText( [hWnd], [limite de caracteres 1~64000] )
+Edit_SetLimitText(hWnd, Limit := 64000) {
+	return SendMessage(hWnd, 0x00C5,, Limit)
+}
+
+;establece la señal textual que se muestra por el control de edición para pedir al usuario para obtener información
+;Sintaxis: Edit_SetCueBannerText( [hWnd], [texto], [¿mostrar siempre?] )
+;Nota: no se puede establecer en un control de edición multilínea.
+Edit_SetCueBannerText(hWnd, Text := "", Flag := false) {
+	return SendMessage(hWnd, 0x1501, "Int", Flag,, &Text)
+}
+
+;selecciona un rango de caracteres en un control de edición
+;Sintaxis: Edit_SetSel( [hWnd], [inicio], [fin] )
+;Notas:
+	;espesificar -1 en el 1er parametro para deseleccionar todo.
+	;espesificar 0 en el 1er parametro y -1 en el 2do para seleccionar todo (defecto).
+Edit_SetSel(hWnd, Starting := 0, End := -1) {
+	return SendMessage(hWnd, 0x00B1,, Starting>0?Starting-1:Starting,, End>0?End-1:End)
+}
+
+;establecer el estilo ReadOnly (el usuario no puede cambiar el texto)
+;Sintaxis: Edit_SetReadOnly( [hWnd], [0|1] )
+Edit_SetReadOnly(hWnd, State := true) {
+	return SendMessage(hWnd, 0x00CF, "Int", State)
+}
+
+;muestra un asterisco (*) (o el carácter espesificado) para cada carácter escrito en el control de edición.
+;Sintaxis: Edit_SetPasswordChar( [hWnd], [0|1|Carácter] )
+;Nota: solo es válido para un Edit de una sola linea.
+Edit_SetPasswordChar(hWnd, PassChar := true) {
+	return r:=SendMessage(hWnd, 0x00CC,, PassChar=0?0:Asc(PassChar=1?"*":PassChar))
+		, WinRedraw(hWnd), ErrorLevel := !r
+}
+
+;establece el texto espesificado
+;Sintaxis: Edit_SetText( [hWnd], [Texto] )
+;Nota: también puede usar Edit_ReplaceSelText()
+Edit_SetText(hWnd, Text := "") {
+	return SendMessage(hWnd, 0x000C,,,, &Text)
+}
+
+;--------------------------------------------------------------------------------------------------------------------------
+
+;comprueba si el control tiene el foco del teclado. opcional obtiene el control que tiene el foco.
+;Sintaxis: Edit_HasFocus( [hWnd], [hWnd del control que tiene el foco (salida)] )
+Edit_HasFocus(hWnd, ByRef hWndFocus := "") {
+	nSize := VarSetCapacity(GUITHREADINFO, A_PtrSize=4?48:72, 0)
+	, NumPut(nSize, GUITHREADINFO, 0, "UInt")
+	, DllCall("User32.dll\GetGUIThreadInfo", "Ptr", 0, "Ptr", &GUITHREADINFO)
+	, hWndFocus := NumGet(GUITHREADINFO, A_PtrSize=4?12:16, "Ptr")
+	return (r:=hWnd=hWndFocus), ErrorLevel := !r
+}
+
+;comprueba si el control admite multilinea
+;Sintaxis: Edit_IsMultiline( [hWnd] )
+Edit_IsMultiline(hWnd) {
+	return WinGetStyle(hWnd)&0x0004
+}
+
+;comprueba si tiene el estilo ReadOnly (el usuario no puede cambiar el texto)
+;Sintaxis: Edit_ReadOnly( [hWnd] )
+Edit_ReadOnly(hWnd) {
+	return WinGetStyle(hWnd)&0x0800
+}
+
+;compruea si tiene el estilo ES_PASSWORD
+;Sintaxis: Edit_PasswordChar( [hWnd] )
+;Nota: solo es válido para un Edit de una sola linea.
+Edit_PasswordChar(hWnd) {
+	return WinGetStyle(hWnd)&0x0020
+}
+
+;muestra/oculta un globo de informacion asociado con un control de edición
+;Sintaxis: Edit_ShowBalloonTip( [hWnd], [Título], [Texto], [Icono] )
+;Iconos: Informacion = 1-4 | advertencia = 2-5 | error = 3-6
+;Nota: para ocultar, no espesificar ningún parámetro.
+Edit_ShowBalloonTip(hWnd, Info*) {
+	if !Info.MaxIndex()
+		return SendMessage(hWnd, 0x1504)
+	Title := Info[1], Text := Info[2], Icon := Info[3]?Info[3]:0
+	, nSize := VarSetCapacity(EDITBALLOONTIP, A_PtrSize=4?16:32, 0)
+	, NumPut(nSize, EDITBALLOONTIP, 0, "UInt"), NumPut(&Title, EDITBALLOONTIP, A_PtrSize, "Ptr")
+	, NumPut(&Text, EDITBALLOONTIP, A_PtrSize*2, "Ptr"), NumPut(Icon, EDITBALLOONTIP, A_PtrSize*3, "Int")
+	return SendMessage(hWnd, 0x1503,,,, &EDITBALLOONTIP)
+}
+
+;habilita/deshabilita las barras de desplazamiento.
+;Sintaxis: Edit_EnableScrollBar( [hWnd], [barra], [modo] )
+;Barra: 0 = horizontal | 1 = vertical | 3 = ambas
+;Modo: 0 = deshabilitar | 1 = habilitar (defecto)
+;Nota: para mas opciones ver: https://msdn.microsoft.com/en-us/library/windows/desktop/bb787579%28v=vs.85%29.aspx
+	;usar el 3er parametro en vez del 2do.
+Edit_EnableScrollBar(hWnd, wSBflags, Enable := true, wArrow := -1) {
+	return DllCall("User32.dll\EnableScrollBar", "Ptr", hWnd, "UInt", wSBflags
+		, "UInt", wArrow=-1?(Enable?0x0:0x3):wArrow)
+}
+
+;muestra/oculta las barras de desplazamiento.
+;Sintaxis: Edit_ShowScrollBar( [hWnd], [barra], [modo] )
+;Barra: 0 = horizontal | 1 = vertical | 3 = ambas
+;Modo: 0 = ocultar | 1 = mostrar (defecto)
+Edit_ShowScrollBar(hWnd, ScrollBar, Show := true) {
+	return DllCall("User32.dll\ShowScrollBar", "Ptr", hWnd, "UInt", ScrollBar, "Int", Show)
+}
+
+;sustituye el texto seleccionado
+;Sintaxis: Edit_ReplaceSelText( [hWnd], [texto] )
+Edit_ReplaceSelText(hWnd, Text := "") {
+	return SendMessage(hWnd, 0x00C2, "Int", true,, &Text)
+}
+
+;eliminar el texto seleccionado
+;Sintaxis: Edit_SelClear( [hWnd] )
+Edit_SelClear(hWnd) {
+	return SendMessage(hWnd, 0x0303)
+}
+
+;copiar el texto seleccionado al portapapeles
+;Sintaxis: Edit_SelCopy( [hWnd] )
+Edit_SelCopy(hWnd) {
+	return SendMessage(hWnd, 0x0301)
+}
+
+;cortar el texto seleccionado al portapapeles
+;Sintaxis: Edit_SelCut( [hWnd] )
+Edit_SelCut(hWnd) {
+	return SendMessage(hWnd, 0x0300)
+}
+
+;pegar el texto del portapapeles
+;Sintaxis: Edit_SelPaste( [hWnd] )
+Edit_SelPaste(hWnd) {
+	return SendMessage(hWnd, 0x0302)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4539,7 +4836,17 @@ LV_SetItemPos(hWnd, Item, x := "", y := "") {
 	return SendMessage(hWnd, 0x100F,, Item-1,, LOWORD(x=""?_x:x)|HIWORD(y=""?_y:y))
 }
 
-
+;obtiene el número de columna en las coordenadas espesificadas.
+;Sintaxis: LV_SubItemHitTest( [hWnd], [x], [y] )
+;Nota: si no espesifica las coordenadas, por defecto usa las del cursor.
+LV_SubItemHitTest(hWnd, x := -1, y := -1, ScreenToClient := false) {
+	if !(x>0)||!(y>0)
+		CursorGetPos(_x, _y,, x=-1&&y=-1?hWnd:(ScreenToClient?hWnd:false))
+	y := y>0?y:_y, x := x>0?x:_x
+	, VarSetCapacity(LVHITTESTINFO, 24, 0), NumPut(X, LVHITTESTINFO, 0, "Int")
+	, NumPut(X, LVHITTESTINFO, 4, "Int"), r:=SendMessage(hWnd, 0x1039,,,, &LVHITTESTINFO)
+	return r=-1?0:NumGet(LVHITTESTINFO, 16, "Int")+1, ErrorLevel := r=-1
+}
 
 
 
@@ -4857,30 +5164,31 @@ TC_HighlightItem(hWnd, Item := 0, State := 1) {
 
 
 
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;caja de mensaje: MessageBox
 ;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
-;ErrorLevel: contiene el resultado (Yes, No, Ok ... )
-;NOTA: recomendado usar la variable global A_MsgBoxResult, que contiene el resultado.
+;NOTA: la variable global A_MsgBoxResult contiene el resultado.
 ;EJEMPLO:
 	;MsgBox % "Resultado: " MsgBox() "`nA_MsgBoxResult: " A_MsgBoxResult
-	;MsgBox % "Resultado: " MsgBox( 0 ) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox(0) "`nA_MsgBoxResult: " A_MsgBoxResult
+	;MsgBox % "Resultado: " MsgBox("") "`nA_MsgBoxResult: " A_MsgBoxResult
 	;MsgBox % "Resultado: " MsgBox(4112, "ERROR!",, 1 ) "`nA_MsgBoxResult: " A_MsgBoxResult
 	;MsgBox % "Resultado: " MsgBox(20, "Título" ) "`nA_MsgBoxResult: " A_MsgBoxResult
 	;MsgBox % "Resultado: " MsgBox(34,, "Texto" ) "`nA_MsgBoxResult: " A_MsgBoxResult
 	;MsgBox % "Resultado: " MsgBox(16694, "Título", "Texto" ) "`nA_MsgBoxResult: " A_MsgBoxResult
-MsgBox(Options := "", Title := "", Text := "", Timeout := "") {
+MsgBox(Info*) {
 	global A_MsgBoxResult
-	if (Options=""&&Title=""&&Text="")
-		MsgBox, 0, *, Press OK to continue., %Timeout%
-	else if (Options!=""&&Title=""&&Text="")
-		MsgBox, 0, *, %Options%, %Timeout%
+	if !Info.MaxIndex()
+		MsgBox, 0, *, Press OK to continue., % Info[4]
+	else if (Info[1]!=""&&Info[2]=""&&Info[3]="")
+		MsgBox, 0, *, % Info[1], % Info[4]
 	else
-		MsgBox, % Options, %Title%, %Text%, %Timeout%
+		MsgBox, % Info[1], % Info[2]=""?"*":Info[2], % Info[3], % Info[4]
 	;return ErrorLevel := A_MsgBoxResult
-	Loop, Parse, % "Yes No Ok Cancel Abort Ignore Retry Timeout Continue TryAgain", %A_Space%
+	Loop, Parse, % "Yes,No,Ok,Cancel,Abort,Ignore,Retry,Timeout,Continue,TryAgain", `,
 		IfMsgBox, %A_LoopField%
 			return ErrorLevel := A_MsgBoxResult := A_LoopField
 }
@@ -4909,105 +5217,133 @@ ColorSelect(Color := "", hWnd := 0, FullOpen := "") {
 		, ErrorLevel := !i
 }
 
-;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [Alto], [Ancho] )
-;ErrorLevel es:
+;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [Ancho], [Alto] )
+;ErrorLevel:
 	;0 = el usuario precionó Aceptar
 	;1 = el usuario precionó Cancelar o Cerrar
 	;2 = la ventana ya existe
 	;3 = se ha alcanzado el tiempo máximo para la ventana
-InputBox(Title, Text, Default := "", Timeout := 0, EditOptions := "", Height := 217, Width := 420) {
+;Notas: 
+	;espesificar +Multi en el 5to parametro para usar un edit multilinea (el 2do parametro no tiene efecto).
+		;Nota: automáticamente se usa multilinea si se espesifica `n en el 3er parametro y si el 2do parametro esta vacio.
+	;espesificar +HScroll en el 5to parametro para habilitar la barra de desplazamiento horizontal.
+	;la funcion no cambia el GUI por defecto.
+;EJEMPLO:
+	;MsgBox % InputBox("titulo", "texto", "defecto") "`n`nErrorLevel: " ErrorLevel
+	;MsgBox % InputBox("titulo",, FileRead(A_WinDir "\System32\Drivers\Etc\Hosts"),, "+Multi +HScroll") "`n`nErrorLevel: " ErrorLevel
+	;MsgBox % InputBox("titulo",, "Multi-Linea Automático `n") "`n`nErrorLevel: " ErrorLevel
+InputBox(Title, Text := "", Default := "", Timeout := 0, EditOptions := "", Width := "", Height := "") {
 	;inicio
-	global _InputBoxResult, _InputBoxErrorLevel, _InputBoxInfoText
-	_InputBoxResult := _InputBoxErrorLevel := ""
-	static _InputBoxId
+	static _InputBoxResult, _InputBoxInfoText
 	
-	;comprueba si ya existe la ventana
-	if IsWindow(_InputBoxId)
+	;comprueba si ya existe la ventana. opciones.
+	if IsWindow(Get("InputBox_hWnd"))
 		return "", ErrorLevel := 2
+	MultiLine := Set("InputBox_IsMultiLine", (InStr(EditOptions, "+Multi")||(Text=""&&InStr(Default, "`n")))?1:0)
+	, Set("InputBox_ErrorLevel", false), EditY := MultiLine?35:155, EditH := MultiLine?140:25
+	, MinSize := MultiLine?"548x286":"420x217", GuiSize := StrSplit(Width>420&&Height>217?Width "x" Height:MinSize, "x")
 	
 	;interfaz
-	Gui, _InputBoxGuiName:-Caption +ToolWindow +OwnDialogs +LastFound +HWND_InputBoxHWND +AlwaysOnTop +MinSize420x217 +MaxSize%A_ScreenWidth%x%A_ScreenHeight%
-		_InputBoxId := _InputBoxHWND
-	Gui, %_InputBoxHWND%:Color, White
-	Gui, %_InputBoxHWND%:Margin, 0, 0
-	Gui, %_InputBoxHWND%:Font, s12 w600 Q5, Times New Roman
-	Gui, %_InputBoxHWND%:Add, Button, x0 y0 w%A_ScreenWidth% h30 HWND_InputBoxTitle Disabled +Left, % " " Title
-		GuiButtonStyle( _InputBoxTitle, 7 )
-	Gui, %_InputBoxHWND%:Add, Text, x0 y0 w350 h30 g_InputBoxTMove BackgroundTrans
-	Gui, %_InputBoxHWND%:Font, s10 Q5 w400, Marlett
-	Gui, %_InputBoxHWND%:Add, Button, x388 y2 w30 h25 HWND_InputBoxClose g_InputBoxClose, r
-		GuiButtonStyle( _InputBoxClose, 3 )
-	Gui, %_InputBoxHWND%:Font, s12 w400 Q5, Courier New
-	Gui, %_InputBoxHWND%:Add, Button, x357 y2 w30 h25 HWND_InputBoxMax g_InputBoxMax, % Chr(9794)
-		GuiButtonStyle( _InputBoxMax, 4 )
-	Gui, %_InputBoxHWND%:Font, s9 w400 Q5, Segoe UI
-	Gui, %_InputBoxHWND%:Add, Edit, x5 y155 w410 h25 HWND_InputBoxResult v_InputBoxResult %EditOptions%, %Default%
-		AttachEditControlText( _InputBoxResult, " " Default ) 
-	Gui, %_InputBoxHWND%:Add, Text, x5 y35 w410 h115 v_InputBoxInfoText g_InputBoxInfoText, %Text%
-	Gui, %_InputBoxHWND%:Font, s11 w500 Q5, Times New Roman
-	Gui, %_InputBoxHWND%:Add, Button, x212 y185 w95 h27 HWND_InputBoxAccept g_InputBoxAccept Default, Aceptar
-		GuiButtonStyle( _InputBoxAccept, 8 )
-	Gui, %_InputBoxHWND%:Add, Button, x320 y185 w95 h27 HWND_InputBoxCancel g_InputBoxClose, Cancelar
-		GuiButtonStyle( _InputBoxCancel, 8 )
-	Gui, %_InputBoxHWND%:Show, w%Width% h%Height% Hide
-	WinAnimate(_InputBoxHWND, 100, "S1R")
-	Gui, %_InputBoxHWND%:Default
-	GuiControl, Focus, _InputBoxResult
-	ControlSend(_InputBoxHWND, "Edit1", "{End}")
+	Gui, _InputBoxGuiName:-Border -Caption +ToolWindow +OwnDialogs +LastFound +HWNDhWnd +AlwaysOnTop +MinSize%MinSize% +MaxSize%A_ScreenWidth%x%A_ScreenHeight%
+		Set("InputBox_hWnd", hWnd)
+	Gui, %hWnd%:Color, White
+	Gui, %hWnd%:Margin, 0, 0
+	Gui, %hWnd%:Font, s12 w600 Q5, Times New Roman
+	Gui, %hWnd%:Add, Button, x0 y0 w%A_ScreenWidth% h30 HWND_InputBoxTitle Disabled +Left, % " " Title
+		GuiButtonStyle(_InputBoxTitle, 7)
+	Gui, %hWnd%:Add, Text, x0 y0 w350 h30 g_InputBoxTMove BackgroundTrans
+	Gui, %hWnd%:Font, s10 Q5 w400, Marlett
+	Gui, %hWnd%:Add, Button, x388 y2 w30 h25 HWND_InputBoxClose g_InputBoxClose, r
+		GuiButtonStyle(_InputBoxClose, 3)
+	Gui, %hWnd%:Font, s12 w400 Q5, Courier New
+	Gui, %hWnd%:Add, Button, x357 y2 w30 h25 HWND_InputBoxMax g_InputBoxMax, % Chr(9794)
+		GuiButtonStyle(_InputBoxMax, 4)
+	Gui, %hWnd%:Font, s9 w400 Q5, Segoe UI
+	try {
+		Gui, %hWnd%:Add, Edit, x5 y%EditY% w410 h%EditH% HWND_InputBoxResult v_InputBoxResult %EditOptions%, %Default%
+	} catch {
+		Gui, %hWnd%:Add, Edit, x5 y%EditY% w410 h%EditH% HWND_InputBoxResult v_InputBoxResult %EditOptions%
+		Edit_ReplaceSelText(_InputBoxResult, Default)
+	} Set("InputBox_Edit1.hWnd", _InputBoxResult)
+	if !MultiLine {
+		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 v_InputBoxInfoText g_InputBoxInfoText, %Text%
+		Edit_SetCueBannerText(_InputBoxResult, " " Default)
+	} Gui, %hWnd%:Font, s11 w500 Q5, Times New Roman
+	Gui, %hWnd%:Add, Button, x212 y186 w95 h27 HWND_InputBoxAccept g_InputBoxAccept Default, Aceptar
+		GuiButtonStyle(_InputBoxAccept, 8)
+	Gui, %hWnd%:Add, Button, x320 y186 w95 h27 HWND_InputBoxCancel g_InputBoxClose, Cancelar
+		GuiButtonStyle(_InputBoxCancel, 8)
+	Gui, %hWnd%:Show, % "w" GuiSize[1] " h" GuiSize[2] " Hide"
+	WinAnimate(hWnd, 100, "S1R")
+	if !MultiLine
+		ControlFocus(hWnd, _InputBoxResult), ControlSend(hWnd, _InputBoxResult, "{End}")
 	
 	;esperar a que la ventana cierre
-	if !WinWaitClose( _InputBoxHWND, Timeout ) {
-		Gui, %_InputBoxHWND%:Destroy
-		return "", WinEnable( hWnd ), ErrorLevel := 3
+	if !WinWaitClose(hWnd, Timeout) {
+		Gui, %hWnd%:Destroy
+		return "", ErrorLevel := 3
 	}
 
 	;devuelve el resultado
-	return _InputBoxResult, ErrorLevel := _InputBoxErrorLevel
-		, _InputBoxErrorLevel := _InputBoxId := _InputBoxInfoText := ""
+	return Get("InputBox_Result"), Get("InputBox_ErrorLevel", ErrorLevel)
 	;-------------------------------------------------------------------------------------------------------------------------------------
 	
 	;ajustar tamaño de la ventana
 	_InputBoxGuiNameGuiSize:
-	Gui, %_InputBoxHWND%:Default
-	GuiControl, Move, Button2, % "x" (A_GuiWidth - 32)
-	GuiControl, Move, Button3, % "x" (A_GuiWidth - 63)
-	GuiControl, MoveDraw, Button4, % "x" (A_GuiWidth - 210) " y" (A_GuiHeight - 32)
-	GuiControl, MoveDraw, Button5, % "x" (A_GuiWidth - 100) " y" (A_GuiHeight - 32)
-	GuiControl, Move, Static1, % "w" (A_GuiWidth - 70)
-	GuiControl, MoveDraw, Static2, % "w" (A_GuiWidth - 10) " h" (A_GuiHeight - 102)
-	GuiControl, MoveDraw, Edit1, % "y" (A_GuiHeight - 60) " w" (A_GuiWidth - 10)
+	Get("InputBox_IsMultiLine", MultiLine)
+	, Get("InputBox_hWnd", hWnd)
+	, ControlMove(hWnd, "Button2", A_GuiWidth - 32,,,, true)
+	, ControlMove(hWnd, "Button3", A_GuiWidth - 63,,,, true)
+	, ControlMove(hWnd, "Button4", A_GuiWidth - 210, A_GuiHeight - 31,,, true)
+	, ControlMove(hWnd, "Button5", A_GuiWidth - 100, A_GuiHeight - 31,,, true)
+	, ControlMove(hWnd, "Static1",,, A_GuiWidth - 70,, true)
+	if !MultiLine
+		ControlMove(hWnd, "Static2",,, A_GuiWidth - 10, A_GuiHeight - 102, true)
+		, ControlMove(hWnd, "Edit1",, A_GuiHeight - 60, A_GuiWidth - 10,, true)
+	else ControlMove(hWnd, "Edit1",,, A_GuiWidth - 10, A_GuiHeight - 70, true)
 	return
 
 	;texto
 	_InputBoxInfoText:
-	Gui, %_InputBoxHWND%:Default
-	GuiControl, Focus, _InputBoxInfoText
+	ControlFocus(Get("InputBox_hWnd"), "Static2")
 	return
 	
 	;boton Titulo (mover ventana)
 	_InputBoxTMove:
-	Gui, %_InputBoxHWND%:Default
-	GuiControl, Focus, _InputBoxInfoText
-	DllCall("User32.dll\PostMessageW", "Ptr", _InputBoxHWND, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
+	Get("InputBox_hWnd", hWnd), ControlFocus(hWnd, "Static2")
+	, DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
 	return
 	
-	;boton Aceptar, Cerrar y Cancelar
+	;boton Escape, Aceptar, Cerrar y Cancelar
+	_InputBoxGuiNameGuiClose:
 	_InputBoxClose:
 	_InputBoxAccept:
-	Gui, %_InputBoxHWND%:Default
-	GuiControlGet, _InputBoxResult
-	_InputBoxErrorLevel := A_ThisLabel="_InputBoxClose"?1:0
-	, WinAnimate(_InputBoxHWND, 100, "HS1")
-	Gui, %_InputBoxHWND%:Destroy
+	Get("InputBox_hWnd", hWnd)
+	, Set("InputBox_Result", ControlGetText(hWnd, Get("InputBox_Edit1.hWnd")))
+	, Set("InputBox_ErrorLevel", A_ThisLabel="_InputBoxAccept"?0:1)
+	, WinAnimate(hWnd, 100, "HS1")
+	Gui, %hWnd%:Destroy
 	return
 	
 	;boton Cambiar Tamaño Si/No (habilita a la ventana para cambiar el tamaño)
 	_InputBoxMax:
-	if !_InputBoxErrorLevel
-		Gui, %_InputBoxHWND%: +Resize
-	else
-		Gui, %_InputBoxHWND%: -Resize
-	_InputBoxErrorLevel := !_InputBoxErrorLevel
+	Get("InputBox_hWnd", hWnd)
+	if !Get("InputBox_ErrorLevel") {
+		Gui, %hWnd%: +Resize
+		ControlDisable(hWnd, "Button4")
+		, ControlDisable(hWnd, "Button5")
+		, ControlDisable(hWnd, "Button2")
+		, Edit_SetReadOnly(Get("InputBox_Edit1.hWnd"))
+		Set("InputBox_ErrorLevel", true)
+	} else {
+		Gui, %hWnd%: -Resize
+		ControlEnable(hWnd, "Button4")
+		, ControlEnable(hWnd, "Button5")
+		, ControlEnable(hWnd, "Button2")
+		, Edit_SetReadOnly(Get("InputBox_Edit1.hWnd", EditId), false)
+		, ControlFocus(hWnd, EditId)
+		Set("InputBox_ErrorLevel", false)
+	}
 	return
 }
 
@@ -5171,12 +5507,6 @@ GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Fo
 	CtlColors.Change( ControlId, BackgroundColor, TextColor )
 }
 
-;establece texto por defecto a un control de edicion (edit)
-;Sintaxis: AttachEditControlText( [control hwnd], [texto] )
-AttachEditControlText(hWnd, Text) {
-	return SendMessage(hWnd, 0x1501,, 1, "Str", Text)
-}
-
 ;establece un cursor cuando el mouse se posiciona sobre un control
 ;Sintaxis: AttachCursorControl( [Control HWND], [Tipo de cursor (ver funcion)] )
 AttachCursorControl(Control, CursorType) { ;http://ahkscript.org/boards/viewtopic.php?p=48060#p48060
@@ -5236,51 +5566,9 @@ GuiControlHide(ControlId*) {
 	return !ErrorLevel
 }
 
-;cambiar fuente de un control
-;GuiFont( [control], [opciones], [fuente] )
-;OPCIONES: c[color] | s[tamaño] | w[negrita 1~1000 nor=400 neg=700] | q[calidad 1~5]
 GuiControlSetFont(hWnd, Type, Font) {
    Gui, Font, %Type%, %Font%
    GuiControl, Font, %hWnd%
-}
-
-;habilitar/deshabilitar el arrastre de archivos a la ventana
-;Sintaxis: GuiDragAndDrop( [GUI_HWND], [0|1] )
-GuiDragAndDrop(hWnd, Mod := 1) {
-   Gui, % hWnd ":" (Mod ? "+" : "-") "E0x10"
-}
-
-;obtener el texto de un control
-GuiControlGetText(hWnd) {
-   ControlGetText, Text,, ahk_id %hWnd%
-   return Text
-}
-
-GuiControlGetPos(hWnd, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
-	GuiControlGet, pos, pos, %hWnd%
-	i := {}, i.w := i.Width := Width := posW
-	, i.h := i.Height := Height := posH
-	, i.x := x := posX, i.y := y := posY
-	return i
-}
-
-;obtener el tipo de control
-GuiControlType(hWnd) {
-   return WinGetClass( hWnd )
-}
-
-GuiControlIsVisible(hWnd) {
-   GuiControlGet, OutputVar, Visible, %hWnd%
-   return OutputVar
-}
-
-GuiControlIsEnabled(hWnd) {
-   GuiControlGet, OutputVar, Enabled, %hWnd%
-   return OutputVar
-}
-
-GuiMove(hWnd := 0) {
-	PostMessage, 0xA1, 2, 0,, % "ahk_id " (hWnd ? hWnd : IsWindow( -1 ))
 }
 
 SB_GetText(hWnd, PartN := 1) {
@@ -5508,8 +5796,8 @@ ControlSend(hWnd, Control, Keys, Count := 1, Delay := -2) {
 }
 
 ;establece foco en un control
-;Sintaxis: ControlFocus( [Control], [ID] )
-ControlFocus(Control, hWnd) {
+;Sintaxis: ControlFocus( [hWnd], [Control] )
+ControlFocus(hWnd, Control) {
 	_gethwnd(hWnd, Control)
 	, CurrentThreadId := ProcessExist(-2)
 	, WinGetPID(hWnd, WinThreadId)
@@ -5520,15 +5808,15 @@ ControlFocus(Control, hWnd) {
 }
 
 ;establecer texto
-;Sintaxis: ControlSetText( [Control], [Texto], [ID] )
-ControlSetText(Control, NewText, hWnd) {
+;Sintaxis: ControlSetText( [hWnd], [Control], [Texto] )
+ControlSetText(hWnd, Control, NewText) {
 	_gethwnd(hWnd, Control)
 	return SendMessage(Control, 0x000C,,, "Str", NewText)?Control:false
 }
 
 ;obtener texto
-;Sintaxis: ControlGetText( [Control, [ID] )
-ControlGetText(Control, hWnd) {
+;Sintaxis: ControlGetText( [ID], [Control] )
+ControlGetText(hWnd, Control) {
 	_gethwnd(hWnd, Control)
 	, TextSize := SendMessage(Control, 0x000E)
 	, TextSize := VarSetCapacity(IpText, (TextSize+1) * 2) / 2
@@ -5544,7 +5832,7 @@ ControlGetFocus(hWnd) {
 }
 
 ;comprueba si un control existe en una ventana espesifica.
-;Sintaxis: ControlExist( [ID Ventana], [ID/Nombre Control] )
+;Sintaxis: ControlExist( [ID Ventana], [ID/Nombre] )
 ;Nota: devuelve el id del control.
 ControlExist(hWnd, Control) {
 	_gethwnd(hWnd)
@@ -5577,11 +5865,14 @@ ControlClick(hWnd, Control, WhichButton := "LEFT", ClickCount := 1, Options := 0
 }
 
 ;mover control
-;Sintaxis: ControlMove( [ID], [control], [x], [y], [ancho], [alto] )
-ControlMove(hWnd, Control, x := "", y := "", Width := "", Height := "") {
+;Sintaxis: ControlMove( [ID], [control], [x], [y], [ancho], [alto], [¿redibujar?] )
+ControlMove(hWnd, Control, x := "", y := "", Width := "", Height := "", Redraw := false) {
 	_gethwnd(hWnd, Control)
 	ControlMove,, %x%, %y%, %Width%, %Height%, ahk_id %Control%
-	return ErrorLevel?false:Control
+	Error := ErrorLevel
+	if Redraw
+		WinRedraw(Control)
+	return Error?false:Control, ErrorLevel := Error
 }
 
 ;hace una variedad de cambios en un control.
@@ -5591,15 +5882,44 @@ Control(hWnd, Control, Cmd, Value) {
 	if (Cmd="TabSelect")
 		SendMessage(Control, 0x1330,, Value)
 		, ErrorLevel := !SendMessage(Control, 0x130C,, Value)
-	else
-		Control, %Cmd%, %Value%,, ahk_id %Control%
+	else Control, %Cmd%, %Value%,, ahk_id %Control%
 	return ErrorLevel?false:Control
 }
 
+;deshabilitar control
+;Sintaxis: ControlDisable( [hWnd], [Control] )
+ControlDisable(hWnd, Control) {
+	_gethwnd(hWnd, Control)
+	return WinDisable(Control)
+}
 
+;habilitar control
+;Sintaxis: ControlEnable( [hWnd], [Control] )
+ControlEnable(hWnd, Control) {
+	_gethwnd(hWnd, Control)
+	return WinEnable(Control)
+}
 
+;ocultar control
+;Sintaxis: ControlHide( [hWnd], [Control] )
+ControlHide(hWnd, Control) {
+	_gethwnd(hWnd, Control)
+	return WinHide(Control)
+}
 
+;mostrar control
+;Sintaxis: ControlShow( [hWnd], [Control] )
+ControlShow(hWnd, Control) {
+	_gethwnd(hWnd, Control)
+	return WinShow(Control)
+}
 
+;redibujar control
+;Sintaxis: ControlRedraw( [hWnd], [Control] )
+ControlRedraw(hWnd, Control) {
+	_gethwnd(hWnd, Control)
+	return WinRedraw(Control)
+}
 
 
 
@@ -5808,10 +6128,17 @@ MouseGetPos(ByRef x := "", ByRef y := "", ByRef  Win := "", ByRef Control := "",
 	MouseGetPos, x, y, Win, Control, %Mode%
 	i := {}, i.x := x, i.y := y, i.Win := i.hWnd := Win, i.Control := i.ctrl := Control
 	return i
-} CursorGetPos(ByRef x := "",ByRef y := "", ByRef Win := "") {
+} 
+
+;recupera la posicion xy del cursor.
+;Sintaxis: CursorGetPos( [x], [y], [ventana], [modo] )
+;Modo: espesificar ID para convertir a coordenadas del cliente de la ventana espesificada.
+CursorGetPos(ByRef x := "",ByRef y := "", ByRef Win := "", ScreenToClient := 0) {
 	VarSetCapacity(lpPoint, 8 * 2, 0), i := {}
 	, r := DllCall("User32.dll\GetCursorPos", "Ptr", &lpPoint)
-	, x := i.x := NumGet(lpPoint, 0, "Int"), y := i.y := NumGet(lpPoint, 4, "Int")
+	if ScreenToClient
+		DllCall("User32.dll\ScreenToClient", "Ptr", ScreenToClient, "Ptr", &lpPoint)
+	x := i.x := NumGet(lpPoint, 0, "Int"), y := i.y := NumGet(lpPoint, 4, "Int")
 	if IsByRef(Win)
 		VarSetCapacity(POINT, 8 * 2, 0)
 		, NumPut(x, POINT, 0, "Int"), NumPut(y, POINT, 4, "Int")
@@ -5851,7 +6178,7 @@ CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 		}
 	;--------------------------------------------------------------------------------------------------------------
 	if State ;restaura los cursores: State=1, Mode=0, TimeOut=0
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x57, "UInt", 0, "UInt", 0, "UInt", 0)
+		return CursorReload()
 	VarSetCapacity( AndMask, 32 * 4, 0xFF ), VarSetCapacity( XorMask, 32 * 4, 0 ), i := 0
 	Loop, Parse, % "32650,32512,32515,32649,32651,32513,32641,32648,32640,32646,32643,32645,32642,32644,32516,32514", `,
 	{ if !Cursor {
@@ -5866,9 +6193,10 @@ CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 	} return Cursor := i, ErrorLevel := !i
 } ;--------------------------------------------------------------------------------------------------------------
 
-
-
-
+;vuelve a cargar los cursores del sistema
+CursorReload() {
+	return i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0057, "UInt", 0, "Ptr", 0, "UInt", 0), ErrorLevel := !i
+}
 
 
 
@@ -6058,9 +6386,13 @@ SHGetKnownFolderPath(GUID) { ;WIN_V+
 	return i?i:Set(CSIDL, RTrim(StrGet(&pszPath), "\"))
 }
 
+;vuelve a cargar los iconos del sistema
+SystemIconsReload() {
+	return i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0058, "UInt", 0, "Ptr", 0, "UInt", 0), ErrorLevel := !i
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA: VARIABLES ::::::::::::::::::::::::::::::::::
-;NOTA: el valor que devuelve queda guardado en memoria, esto hace que la próxima vez se obtenga al instante.
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;Recupera la ruta a la raíz del directorio del usuario actual
 A_UserProfile() {
@@ -6328,7 +6660,9 @@ A_SendTo() {
 }
 
 A_Time(Delimiter := "") {
-	return A_Year Delimiter A_Mon Delimiter A_DD Delimiter A_Hour Delimiter A_Min Delimiter A_Sec
+	CurrentTime := SplitTime()
+	return CurrentTime[1] Delimiter CurrentTime[2] Delimiter CurrentTime[3] Delimiter
+		. CurrentTime[4] Delimiter CurrentTime[5] Delimiter CurrentTime[6]
 }
 
 A_Cursor() {
@@ -6354,7 +6688,9 @@ A_DetectHiddenWindows() {
 	return A_DetectHiddenWindows="On"
 }
 
-;ESPECIALES ######################################
+;##################################################
+;ESPECIALES
+;##################################################
 ;espacio
 A_Space(Count := 1) {
 	Loop, %Count%
@@ -6597,12 +6933,11 @@ WinMinimizeAll(Force := false) {
 	if Force {
 		Array := [], ok := Count := 0
 		Loop, Parse, % WinEnum(, false), `n
-			if !WinMin(A_LoopField) {
+		{	if !WinMin(A_LoopField) {
 				Count++
 				if WinMinimize(A_LoopField)
 					ok++, Array[ok] := A_LoopField
-			}
-		return ok, ErrorLevel := !(ok=Count)
+		}} return ok, ErrorLevel := !(ok=Count)
 	} if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
 		return ComObjCreate("shell.application").MinimizeAll()
 	return PostMessage(hWindow, 0x0111, "UInt", 419)
@@ -6616,7 +6951,7 @@ WinMinimizeAllUndo(Force := false) {
 		ok := Count := 0
 		for Index, hWnd in WinMinimizeAll("?") {
 			if WinMin(hWnd)&&WinVisible(hWnd)
-				ok += WinRestore(hWnd)?1:0, Count++
+				ok += WinRestore(hWnd)?true:false, Count++
 		} return ok, WinActivate(WinMinimizeAll("*")), ErrorLevel := !(ok=Count)
 	} if !(hWindow := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0))
 		return ComObjCreate("shell.application").UndoMinimizeALL()
@@ -6649,15 +6984,14 @@ WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 	_gethwnd(hWnd)
 	if WinMax( hWnd )
 		return 0, ErrorLevel := 3
-	WinGetPos( hWnd,,, width, height )
+	WinGetPos(hWnd,,, width, height)
 	, ypos := (Mode="T")||(Mode="Top")?0
 		: (Mode="B")||(Mode="Bottom")?A_MonitorWorkArea().h-height
 		: (Center?((ByWorkArea?A_MonitorWorkArea().h:A_ScreenHeight)/2)-(height/2):"")
 	, xpos := (Mode="L")||(Mode="Left")?0
 		: (Mode="R")||(Mode="Right")?A_MonitorWorkArea().w-width
 		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2)-(width/2):"")
-	return i := WinMove( hWnd, xpos, ypos )
-		ErrorLevel := !i
+	return WinMove(hWnd, xpos, ypos)
 }
 
 ;parpadea la ventana especificada. no cambia el estado activo de la ventana.
@@ -6695,7 +7029,7 @@ WinRedraw(hWnd) {
 	;5 = Arriba Abajo | 6 = Abajo Arriba
 ;Nota: cuando se usa la opcion 'S' (mostrar), a veces los controles no se muestran correctamente, por ello, es necesario
 	;redibujar la ventana, usar WinRedraw(), o agregar la opcion R.
-WinAnimate(hWnd, Time := 200, Mode := "S1", Transparent := "", Region := "") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
+WinAnimate(hWnd, Time := 200, Mode := "S1", Transparent := "", Region := "") { 
 	static List := {"S": 0x00020000, 1: 0x00080000, "C": 0x00000010, "H": 0x00010000, 3: 0x00000001, 4: 0x00000002, 2: 0x00040000, 5: 0x00000004, 6: 0x00000008}
 	_gethwnd(hWnd)
 	if InStr(Mode, "T")
@@ -6708,7 +7042,7 @@ WinAnimate(hWnd, Time := 200, Mode := "S1", Transparent := "", Region := "") { ;
 	if (Region!="")
 		WinSet(hWnd, "Region", Region)
 	return i, ErrorLevel := !i
-}
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
 
 ;minimizar ventana al área de notificacion con animación
 ;Sintaxis: WinMinimizeToTray( [ID], [¿Mostrar?] )
@@ -6745,18 +7079,18 @@ WinMinimizeToTray(hWnd, Show := 0) {
 	;WinMinimizeToTray(i,2), Sleep(1000), ExitApp()
 WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
 	_gethwnd(hWnd)
-	, VarSetCapacity( FRECT, 8 * 2, 0 ), WinGetPos(hWnd, fxpos, fypos, fwsize, fhsize)
-	, NumPut( fxpos, FRECT, 0, "Int" ), NumPut( fypos, FRECT, 4, "Int" )
-	, NumPut( fwsize + fxpos, FRECT, 8, "Int" ), NumPut( fhsize + fypos, FRECT, 12, "Int" )
-	, VarSetCapacity( TRECT, 8 * 2, 0 )
-	, NumPut( x = "" ? fxpos : x, TRECT, 0, "Int" ), NumPut( y = "" ? fypos : y, TRECT, 4, "Int" )
-	, NumPut( W = "" ? fwsize+fxpos : W+X, TRECT, 8, "Int" ), NumPut( H = "" ? fhsize+fypos : H+Y, TRECT, 12, "Int" )
-	if InStr( Flag, "Hi" )
-		WinHide( hWnd )
-	if InStr( Flag, "M" )
-		WinMove( hWnd, x = "" ? fxpos : x, y = "" ? fypos : y )
+	, VarSetCapacity(FRECT, 8 * 2, 0), WinGetPos(hWnd, fxpos, fypos, fwsize, fhsize)
+	, NumPut(fxpos, FRECT, 0, "Int"), NumPut(fypos, FRECT, 4, "Int")
+	, NumPut(fwsize+fxpos, FRECT, 8, "Int"), NumPut(fhsize+fypos, FRECT, 12, "Int")
+	, VarSetCapacity(TRECT, 8 * 2, 0)
+	, NumPut(x=""?fxpos:x, TRECT, 0, "Int"), NumPut(y=""?fypos:y, TRECT, 4, "Int")
+	, NumPut(W=""?fwsize+fxpos:W+X, TRECT, 8, "Int"), NumPut(H=""?fhsize+fypos:H+Y, TRECT, 12, "Int")
+	if InStr(Flag, "Hi")
+		WinHide(hWnd)
+	if InStr(Flag, "M")
+		WinMove(hWnd, x=""?fxpos:x, y=""?fypos:y)
 	return i := DllCall("User32.dll\DrawAnimatedRects", "Ptr", hWnd, "Int", 0x3, "Ptr", &FRECT, "Ptr", &TRECT)
-		, x := InStr( Flag, "S" ) ? WinShow( hWnd ) : ""
+		, x := InStr(Flag, "S")?WinShow(hWnd):""
 		, ErrorLevel := !i
 }
 
@@ -6907,7 +7241,7 @@ WinGetPos(hWnd, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height :=
 	i := {}, i.x := x := NumGet(WRECT, 0, "Int"), i.y := y := NumGet(WRECT, 4, "Int")
 	, i.h := i.Height := Height := NumGet(Mode=1||Mode=3?CRECT:WRECT, 12, "Int") - (Mode=1||Mode=3?0:y)
 	, i.w := i.Width := Width := NumGet(Mode=1||Mode=3?CRECT:WRECT,  8, "Int") - (Mode=1||Mode=3?0:x)
-	return i, ErrorLevel := !h ;_fillbyte(i)
+	return i, ErrorLevel := !h
 }
 
 ;obtiene el ancho y alto de los bordes de la ventana
@@ -6937,7 +7271,7 @@ WinGetExStyle(hWnd) {
 	return ExStyle, ErrorLevel := !ExStyle
 }
 
-;Recupera el titulo de la ventana especificada.
+;obtiene el titulo de la ventana especificada.
 ;Sintaxis: WinGetTitle( [ID] )
 WinGetTitle(hWnd) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms633520%28v=vs.85%29.aspx
 	_gethwnd(hWnd)
@@ -6947,7 +7281,7 @@ WinGetTitle(hWnd) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms
 	return lpString, ErrorLevel := !i
 }
 
-;Recupera el nombre de la clase a la que pertenece la ventana especificada.
+;obtiene el nombre de la clase a la que pertenece la ventana especificada.
 WinGetClass(hWnd) {
 	_gethwnd(hWnd)
 	, nMaxCount := VarSetCapacity( lpClassName, (256 + 1) * 2, 0) / 2
@@ -7075,7 +7409,7 @@ WinSet(hWnd, Attribute, Value := "") {
 		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
 	if (Attribute="TOPMOST"||Attribute="+AlwaysOnTop"||(Attribute="AlwaysOnTop"&&Value!=0&&Value!="Off"))
 		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-	if (Attribute="NOTOPMOST"||Attribute="-AlwaysOnTop"||(Attribute="AlwaysOnTop"&&(Value=0&&Value="Off")))
+	if (Attribute="NOTOPMOST"||Attribute="-AlwaysOnTop"||(Attribute="AlwaysOnTop"&&(Value=0||Value="Off")))
 		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -2, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
 	if (Attribute="Parent")
 		return DllCall("User32.dll\SetParent", "Ptr", hWnd, "Ptr", Value)
@@ -7101,7 +7435,7 @@ WinWaitClose(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := 
 			return 1, ErrorLevel := 0
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
-		Sleep( 100 )
+		Sleep(100)
 }}
 
 ;esperar a que una ventana se active
@@ -7116,7 +7450,7 @@ WinWaitActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title :=
 			return 1, ErrorLevel := 0
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
-		Sleep( 100 )
+		Sleep(100)
 }}
 
 ;esperar a que una ventana pierda el foco
@@ -7131,7 +7465,7 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title
 			return 1, ErrorLevel := 0
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return 0, ErrorLevel := 1
-		Sleep( 100 )
+		Sleep(100)
 }}
 
 ;esperar a que una ventana exista
@@ -7147,7 +7481,7 @@ WinWait(Title := "", Seconds := 0, Class := "", ProcessName := "", hWnd := "") {
 			return i, ErrorLevel := false
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return false, ErrorLevel := true
-		Sleep( 100 )
+		Sleep(100)
 }}
 
 
