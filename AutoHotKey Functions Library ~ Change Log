@@ -1,4 +1,97 @@
 ###############################################################
+ACTUALIZACION 14/08/2015, 09/08 - AHK1.1.22.03
+###############################################################
+Funciones Agregadas:
+	• Edit_GetPos()
+	• Edit_GetScrollBarInfo()
+	• Edit_IsMultiline()
+	• Edit_HasFocus()
+	• Edit_SetText()
+	• Edit_PasswordChar()
+	• Edit_GetPasswordChar()
+	• Edit_SetPasswordChar()
+	• Edit_ReadOnly()
+	• Edit_SetReadOnly()
+	• Edit_GetComboBoxEdit()
+	• Edit_ShowScrollBar()
+	• Edit_EnableScrollBar()
+	• Edit_SelCut()
+	• Edit_SelPaste()
+	• Edit_SelCopy()
+	• Edit_SetSel()
+	• Edit_ShowBalloonTip()
+	• Edit_SetLimitText()
+	• Edit_ReplaceSelText()
+	• Edit_SetCueBannerText()
+	• Edit_GetCueBannerText()
+	• Edit_GetColumn()
+	• Edit_GetCurrentLine()
+	• Edit_GetLineText()
+	• Edit_GetLineCount()
+	• GetDesktopBackground()
+	• CursorReload()
+	• SystemIconsReload()
+	• LV_SubItemHitTest()
+	• ControlDisable()
+	• ControlEnable()
+	• ControlHide()
+	• ControlShow()
+	• ControlRedraw()
+
+Mejoras:
+	• InputBox()
+		- añadido opcion para usar un control de edicion multilinea
+		- cambio de sintaxis (ancho, alto)
+		- ahora la funcion no modifica el GUI por defecto.
+	• ControlMove()
+	
+Correcciones:
+	• MsgBox()
+	• FileCopy()
+	• FileRename()
+	• DirSDelete()
+	• DirRename()
+	
+Notas:
+	• ControlFocus() --> cambio de sintaxis
+	• ControlSetText() --> cambio de sintaxis
+	• ControlGetText() --> cambio de sintaxis
+	
+Funciones Eliminadas:
+	• AttachEditControlText(), usar Edit_SetCueBannerText().
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 07/08/2015, 09/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
