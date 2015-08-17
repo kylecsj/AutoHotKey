@@ -1,7 +1,22 @@
 ###############################################################
-ACTUALIZACION 14/08/2015 - AHK1.1.22.03
+ACTUALIZACION 14/08/2015, 17/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
+	• FontEnum() ~ 17/08
+	• FontCreate() ~ 17/08
+	• FontGetSize() ~ 17/08
+	• FontGetName() ~ 17/08
+	• FontDelete() ~ 17/08
+	• ControlSetFont() ~ 17/08
+	• FontExist() ~ 17/08
+	• FontSelect() ~ 17/08
+	• Edit_SelectFont() ~ 17/08
+	• ControlGetFont() ~ 17/08
+	• FontGetMetrics() ~ 17/08
+	• FontGetColor() ~ 17/08
+	• SplitFlags() ~ 17/08
+	• ExtractIcon() ~ 17/08
+	• ControlSetColor() ~ 17/08
 	• Edit_GetPos()
 	• Edit_GetScrollBarInfo()
 	• Edit_IsMultiline()
@@ -39,6 +54,9 @@ Funciones Agregadas:
 	• ControlRedraw()
 
 Mejoras:
+	• IL_Create() ~ 17/08
+	• RGB() ~ 17/08
+	• ColorSelect() (ahora devuelve el color en RGB. cambio de sintaxis) ~ 17/08
 	• InputBox()
 		- añadido opcion para usar un control de edicion multilinea
 		- cambio de sintaxis (ancho, alto)
@@ -59,6 +77,9 @@ Notas:
 	
 Funciones Eliminadas:
 	• AttachEditControlText(), usar Edit_SetCueBannerText().
+	
+Otros:
+	• RGBToHex() ~ 17/08
 ###############################################################
 
 
