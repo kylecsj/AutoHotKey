@@ -79,7 +79,7 @@ _mnum(f,s){
 	for k,v in i
 		i[k]:=k?(v=""||v+1=""?n:v):n
 	return IsObject(i)?i:(k?(i=""||i+1=""?n:i):n)
-}_getcolor(c,p:="0x",h:=true) {
+}_getcolor(c) {
 	static Colors := {"Aqua": "0x00FFFF", "Black": "0x000000", "Blue": "0x0000FF", "Fuchsia": "0xFF00FF", "Gray": "0x808080"
 		, "Green": "0x008000", "Lime": "0x00FF00", "Maroon": "0x800000", "Navy": "0x000080", "Olive": "0x808000", "Purple": "0x800080"
 		, "Red": "0xFF0000", "Silver": "0xC0C0C0", "Teal": "0x008080", "White": "0xFFFFFF", "Yellow": "0xFFFF00"}
@@ -1886,11 +1886,9 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	, NumPut(MinSize, CHOOSEFONT, A_PtrSize=8?92:52, "Int")
 	, NumPut(MaxSize, CHOOSEFONT, A_PtrSize=8?96:56, "Int")
 	, r := DllCall("comdlg32.dll\ChooseFontW", "Ptr", &CHOOSEFONT)
-	, VarSetCapacity(FontName, LF_FACESIZE*2)
-	, nSize := DllCall("lstrlenW", "Ptr", &LOGFONT+28)
+	, VarSetCapacity(FontName, LF_FACESIZE*2), nSize := DllCall("lstrlenW", "Ptr", &LOGFONT+28)
 	, DllCall("lstrcpynW", "Str", FontName, "Ptr", &LOGFONT+28, "Int", nSize+1)
-	, VarSetCapacity(FontName, -1), OutPutVar := []
-	, OutPutVar[0] := FontName
+	, VarSetCapacity(FontName, -1), OutPutVar := [], OutPutVar[0] := FontName
 	, OutPutVar[1] := RGB(NumGet(CHOOSEFONT, A_PtrSize=8?40:24, "UInt"))
 	, OutPutVar[2] := NumGet(CHOOSEFONT, A_PtrSize=8?32:16, "Int")//10
 	, OutPutVar[3] := NumGet(LOGFONT, 16, "Int"), OutPutVar[4] := NumGet(LOGFONT, 20, "UChar")
@@ -1969,7 +1967,7 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 ;NOTAS: 
 	;devuelve un Array con las opciones en el mismo orden en que se espesificó;
 	;si se espsificó solo 1, devuelve directamente el texto recuperado
-	;si no se espesifico nada en el 3er parametro, lo obtiene desde el 2do
+	;si no se espesifico nada en el 3er parametro, lo obtiene del 2do
 ;EJEMPLOS:
 	;MsgBox % SplitFlags("c100 x350", "x") "`n" SplitFlags("c100 x350",, "c1")
 	;MsgBox % (i:=SplitFlags("c1,00 x35.0002 f+150",, "c", "x", "f")) i[1] "`n" i[2] "`n" i[3]
@@ -2600,11 +2598,11 @@ ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
 	, hResult := DllCall("Kernel32.dll\TerminateProcess", "Ptr", hProcess, "UInt", uExitCode)
 	return hResult ? ProcessId : 0
 		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-		, ProcessWaitClose(ProcessId, WaitClose), ErrorLevel := !hResult
+		, ErrorLevel := !hResult, ProcessWaitClose(ProcessId, WaitClose)
 } ;----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ;recupera la ruta completa al archivo ejecutable del proceso
-;Sintaxis: ProcessPath( [ID], [nombre del ejecutable (out)] )
+;Sintaxis: ProcessPath( [ID] )
 ProcessPath(ProcessName, ByRef ProcessEName := "") {
 	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
@@ -3134,13 +3132,6 @@ SaveScreenshot(Filename) {
 	, Gdip_DisposeImage(pBitmap)
 }
 
-;obtiene la posicion de todos los iconos del escritorio
-;Nota: usar con DesktopSetIconsPos() para restaurar los iconos a su posicion original.
-;Ejemplo:
-	;IconsPos := DesktopGetIconsPos(hDesktop:="", ProcessId:="")
-	;MsgBox Mueva un icono del escritorio.
-	;DesktopSetIconsPos(IconsPos, hDesktop, ProcessId)
-	;ExitApp
 DesktopGetIconsPos(ByRef hDesktop := "", ByRef ProcessId := "") {
 	Array := []
 	Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
@@ -3148,8 +3139,6 @@ DesktopGetIconsPos(ByRef hDesktop := "", ByRef ProcessId := "") {
 	return Array
 }
 
-;establece la posicion de los iconos del escritorio.
-;Sintaxis: DesktopSetIconsPos( [valor que devuelve DesktopGetIconsPos()] )
 DesktopSetIconsPos(IconsPos, ByRef hDesktop := "", ByRef ProcessId := "") {
 	i := 0
 	Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
