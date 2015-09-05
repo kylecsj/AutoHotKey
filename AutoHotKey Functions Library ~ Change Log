@@ -1,4 +1,75 @@
 ###############################################################
+ACTUALIZACION 04/09/2015, 17/08 - AHK1.1.22.04
+###############################################################
+Funciones Agregadas:
+	• WinGetIcon()
+	• SystemCPULoad()
+	• WinResized()
+	• WinDragDrop()
+	• WinClient()
+	• ControlEnabled()
+	• ControlVisible()
+
+Mejoras:
+	• WinAlwaysOnTop()
+	• ReplaceLiteralVar() (reescrito)
+	• InputBox() (ahora se pueden arrastrar archivos a la ventana)
+	• RegFNKey()
+	• FileFNPath()
+	• Shutdown()
+	• WinCloseEx()
+	
+Correcciones:
+	• ServiceSetDescription()
+	• Run()
+	• Edit_GetScrollBarInfo()
+	• InputBox()
+	• RegisterPowerSettingNotification()
+	• WinGet()
+
+Otros (cambios menores):
+	• Edit_GetComboBoxEdit() --> Edit_GetComboBox()
+	• RegOpenKey()
+	• ProcessPriority()
+	• BlockInput()
+	• VersionCompare()
+	• IniRead/Write/Delete()
+	• RegSKName() --> RegFormatKey() 
+	• RegOpenKey()
+	• TaskBarRemove()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 14/08/2015, 17/08 - AHK1.1.22.03
 ###############################################################
 Funciones Agregadas:
