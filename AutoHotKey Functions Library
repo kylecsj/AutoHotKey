@@ -2379,14 +2379,14 @@ NOTAS: las funciones aceptan el PID y Nombre del proceso (este último lo hace m
 */
 ;devuelve una lista de todos los procesos (PID+Nombre)
 ;Ejemplo:
-	;Loop, Parse, % ProcessEnum(), "`n"
-	;	MsgBox % StrSplit(A_LoopField, A_Tab)[1] ": " StrSplit(A_LoopField, A_Tab)[2]
+	;for k, v in ProcessEnum()
+	;	MsgBox % k ": " v
 ProcessEnum() {
 	dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
+	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe), List := []
 	Loop
-		List .= (A_Index=1?"":"`n") NumGet(lppe, 8, "UInt") A_Tab StrGet(&lppe+(A_PtrSize=4?36:44), 260, "CP0")
+		List[NumGet(lppe, 8, "UInt")] := StrGet(&lppe+(A_PtrSize=4?36:44), 260, "CP0")
 	until !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
 	return List
 }
