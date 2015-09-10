@@ -2388,7 +2388,7 @@ ProcessEnum() {
 	Loop
 		List[NumGet(lppe, 8, "UInt")] := StrGet(&lppe+(A_PtrSize=4?36:44), 260, "CP0")
 	until !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
-	return List
+	return List, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
 }
 
 ;Recupera información sobre el uso de memoria del proceso especificado en bytes
