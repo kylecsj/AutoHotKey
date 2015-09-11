@@ -1,4 +1,76 @@
 ###############################################################
+ACTUALIZACION 11/09/2015 - AHK1.1.22.05
+###############################################################
+Funciones Agregadas:
+	• CB_SetEditSel()
+	• CB_SetText()
+	• CB_SetEditSel()
+	• CB_SetCueBanner()
+	• CB_SelectItem()
+	• CB_SelectString()
+	• CB_LimitText()
+	• CB_GetSelected()
+	• CB_GetText()
+	• CB_GetCount()
+	• CB_FindString()
+	• CB_DeleteString()
+	• CB_AddString()
+	• CB_SetItemHeight()
+	• CMD()
+	• SystemAssocChanged()
+
+Mejoras:
+	• WinSetTitle()
+	• Download()
+	• HIWORD()
+	• HIBYTE()
+	
+Correcciones:
+	• DesktopGetIconsPos()
+	• DesktopIconList()
+	• LV_GetItemTextEx()
+	• LV_SetItemPos()
+	• Base64Encode()
+	• Base64Decode()
+	
+Notas:
+	• WinWait() (cambio de sintaxis)
+	
+Otros (cambios menores):
+	• WinCenter()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 04/09/2015, 08/09 - AHK1.1.22.04
 ###############################################################
 Funciones Agregadas:
