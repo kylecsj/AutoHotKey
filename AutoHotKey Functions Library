@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, fuentes & colores & recursos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.04 U32 & U64 || Martes, 08 de septiempre de 2015
+Actualizado: AHK1.1.22.04 U32 & U64 || Viernes, 11 de septiempre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -768,8 +768,22 @@ Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 	return hWnd?hWnd:r, ErrorLevel := !r
 }
 
-
-
+;ejecuta un comando en la consola y devuelve el resultado
+;Sintaxis: CMD( [ID], [comando], [¿cerrar al finalizar?] )
+;Ejemplo: MsgBox % CMD("tasklist")
+	;o usar el portapapeles: RunWait(ComSpec " /c tasklist | CLIP",, "Hide"), MsgBox(Clipboard)
+CMD(hWnd := "", CMD := "", Close := true) {
+	if (CMD="")
+		CMD := hWnd, hWnd := false
+	if !(hWnd)
+		hWnd := Run(ComSpec,, "Hide")
+	WinWait(hWnd, 5), DllCall("Kernel32.dll\AttachConsole", "UInt", hWnd)
+	, WshShell := ComObjCreate("Wscript.Shell")
+	, output := WshShell.Exec(CMD).StdOut.ReadAll()
+	if (Close)
+		ProcessClose(hWnd)
+	return output, DllCall("Kernel32.dll\FreeConsole")
+}
 
 
 
@@ -832,6 +846,9 @@ Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 ;eliminar directorio
 ;Sintaxis: DirDelete( [carpeta], [¿eliminar archivos y subcarpetas?] )
 DirDelete(DirName, Recurse := false) {
+	FileRemoveDir, %DirName%, %Recurse%
+	return !ErrorLevel
+} DirRemove(DirName, Recurse := false) {
 	FileRemoveDir, %DirName%, %Recurse%
 	return !ErrorLevel
 }
@@ -1253,12 +1270,12 @@ Min(n*) {
 
 LOWORD(l) {
     return l & 0xffff
-} HIWORD(l) {
-    return (l >> 16) & 0xffff
+} HIWORD(l, Extract := true) {
+    return Extract?((l >> 16) & 0xffff):(l << 16)
 } LOBYTE(w) {
     return w & 0xff
-} HIBYTE(w) {
-    return (w >> 8) & 0xff
+} HIBYTE(w, Extract := true) {
+    return Extract?((w >> 8) & 0xff):((w << 8) & 0xff)
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -2258,8 +2275,7 @@ Base32Encode(Decoded, UseHex := 0, Len := 0) {
 		, VarSetCapacity(UTF8, Len, 0)
 		, StrPut(Decoded, &UTF8, "UTF-8")
 		, BinAddr := &UTF8
-	else
-		BinAddr := &Decoded
+	else BinAddr := &Decoded
 	VarSetCapacity(Endcoded, Len * 2, 0), I := 0
 	while (I < Len) {
 		J := N := 0
@@ -2274,13 +2290,12 @@ Base32Encode(Decoded, UseHex := 0, Len := 0) {
 	return Encoded
 }
 
-Base64Encode(pbBinary) {
-	static dwFlags := CRYPT_STRING_BASE64 := 0x00000001
-	cbBinary := StrLen( pbBinary ) * 2
-	, DllCall( "Crypt32.dll\CryptBinaryToStringW", "UChar", &pbBinary, "UInt", cbBinary, "UInt", dwFlags, "Ptr", 0, "UInt*", pcchString, "CDECL Int")
-	, pcchString := VarSetCapacity( pszString, pcchString * 2 )
-	, i := DllCall( "Crypt32.dll\CryptBinaryToStringW", "UChar", &pbBinary, "UInt", cbBinary, "UInt", dwFlags, "Str", pszString, "UInt*", pcchString, "CDECL Int")
-	return pszString, ErrorLevel := !i
+Base64Encode(Text) {
+	VarSetCapacity(Bin, StrPut(Text, "UTF-8")), nSize := StrPut(Text, &Bin, "UTF-8") - 1
+	, DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Bin, "UInt", nSize, "UInt", 0x40000001, "Ptr", 0, "UInt*", Length)
+	, VarSetCapacity(OutputVar, Length * 2)
+	, r:=DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Bin, "UInt", nSize, "UInt", 0x40000001, "Str", OutputVar, "UInt*", Length)
+	return OutputVar, ErrorLevel := !r
 }
 
 ;----------------------------------------
@@ -2301,23 +2316,19 @@ Base32Decode(Encoded, UseHex := 0, ByRef Decoded := "") {
 			Loop, 5
 				NumPut((K >> (S -= 8)) & 0xFF, Decoded, I++, "Uchar")
 			J := K := 0
-		}
-	} If (J < 8) {
+	}} If (J < 8) {
 		S := 40
 		Loop, % Ceil((5 * J) / 8)
 			NumPut((K >> (S -= 8)) & 0xFF, Decoded, I++, "Uchar")
 	} return IsByRef(Decoded) ? I : StrGet(&Decoded, I, "UTF-8")
 }
 
-Base64Decode(pszString, nSize := 0) {
-	static dwFlags := CRYPT_STRING_BASE64 := 0x00000001
-	cchString := nSize?(nSize+3)*2:StrLen(pszString)
-	, DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &pszString, "UInt", cchString, "UInt", dwFlags, "UChar", 0, "UInt*", pcbBinary, "UInt*", 0, "UInt*", 0, "CDECL Int")
-	, pcbBinary := VarSetCapacity( pbBinary, pcbBinary * 2)
-	, i := DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &pszString, "UInt", cchString, "UInt", dwFlags, "Str", pbBinary, "UInt*", pcbBinary, "UInt*", 0, "UInt*", 0, "CDECL Int")
-	return pbBinary, ErrorLevel := !i
+Base64Decode(Text) {
+	DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Text, "UInt", StrLen(Text), "UInt", 0x1, "Ptr", 0, "UInt*", Length, "Ptr", 0, "Ptr", 0)
+	, VarSetCapacity(OutputVar, Length)
+	, r:=DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Text, "UInt", StrLen(Text), "UInt", 0x1, "Str", OutputVar, "UInt*", Length, "Ptr", 0, "Ptr", 0)
+	return StrGet(&OutputVar, Length, "UTF-8"), ErrorLevel := !r
 }
-
 
 
 
@@ -2384,11 +2395,11 @@ NOTAS: las funciones aceptan el PID y Nombre del proceso (este último lo hace m
 ProcessEnum() {
 	dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe), List := []
+	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe), List := [],r:=hSnapshot?0:1
 	Loop
 		List[NumGet(lppe, 8, "UInt")] := StrGet(&lppe+(A_PtrSize=4?36:44), 260, "CP0")
 	until !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
-	return List, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
+	return List, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := r
 }
 
 ;Recupera información sobre el uso de memoria del proceso especificado en bytes
@@ -2400,8 +2411,7 @@ ProcessMemoryInfo(ProcessName) {
 		memCounters := "", nSize := VarSetCapacity(memCounters, A_PtrSize = 8 ? 80 : 44), NumPut(nSize, memCounters)
 		if !DllCall("Kernel32.dll\K32GetProcessMemoryInfo", "Ptr", hProcess, "UInt", &memCounters, "UInt", nSize)
 			return 0
-	} i := {} ; i.Length := NumGet(memCounters, 0, "UInt")
-		, i.PageFaultCount := NumGet(memCounters, 4, "UInt") ;número de fallos de página.
+	} i := {}, i.PageFaultCount := NumGet(memCounters, 4, "UInt") ;número de fallos de página.
 		, i.PeakWorkingSetSize := NumGet(memCounters, 8, "Ptr") ;tamaño máximo de trabajo
 		, i.WorkingSetSize := NumGet(memCounters, A_PtrSize = 8 ? 16 : 12, "Ptr") ;El tamaño del conjunto de trabajo actual, en bytes. (uso de memoria)
 		, i.QuotaPeakPagedPoolUsage := NumGet(memCounters, A_PtrSize = 8 ? 24 : 16, "Ptr")
@@ -2444,16 +2454,15 @@ ProcessExist(Proc*) {
 	if (ProcessName = -3)
 		return Get("LastProcessId")
 	;---------------------------------------------------------------------------------------------------------------------
-	dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
+	dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
 	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
 	Loop {
-		ProcessId := NumGet(lppe, 8, "UInt")
-		ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260, "CP0")
+		ProcessId := NumGet(lppe, 8, "UInt"), ProcessExe := StrGet(&lppe + (A_PtrSize=4?36:44), 260, "CP0")
 		if (ProcessId = ProcessName) OR (ProcessExe = ProcessName)
 			return Set("LastProcessId", ProcessId), DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := ProcessId
 		if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
-			return 0, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := 0
+			return false, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := false
 }}
 
 ;esperar a que el proceso exista
@@ -2480,7 +2489,7 @@ ProcessWait(ProcessName, Seconds := 0) {
 	;especificar 0 segundos para esperar indefinidamente (defecto)
 ProcessWaitClose(ProcessName, Seconds := 0) {
 	if (Seconds = -1)
-		return 0
+		return false
 	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if !ProcessExist(ProcessName)
@@ -2493,10 +2502,9 @@ ProcessWaitClose(ProcessName, Seconds := 0) {
 		return false
 	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x00100000, "UInt", 0, "UInt", ProcessId)
-	, i := DllCall("Kernel32.dll\WaitForSingleObject", "Ptr", hProcess, "UInt", Seconds > 0 ? Seconds : 0xFFFFFFFF)
-	return i = 0 OR i = -1 ? (ProcessId ? ProcessId : 1) : 0
-		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-		, ErrorLevel := i = 0 OR i = -1 ? 0 : 1
+	, i := DllCall("Kernel32.dll\WaitForSingleObject", "Ptr", hProcess, "UInt", Seconds>0?Seconds:0xFFFFFFFF)
+	return (i=0)||(i=-1)?(ProcessId?ProcessId:true):false, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
+		, ErrorLevel := (i=0)||(i=-1)?false:true
 }
 
 ;obtener/establecer prioridad 
@@ -2508,7 +2516,7 @@ ProcessPriority(ProcessName, Priority := "", M := false) {
 	static rs := {32: "Normal", 64: "Low", 128: "High", 256: "RealTime", 16384: "BelowNormal", 32768: "AboveNormal"}
 	static _ := {32: "Normal", 64: "Baja", 128: "Alta", 256: "Tiempo real", 16384: "Debajo de lo normal", 32768: "Arriba de lo normal"}
 	ProcessId := _getpid(ProcessName)
-	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", p[Priority]=""?0x0400:0x0200, "UInt", 0, "UInt", ProcessId)
+	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", p[Priority]=""?0x0400:0x0200, "UInt", 0, "UInt", ProcessId)
 	if (p[Priority]="") {
 		Priority := DllCall("Kernel32.dll\GetPriorityClass", "Ptr", hProcess)
 		return M?_[Priority]:rs[Priority], DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess), ErrorLevel := !Priority
@@ -2525,40 +2533,32 @@ ProcessPriority(ProcessName, Priority := "", M := false) {
 	;1 = terminar el proceso junto con todos los procesos que inició
 	;2 = teminar todos los procesos que el proceso espesificado inició
 ProcessClose(ProcessName, WaitClose := -1, SubProcess := 0, uExitCode := 0) {
-	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
-	if InStr(ProcessName, "*") { ;terminar procesos que coincidan con el mismo nombre
+	if (InStr(ProcessName, "*")) { ;terminar procesos que coincidan con el mismo nombre
 		ProcessName := StrReplace(ProcessName, "*")
-		, dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
+		, dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
 		, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-		if DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
+		if (DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe))
 			Loop {
-				ProcessId := NumGet(lppe, 8, "UInt")
-				ProcessExe := StrGet(&lppe + (A_PtrSize = 4 ? 36 : 44), 260, "CP0")
-				if (ProcessExe = ProcessName)
-					hList .= ProcessClose( ProcessId, WaitClose, SubProcess, uExitCode ) "`n"
-				if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
+				ProcessId := NumGet(lppe, 8, "UInt"), ProcessExe := StrGet(&lppe + (A_PtrSize=4?36:44), 260, "CP0")
+				if (ProcessExe=ProcessName)
+					hList .= ProcessClose(ProcessId, WaitClose, SubProcess, uExitCode) "`n"
+				if !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
 					return RTrim(hList, "`n"), DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
-	}}
-	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
-	ProcessId := _getpid(ProcessName)
-	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
-	if SubProcess { ;termina el proceso junto con todos sus subprocesos
-		dwSize := VarSetCapacity(lppe, A_PtrSize = 4 ? 296 : 304, 0), NumPut(dwSize, lppe, 0, "UInt")
+	}} ProcessId := _getpid(ProcessName)
+	if (SubProcess) { ;termina el proceso junto con todos sus subprocesos
+		dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
 		, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
 		, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe)
 		Loop {
-			Process_ID := NumGet(lppe, 8, "UInt"), Parent := NumGet(lppe, A_PtrSize = 4 ? 24 : 32, "UInt")
+			Process_ID := NumGet(lppe, 8, "UInt"), Parent := NumGet(lppe, A_PtrSize=4?24:32, "UInt")
 			if (Process_ID != ProcessId) AND (Parent = ProcessId)
 				hList .= ProcessClose( Process_ID, WaitClose,, uExitCode ) "`n"
-			if !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe)
-				return SubProcess = 1 ? hList ProcessClose(ProcessId, WaitClose,, uExitCode) : RTrim(hList, "`n")
+			if !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
+				return SubProcess=1?hList ProcessClose(ProcessId, WaitClose,, uExitCode):RTrim(hList, "`n")
 					, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot)
-	}}
-	;----------------------------------------------------------------------------------------------------------------------------------------------------------------
-	hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0001, "UInt", 0, "UInt", ProcessId)
+	}} hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0001, "UInt", 0, "UInt", ProcessId)
 	, hResult := DllCall("Kernel32.dll\TerminateProcess", "Ptr", hProcess, "UInt", uExitCode)
-	return hResult ? ProcessId : 0
-		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
+	return hResult?ProcessId:0, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
 		, ErrorLevel := !hResult, ProcessWaitClose(ProcessId, WaitClose)
 } ;----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -2568,8 +2568,8 @@ ProcessPath(ProcessName, ByRef ProcessEName := "") {
 	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
 	, FileNameSize := VarSetCapacity(ModuleFileName, (260 + 1) * 2, 0) / 2
-	if !DllCall("Psapi.dll\GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize)
-		if !DllCall("Kernel32.dll\K32GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize)
+	if !(DllCall("Psapi.dll\GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize))
+		if !(DllCall("Kernel32.dll\K32GetModuleFileNameExW", "Ptr", hProcess, "Ptr", 0, "Str", ModuleFileName, "UInt", FileNameSize))
 			DllCall("Kernel32.dll\QueryFullProcessImageNameW", "Ptr", hProcess, "UInt", 1, "Str", ModuleFileName, "UIntP", FileNameSize)
 	return ModuleFileName, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
 		, ProcessEName := IsByRef( ProcessEName ) ? ProcessName( ProcessId ) : ""
@@ -2580,7 +2580,7 @@ ProcessName(ProcessName) {
 	ProcessId := _getpid(ProcessName)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0400|0x0010, "UInt", 0, "UInt", ProcessId)
 	, nSize := VarSetCapacity(lpBaseName, (260 + 1) * 2, 0) / 2
-	if !DllCall("Psapi.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
+	if !(DllCall("Psapi.dll\GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize))
 		DllCall("Kernel32.dll\K32GetModuleBaseNameW", "Ptr", hProcess, "Ptr", 0, "Str", lpBaseName, "UInt", nSize)
 	return lpBaseName, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
 } ProcessEName(ProcessName) {
@@ -2671,30 +2671,24 @@ ProcessGetSid(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
 			;MsgBox % "ThreadId: " v.ThreadId ", OwnerProcessId: " v.ProcessId " (" i ")"
 ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 	ProcessName := _getpid(ProcessName)
-	, dwSize := VarSetCapacity(THREADENTRY32, A_PtrSize = 4 ? 28 : 40, 0)
+	, dwSize := VarSetCapacity(THREADENTRY32, A_PtrSize=4?28:40, 0)
 	, NumPut(dwSize, THREADENTRY32, 0, "UInt")
 	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000004, "UInt", 0)
 	, DllCall("Kernel32.dll\Thread32First", "Ptr", hSnapshot, "Ptr", &THREADENTRY32)
 	Loop {
-		th32OwnerProcessID := NumGet( THREADENTRY32, A_PtrSize = 4 ? 12 : 20, "UInt" )
-		, th32ThreadID := NumGet( THREADENTRY32, 8, "UInt" )
-		if ProcessName {
+		th32OwnerProcessID := NumGet(THREADENTRY32, A_PtrSize=4?12:20, "UInt")
+		, th32ThreadID := NumGet(THREADENTRY32, 8, "UInt")
+		if (ProcessName) {
 			if (ProcessName=th32OwnerProcessID)
 				ThreadList .= (A_Index=1?"":Delimiter) th32ThreadID
 		} else {
-			if !IsObject( ThreadList )
+			if !IsObject(ThreadList)
 				ThreadList := []
-			ThreadInfo := []
-			, ThreadInfo.ThreadId := th32ThreadID
-			, ThreadInfo.ProcessId := th32OwnerProcessID
-			, ThreadList.InsertAt( A_Index, ThreadInfo )
-		} if !DllCall("Kernel32.dll\Thread32Next", "Ptr", hSnapshot, "UInt", &THREADENTRY32)
+			ThreadInfo := [], ThreadInfo.ThreadId := th32ThreadID
+			, ThreadInfo.ProcessId := th32OwnerProcessID, ThreadList.InsertAt( A_Index, ThreadInfo )
+		} if !(DllCall("Kernel32.dll\Thread32Next", "Ptr", hSnapshot, "UInt", &THREADENTRY32))
 			return ThreadList, DllCall("Kernel32.dll\CloseHandle", "Ptr", hSnapshot), ErrorLevel := hSnapshot=-1
 }}
-
-
-
-
 
 
 
@@ -2763,9 +2757,18 @@ ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ;descargar archivo
-;Sintaxis: Download( [URL], [Archivo] )
-Download(URL, Filename) {
-	URLDownloadToFile, %URL%, %Filename%
+;Sintaxis: Download( [URL], [Archivo], [¿sobreescribir?], [¿recuperar de la memoria caché cuando sea posible?] )
+;Nota: omitir el 2do parámetro para obtener el texto sin crear el archivo.
+Download(URL, Filename := "", OverWrite := true, UseCache := false) {
+	static param := 0
+	param++
+	if (Filename="") {
+		whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+		, whr.Open("GET", Trim(URL) (UseCache?"":"?f=" param), true), whr.Send(), whr.WaitForResponse()
+		return whr.ResponseText
+	} if !(OverWrite) && (FileExist(Filename))
+		return false, ErrorLevel := 2
+	URLDownloadToFile, % Trim(URL) (UseCache?"":"?f=" param), %Filename%
 	return !ErrorLevel
 }
 
@@ -3050,10 +3053,10 @@ ShowStartMenu() {
 
 ;muestra el escritorio y establece foco en él
 ;Sintaxis: ShowDesktop( [¿esperar? (segundos)], [¿redibujar?] )
-ShowDesktop(Wait := -1, Redraw := 0) {
-	ComObjCreate( "shell.application" ).ToggleDesktop()
+ShowDesktop(Wait := -1, Redraw := false) {
+	ComObjCreate("shell.application").ToggleDesktop()
 	, i := WinActivate(GetDesktop(), Wait, true)
-	if Redraw
+	if (Redraw)
 		DesktopRedraw()
 	return i, ErrorLevel := !i
 }
@@ -3098,13 +3101,25 @@ SaveScreenshot(Filename) {
 	, Gdip_DisposeImage(pBitmap)
 }
 
+;guarda la posición de los iconos del escritorio.
+;Ejemplo: 
+	;for k, v in DesktopGetIconsPos()
+	;	MsgBox %  "Nombre: " k "`nPosición: " v[1] "x" v[2]
 DesktopGetIconsPos(ByRef hDesktop := "", ByRef ProcessId := "") {
 	Array := []
 	Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
-		Array[A_LoopField] := LV_GetItemPosEx(hDesktop, A_Index,,, ProcessId)
+		Pos := LV_GetItemPosEx(hDesktop, A_Index,,, ProcessId)
+		, Array[A_LoopField] := [Pos[1], Pos[2]]
 	return Array
 }
 
+;restaura la posición de los iconos del escritorio.
+;Ejemplo:
+	;DesktopIconsPos := DesktopGetIconsPos(hDesktop, ProcessId)
+	;MsgBox mueva un icono en el escritorio!
+	;DesktopSetIconsPos(DesktopIconsPos, hDesktop, ProcessId)
+	;MsgBox los iconos han sido restaurados a su posición original!
+	;ExitApp
 DesktopSetIconsPos(IconsPos, ByRef hDesktop := "", ByRef ProcessId := "") {
 	i := 0
 	Loop, Parse, % DesktopIconList(hDesktop, ProcessId), `n
@@ -3120,6 +3135,8 @@ DesktopSetIconsPos(IconsPos, ByRef hDesktop := "", ByRef ProcessId := "") {
 			, r := A_Index
 	}} return i=r, ErrorLevel := !(i=r)
 }
+
+
 
 
 
@@ -3301,18 +3318,18 @@ RegisterSessionNotification(Status, Session := 1, Func := "") { ;http://ahkscrip
 ;NOTA: esta funcion es llamada automáticamente al inicio del script.
 RunAsAdmin() { ;//-->
 	static StaticRunAsAdmin := RunAsAdmin() ;llama a la funcion automáticamente al inicio del script.
-	if !StaticRunAsAdmin { ;evita que la funcion sea ejecutada mas de 1 vez.
+	if !(StaticRunAsAdmin) { ;evita que la funcion sea ejecutada mas de 1 vez.
 	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "All", true) ;establece todos los privilegios disponibles para el proceso.
 	, ProcessPriority := ProcessPriority(ProcessExist(), "High") ;establece la prioridad del proceso actual Alta.
 	;---------------------------------------------------------------------------------------------------------------------------------------------------------
 	;NOTA: esta parte es ejecutada solo una vez. o ninguna dependiedo si el script es ejecutado como administrador.
 	;si (no es ejecutado como administrador) y (el parametro 1 no es la ruta del script) y (el SO no es windows xp).
-	if !A_IsAdmin&&(%true%!=A_ScriptFullPath)&&(A_OSVersion!="WIN_XP") {
+	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (A_OSVersion!="WIN_XP") {
 		_ := A_IsCompiled?A_ScriptFullPath:A_AhkPath ;si esta compilado, ruta al script, de lo contrario usar ruta de autohotkey.
-		;Compilado: [ruta script] [ruta script (que establece el parametro 1)] [ruta script (solo funcional para sin compilar)].
+		;Compilado: [ruta script] [ruta script (que establece el parametro 1)] [ruta script (solo funcional sin compilar)].
 		;Sin Compilar: [ruta autohotkey] [ruta script] [ruta script (que establece el parametro 1]
 		Run, *RunAs "%_%" "%A_ScriptFullPath%" "%A_ScriptFullPath%",, UseErrorLevel
-		if !ErrorLevel ;si no ha ocurrido error al ejecutar el script nuevamente -->
+		if !(ErrorLevel) ;si no ha ocurrido error al ejecutar el script nuevamente -->
 			ExitApp ;salir de la sesion actual. caso contrario, seguir normalmente. <--
 	} ;---------------------------------------------------------------------------------------------------------------------------------------------------------
 	ComObjError(false) ;desactivar las notificaciones de errores COM (Component Object Model).
@@ -3337,7 +3354,7 @@ RunAsAdmin() { ;//-->
 	;MsgBox % Instance()
 Instance(Close := false) {
 	static hMutex ;ERROR_ALREADY_EXISTS = 183 | ERROR_ACCESS_DENIED = 0x00000005
-	if Close
+	if (Close)
 		return DllCall("Kernel32.dll\ReleaseMutex", "Ptr", hMutex)+DllCall("Kernel32.dll\CloseHandle", "Ptr", hMutex)
 	Name := "_" StrLeft(StrReplace(StrReplace(A_ScriptFullPath, "\"), ":"), 259)
 	, hMutex := DllCall("Kernel32.dll\CreateMutexW", "Ptr", 0, "Int", false, "Str", "Local\" Name)
@@ -3509,19 +3526,13 @@ ComVar() { ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3964
 	arr := ComObjArray(0xC, 1)
 	, DllCall("oleaut32\SafeArrayAccessData", "ptr", ComObjValue(arr), "ptr*", arr_data)
 	return {ref: %ComObjParam%(0x400C, arr_data), _: arr, base: base}
-}
-
-ComVarGet(cv, p*) { ;Called when script accesses an unknown field.
+} ComVarGet(cv, p*) { ;Called when script accesses an unknown field.
 	if (p.MaxIndex()="") ; No name/parameters, i.e. cv[]
 		return cv._[0]
-}
-
-ComVarSet(cv, v, p*) { ;Called when script sets an unknown field.
+} ComVarSet(cv, v, p*) { ;Called when script sets an unknown field.
 	if (p.MaxIndex()="") ; No name/parameters, i.e. cv[]:=v
 		return cv._[0] := v
-}
-
-ComVarDel(cv) { ;Called when the object is being freed.
+} ComVarDel(cv) { ;Called when the object is being freed.
 	DllCall("oleaut32\SafeArrayUnaccessData", "ptr", ComObjValue(cv._))
 }
 
@@ -3546,8 +3557,7 @@ SendMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef 
 		r1 := DllCall("User32.dll\SendMessageCallbackW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam, "Ptr", TimeOut, "UPtr", CallBackData)
 	else if (TimeOut>0)
 		r1 := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam, "UInt", 0x0002, "UInt", TimeOut, "UPtrP", r2)
-	else
-		r1 := DllCall("User32.dll\SendMessageW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam)
+	else r1 := DllCall("User32.dll\SendMessageW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam)
 	return TimeOut>0&&CallBackData=""?r2:r1, ErrorLevel := !r1
 }
 
@@ -3569,14 +3579,13 @@ FreeLibrary(hModule) { ;https://msdn.microsoft.com/en-us/library/windows/desktop
 LoadLibrary(lpFileName, hFile := false, dwFlags := false) {
 	if (dwFlags||hFile)
 		i:=DllCall("Kernel32.dll\LoadLibraryExW", "Str", lpFileName, "UInt", hFile, "UInt", dwFlags) 
-	else
-		i:=DllCall("Kernel32.dll\LoadLibraryW", "Str", lpFileName) 
+	else i:=DllCall("Kernel32.dll\LoadLibraryW", "Str", lpFileName) 
 	return i, ErrorLevel := !i
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684179%28v=vs.85%29.aspx
 
 ;Sintaxis: SetTimer( [Etiqueta], [Período], [Prioridad -2147483648~2147483647] )
 SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0, Wait := true) {
-	if !Wait
+	if !(Wait)
 		SetTimer, %Label%, -1, %ThreadPriority%
 	SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
 }
@@ -3592,7 +3601,7 @@ gosub(Label, Check := true) {
 Sleep(Delay := 0, pc := false) {
 	static Frequency, DefaultMode
 	if (Delay>=-1) {
-		if (!pc&&!DefaultMode) {
+		if !(pc) && !(DefaultMode) {
 			Sleep, %Delay%
 		} else {
 			if !Frequency
@@ -3602,15 +3611,14 @@ Sleep(Delay := 0, pc := false) {
 			Loop
 				DllCall("Kernel32.dll\QueryPerformanceCounter", "Int64*", Current)
 			until (Current >= Finish)
-		}
-	} else if (Delay=-2||Delay=-3) ;-2 = QueryPerformanceCounter. -3 = Normal
+	}} else if (Delay=-2||Delay=-3) ;-2 = QueryPerformanceCounter. -3 = Normal
 		DefaultMode := Delay=-2?true:false
 }
 
 ;reiniciar script
-Reload(Force := 0, ExitCode := 0) {
+Reload(Force := false, ExitCode := 0) {
 	Instance(true)
-	if Force {
+	if (Force) {
 		if A_IsCompiled
 			Run, "%A_ScriptFullPath%"
 		else
@@ -3640,7 +3648,7 @@ ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/b
 	static ExitAppTimer := Func("ExitAppTimer")
     if (Seconds="ExitApp")
         ExitApp(Force, ExitCode)
-    if !Seconds
+    if !(Seconds)
         return (ending - A_TickCount) / 1000.0
     SetTimer(ExitAppTimer.Bind("ExitApp", Force, ExitCode), -(Seconds*1000))
     ending := A_TickCount+(Seconds*1000)
@@ -3683,9 +3691,9 @@ ClipWait(Seconds := -1, AnyFormats := true) {
 		if (AnyFormats&&DllCall("User32.dll\CountClipboardFormats"))
 		||(!AnyFormats&&(DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1)
 		||DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15)))
-			return 1, ErrorLevel := 0
-		if (Seconds>=0&&A_TickCount>=ElapsedTime)
-			return 0, ErrorLevel := 1
+			return true, ErrorLevel := false
+		if (Seconds>=0) && (A_TickCount>=ElapsedTime)
+			return false, ErrorLevel := true
 		Sleep(50)
 }}
 
@@ -3743,14 +3751,14 @@ IniRead(Filename := "", Section := "", Key := "", OutputVar := " ") {
 		IniRead, OutputVar, %Filename%, %Section% ;OutputVarSection
 	else IniRead, OutputVar, %Filename% ;OutputVarSectionNames
 	return OutputVar, _ := Filename
-} IniWrite(Value, Filename, Section, Key := "") {
+} IniWrite(Value := "", Filename := "", Section := "", Key := "") {
 	static _
 	Filename := Filename=""?_:Filename
 	if (Key="")
 		IniWrite, %Value%, %Filename%, %Section%
 	else IniWrite, %Value%, %Filename%, %Section%, %Key%
 	return !ErrorLevel, _ := Filename
-} IniDelete(Filename, Section, Key := "") {
+} IniDelete(Filename := "", Section := "", Key := "") {
 	static _
 	Filename := Filename=""?_:Filename
 	if (Key="")
@@ -3800,8 +3808,7 @@ Translate(String, From := "", To := "") {
 	     . "&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&dt=at&ie=UTF-8&oe=UTF-8&otf=2&srcrom=0&ssel=0&tsel=3&q=" string
 	, i.Open("GET", url, true)
 	, i.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko)")
-	, i.Send()
-	, i.WaitForResponse()
+	, i.Send(), i.WaitForResponse()
 	return RegExReplace(i.ResponseText, "^.*?""(.*?)"".*$", "$1")
 }
 
@@ -4027,8 +4034,7 @@ RegDelete(Key, ValueName*) {
 		hRegKey := RegOpen(Key, 0x0002)
 		for k, v in ValueName
 			Result := DllCall("Advapi32.dll\RegDeleteValueW", "Ptr", hRegKey, "Str", v)
-		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey)
-		ErrorLevel := Result?true:false
+		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey), ErrorLevel := Result?true:false
 	} else RegDelete, %Key%
 	return ErrorLevel?false:Key
 }
@@ -4759,6 +4765,10 @@ LV_SetItemText(hWnd, pszText := "", Item := 1, Column := 1) {
 	return SendMessage(hWnd, 0x1000+116,, Item-1,, &LVITEM)
 }
 
+Loop, Parse, % DesktopIconList(), `n
+	MsgBox % A_LoopField
+ExitApp
+
 ;obtener texto de un item
 ;Sintaxis: LV_GetItemText( [LV], [item], [columna] )
 LV_GetItemText(hWnd, Item := 0, Column := 1, MaxChars := 514) {
@@ -4770,11 +4780,11 @@ LV_GetItemText(hWnd, Item := 0, Column := 1, MaxChars := 514) {
 } LV_GetItemTextEx(hWnd, Item, Column := 1, ByRef ProcessId := "") { ;http://www.autohotkey.com/board/topic/81820-how-to-get-specific-row-text-in-a-syslistview32-easily/
 	ProcessId := ProcessId?ProcessId:WinGetPid(hWnd)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0008|0x0010|0x0020, "Int", 0 , "UInt", ProcessId)
-	, pAddress := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "PtrP", 0, "UPtr", A_PtrSize = 4 ? 60 : 80, "UInt", 0x00001000, "UInt", 0x04)
-	, pAddress2 := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "PtrP", 0, "UPtr", cchTextMax := 1024 + 1, "UInt", 0x00001000, "UInt", 0x04)
-	, VarSetCapacity(LVITEM, A_PtrSize = 4 ? 60 : 80, 0), NumPut(Item-1, LVITEM, 4, "Int"), NumPut(Column-1, LVITEM, 8, "Int")
-	, VarSetCapacity(pszText, cchTextMax * 2, 1), NumPut(pAddress2, LVITEM, A_PtrSize = 4 ? 20 : 24, "Ptr"), NumPut(cchTextMax, LVITEM, A_PtrSize = 4 ? 24 : 32, "Int") 
-	, DllCall("Kernel32.dll\WriteProcessMemory", "Ptr", hProcess, "UInt", pAddress, "Ptr", &lvItem, "UPtr", A_PtrSize = 4 ? 60 : 80, "UPtr", 0)
+	, pAddress := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "Ptr", 0, "UPtr", A_PtrSize=4?60:80, "UInt", 0x00001000, "UInt", 0x04)
+	, pAddress2 := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "Ptr", 0, "UPtr", cchTextMax:=(1024+1), "UInt", 0x00001000, "UInt", 0x04)
+	, VarSetCapacity(LVITEM, A_PtrSize=4?60:80, 0), NumPut(Item-1, LVITEM, 4, "Int"), NumPut(Column-1, LVITEM, 8, "Int")
+	, VarSetCapacity(pszText, cchTextMax * 2, 1), NumPut(pAddress2, LVITEM, A_PtrSize=4?20:24, "Ptr"), NumPut(cchTextMax, LVITEM, A_PtrSize=4?24:32, "Int") 
+	, DllCall("Kernel32.dll\WriteProcessMemory", "Ptr", hProcess, "UInt", pAddress, "Ptr", &lvItem, "UPtr", A_PtrSize=4?60:80, "UPtr", 0)
 	, i := SendMessage(hWnd, 0x1000+115,, Item-1, "UInt", pAddress)
 	, DllCall("Kernel32.dll\ReadProcessMemory", "Ptr", hProcess, "UInt", pAddress2, "Ptr", &pszText, "UPtr", cchTextMax, "UPtr", 0)
 	return pszText, DllCall("Kernel32.dll\VirtualFreeEx", "Ptr", hProcess, "UInt", pAddress, "UPtr", 0, "UInt", 0x8000)
@@ -4897,9 +4907,9 @@ LV_GetItemPos(hWnd, Item, ByRef x := "", ByRef y := "") {
 } LV_GetItemPosEx(hWnd, Item, ByRef x := "", ByRef y := "", ByRef ProcessId := "") {
 	ProcessId := ProcessId?ProcessId:WinGetPid(hWnd)
 	, hProcess := DllCall("Kernel32.dll\OpenProcess", "UInt", 0x0008|0x0010|0x0020, "Int", 0 , "UInt", ProcessId)
-	, pAddress := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "PtrP", 0, "UInt", 0x00001000, "UInt", 0x00001000, "UInt", 0x04)
-	, SendMessage(hWnd, 0x1000+16,, Item-1,, pAddress), r := ErrorLevel, nSize := VarSetCapacity(RECT, 8 * 2, 0)
-	, DllCall("Kernel32.dll\ReadProcessMemory", "Ptr", hProcess, "UInt", pAddress, "Ptr", &RECT, "UInt", nSize, "UPtr", 0)
+	, pAddress := DllCall("Kernel32.dll\VirtualAllocEx", "Ptr", hProcess, "Ptr", 0, "UInt", 0x00001000, "UInt", 0x00001000, "UInt", 0x04)
+	, SendMessage(hWnd, 0x1000+16,, Item-1,, pAddress), r:=ErrorLevel, VarSetCapacity(RECT, 16, 0)
+	, DllCall("Kernel32.dll\ReadProcessMemory", "Ptr", hProcess, "UInt", pAddress, "Ptr", &RECT, "UInt", 16, "UPtr", 0)
 	, x := NumGet(RECT, 0, "Int"), y := NumGet(RECT, 4, "Int")
 	return [x, y], DllCall("Kernel32.dll\VirtualFreeEx", "Ptr", hProcess, "UInt", pAddress, "UPtr", 0, "UInt", 0x8000)
 		, DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess), ErrorLevel := r
@@ -4910,11 +4920,11 @@ LV_GetItemPos(hWnd, Item, ByRef x := "", ByRef y := "") {
 LV_SetItemPos(hWnd, Item, x := "", y := "") {
 	if (x=""||y="")
 		LV_GetItemPos(hWnd, Item, _x, _y)
-	return SendMessage(hWnd, 0x100F,, Item-1,, LOWORD(x=""?_x:x)|HIWORD(y=""?_y:y))
+	return SendMessage(hWnd, 0x100F,, Item-1,, LOWORD(x=""?_x:x)+HIWORD(y=""?_y:y, false))
 } LV_SetItemPosEx(hWnd, Item, x := "", y := "", ProcessId := 0) {
 	if (x=""||y="")
 		LV_GetItemPosEx(hWnd, Item, _x, _y, ProcessId)
-	return SendMessage(hWnd, 0x100F,, Item-1,, LOWORD(x=""?_x:x)|HIWORD(y=""?_y:y))
+	return SendMessage(hWnd, 0x100F,, Item-1,, LOWORD(x=""?_x:x)+HIWORD(y=""?_y:y, false))
 }
 
 ;obtiene el número de columna en las coordenadas espesificadas.
@@ -5199,6 +5209,209 @@ TC_DeleteItem(hWnd, Item := 0, Select := 1) {
 TC_HighlightItem(hWnd, Item := 0, State := 1) {
 	Item := Item>0?Item:TC_GetItemFocus(hWnd)
 	return SendMessage(hWnd, 0x1333, "Int", Item-1, "Int", State)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+::::::::::::::::::::::::::::::::::::::::::::: COMBOBOX & DROPDOWNLIST CONTROL ::::::::::::::::::::::::::::::::::
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+*/
+;renombrar item
+;Sintaxis: SB_SetText( [hWnd], [texto], [posición], [¿seleccionar item?] )
+;Nota: si no espesifica el 3er parámetro, no se modifica ningún item, solo cambia el texto en el control.
+CB_SetText(hWnd, Text := "", Index := 0, Select := false) {
+	if !(Index)
+		return ControlSetText(0, hWnd, Text)
+	CB_DeleteString(hWnd, Index)
+	return CB_AddString(hWnd, Text, Index), i:=Select?CB_SelectItem(hWnd, Index):""
+}
+
+;establece la señal textual que se muestra por el control de edición para pedir al usuario para obtener información
+;Sintaxis: CB_SetCueBanner( [hWnd], [texto] )
+CB_SetCueBanner(hWnd, Text := "") {
+	Result := SendMessage(hWnd, 0x1703,,,, &Text)
+	return (Result=1), ErrorLevel := (Result!=1)
+}
+
+;ajustar la altura del campo de selección o la altura de los elementos de lista.
+;Sintaxis: CB_SetItemHeight( [hWnd], [Altura], [modo] )
+;Modos: por defecto modifica ambos.
+	;1 = modificar la altura del campo de selección.
+	;2 = modificar  la altura de los elementos de lista.
+CB_SetItemHeight(hWnd, Height, Mode := 3) {
+	If (Mode=1)
+		return !!(PostMessage(hWnd, 0x153, "Int", -1, "UInt", Height))
+	if (Mode=2)
+		return !!(PostMessage(hWnd, 0x153, "Int", 0, "UInt", Height))
+	return r:=(CB_SetItemHeight(hWnd, Height, 1)+CB_SetItemHeight(hWnd, Height, 2)), ErrorLevel := (r=2)
+}
+
+;seleccionar texto.
+;Sintaxis: CB_SetEditSel( [hWnd], [inicio], [fin] )
+;Uso:
+	;Quitar seleccion: CB_SetEditSel(hWnd, -1, -1)
+	;Seleccionar todo (defecto): CB_SetEditSel(hWnd, 1, -1)
+	;Seleccionar parte del texto: CB_SetEditSel(hWnd, 3, 5)
+CB_SetEditSel(hWnd, Start := 1, End := -1) {
+	return r:=SendMessage(hWnd, 0x0142,,, "UInt", LOWORD(Start-1)+HIWORD(End-1, false)), ErrorLevel := !r
+}
+
+;---------------------------------------------------------------------------------------------------------------------
+
+;limita el número de caracteres que el usuario puede ingresar en el control.
+;Sintaxis: DC_LimitText( [hWnd], [caracteres máximos permitidos 1~2147483646] )
+;Nota: el mensaje no afecta a los item en el control.
+CB_LimitText(hWnd, Limit := 30000) {
+	return SendMessage(hWnd, 0x0141, "UShort", Limit)
+}
+
+;selecciona el item por texto
+;Sintaxis: CB_SelectString( [hWnd], [texto] )
+;Nota: si se encuentra el item, devuelve la posición.
+CB_SelectString(hWnd, Text) {
+	List := []
+	Loop, % (Count:=CB_GetCount(hWnd)) {
+		if ((List[A_Index]:=CB_GetText(hWnd, A_Index))==Text) {
+			Index := A_Index
+			break
+	}} if !(Index) {
+		Loop, % (Count) {
+			if (List[A_Index]=Text) {
+				Index := A_Index
+				break
+	}}} Index := SendMessage(hWnd, 0x014D, "Int", Index?Index-1:-1,, &Text)
+	return (Index=-1)?0:Index+1, ErrorLevel := (Index=-1)
+}
+
+;selecciona el item por posición
+;Sintaxis: CB_SelectString( [hWnd], [posición] )
+;Nota: si se encuentra el item, devuelve la posición.
+;ErrorLevel: 1 = error | 2 = la posición ingresada es mayor al número de items
+CB_SelectItem(hWnd, Pos) {
+	if ((Count:=CB_GetCount(hWnd))<Pos)
+		return false, ErrorLevel := 2
+	Loop, % (Count) {
+		if (A_Index=Pos) {
+			Text := CB_GetText(hWnd, A_Index)
+			, Index := SendMessage(hWnd, 0x014D, "Int", A_Index-2,, &Text)
+			return (Index=-1)?0:Index+1, ErrorLevel := (Index=-1)
+}}}
+
+;añadir item
+;Sintaxis: CB_AddString( [hWnd], [texto], [posición] )
+;Posición: si no se espesifica y el control no tiene el estilo CBS_SORT, se añade al final de la lista.
+	;si se espesifica -1, se añade al final de la lista.
+;Nota: devuelve la posición del item.
+;ErrorLevel: 1 = error al añadir | 2 = espacio insuficiente.
+CB_AddString(hWnd, Text := "", Pos := 0) {
+	Index := SendMessage(hWnd, Pos?0x014A:0x0143, Pos?"Int":"Ptr", Pos?(Pos=-1?-1:Pos-1):0,, &Text)
+	return (Index=-1)||(Index=-2)?0:Index+1, ErrorLevel := (Index=-1)?1:(Index=-2)?2:0
+}
+
+;eliminar item
+;Sintaxis: CB_DeleteString( [hWnd], [indice] )
+;Indice: espesificar -1 para eliminar todos los items (defecto).
+;Nota: devuelve la cantidad de items restantes en el control.
+CB_DeleteString(hWnd, Index := -1) {
+	Index := SendMessage(hWnd, (Index=-1)?0x014B:0x0144, (Index=-1)?"Ptr":"Int", (Index=-1)?0:(Index-1))
+	return Index, ErrorLevel := (Index=-1)
+}
+
+;obtiene la posición del item mediante el texto espesificado; ya sea exacto, desde una posición espesífica o contenido.
+;Sintaxis: CB_FindString( [hWnd], [texto], [inicio] )
+;Inicio: espesificar la posición en la que empezar la busqueda, al terminar, retoma desde el inicio.
+	;por defecto (-1), busca desde el primer item.
+;Nota: devuelve la posición del item.
+CB_FindString(hWnd, Text, Pos := -1) {
+	Count := CB_GetCount(hWnd), Pos := (Pos=-1)?-1:((Pos>Count)||(Pos<1)?-1:Pos)
+	if !((Index:=SendMessage(hWnd, 0x0158, "Int", (Pos=-1)?-1:(Pos-1),, &Text))>-1) || (Count<Index) {
+		if !((Index:=SendMessage(hWnd, 0x014C, "Int", (Pos=-1)?-1:(Pos-1),, &Text))>-1) || (Count<Index) {
+			List := []
+			Loop, % (Count:=CB_GetCount(hWnd)) {
+				if (InStr(List[A_Index]:=CB_GetText(hWnd, A_Index), Text, true)) {
+					Index := A_Index-1
+					break
+			}} if !(Index>-1) {
+				Loop, % (Count) {
+					if (InStr(List[A_Index], Text)) {
+						Index := A_Index-1
+						break
+	}}}}} return (Index=-1)?0:Index+1, ErrorLevel := (Index=-1)
+}
+
+;---------------------------------------------------------------------------------------------------------------------
+
+;recupera la cantidad de items en el control
+;Sintaxis: CB_GetCount( [hWnd] )
+CB_GetCount(hWnd) {
+	return SendMessage(hWnd, 0x0146)
+}
+
+;obtiene el texto seleccionado, opcional la posición inicial y final del texto seleccionado
+;Sintaxis: CB_GetSelected( [hWnd], [inicio], [fin] )
+;Nota: si no hay texto seleccionado, el 2do y 3er parámetro devuelven la posición del cursor.
+CB_GetSelected(hWnd, ByRef Start := "", ByRef End := "") {
+	Pos := SendMessage(hWnd, 0x0140), Text := CB_GetText(hWnd)
+	, Start := LOWORD(Pos)+1, End := HIWORD(Pos)+1
+	return (Start=End)?"":StrTrimLeft(StrLeft(Text A_Space, End-1), Start-1)
+}
+
+;obtiene el texto actual o de un item.
+;Sintaxis: CB_GetText( [hWnd], [posición] )
+;Posición: por defecto (-1) obtiene el texto actual.
+CB_GetText(hWnd, Index := -1) {
+	if (Index=-1)
+		return ControlGetText(0, hWnd)
+	Length := SendMessage(hWnd, 0x0149, "Int", Index-1)
+	, VarSetCapacity(Text, (Length * 2) + 1, 0)
+	, SendMessage(hWnd, 0x0148, "Int", Index-1, "Str", Text)
+	return Text
 }
 
 
@@ -5872,8 +6085,8 @@ ControlSend(hWnd, Control, Keys, Count := 1, Delay := -2) {
 	} Loop, %Count%
 		ok += ControlSend(hWnd, Control, Keys,, A_Index=Count?-2:Delay)
 	return ok=Count?Control:false, ErrorLevel := ok=Count?false:true
-} ControlSendRaw(hWnd, Control, Keys, Count := 1, Delay := -2) {
-	return ControlSend(hWnd, Control, "{raw}" Keys, Count, Delay)
+} ControlSendRaw(hWnd, Control, Text, Count := 1, Delay := -2) {
+	return ControlSend(hWnd, Control, "{raw}" Text, Count, Delay)
 }
 
 ;establece foco en un control
@@ -6319,8 +6532,7 @@ CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 			return 0, ErrorLevel := 1
 		if WaitTimeOut
 			Sleep(TimeOut*1000)
-		else
-			return SetTimer(CursorShow, -(TimeOut*1000))
+		else return SetTimer(CursorShow, -(TimeOut*1000))
 		return i := CursorShow( !State, Mode ), ErrorLevel := !i
 	} ;--------------------------------------------------------------------------------------------------------------
 	if (Mode) ;solo afecta a las ventanas creadas por el script: State=0|1, Mode=1, TimeOut=0
@@ -6415,6 +6627,11 @@ CursorReload() {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;notifica al sistema que las asociaciones de tipo de archivo han cambiado.
+SystemAssocChanged() {
+	return r:=DllCall("Shell32.dll\SHChangeNotify", "UInt", 0x08000000, "UInt", 0, "Ptr", 0, "Ptr", 0), ErrorLevel := !r
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762118%28v=vs.85%29.aspx
+
 SysGet(Subcommand, Param3 := "") {
 	SysGet, OutputVar, %Subcommand%, %Param3%
 	return OutputVar ;DllCall("User32.dll\GetSystemMetrics", "Int", Subcommand)
@@ -7161,17 +7378,17 @@ WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 ;--------------------------------------------------------------------------------------------------------
 
 ;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha
-;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [¿obviar barra de tareas?], [¿centrar?] )
+;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [¿obviar barra de tareas?], [¿centrar?], [¿redibujar?] )
 ;EJEMPLO:
 	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist( "ahk_exe notepad.exe" ), WinActivate( i, 1 )
 	;MsgBox % "Centrar Ventana: " WinCenter( i ) " - " i
-	;MsgBox % "Centrar Ventana (Omitir Barra De Tareas): " WinCenter( i,, 1 )
-	;MsgBox % "Centrar Ventana, Arriba: " WinCenter( i, "Top" )
-	;MsgBox % "Centrar Ventana, Derecha: " WinCenter( i, "Right" )
-	;MsgBox % "Posicionar Ventana Abajo: " WinCenter( i, "Bottom",, 0 )
-	;MsgBox % "Posicionar Ventana A La Izquierda: " WinCenter( i, "Left",, 0 )
-	;MsgBox % "Posicionar Ventana, Arriba-Derecha: " WinCenter( i, "Top" ) WinCenter( i, "Right",, 0 )
-WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
+	;MsgBox % "Centrar Ventana (Omitir Barra De Tareas): " WinCenter( i,, 1)
+	;MsgBox % "Centrar Ventana, Arriba: " WinCenter(i, "Top")
+	;MsgBox % "Centrar Ventana, Derecha: " WinCenter(i, "Right")
+	;MsgBox % "Posicionar Ventana Abajo: " WinCenter(i, "Bottom",, 0)
+	;MsgBox % "Posicionar Ventana A La Izquierda: " WinCenter(i, "Left",, 0)
+	;MsgBox % "Posicionar Ventana, Arriba-Derecha: " WinCenter(i, "Top" ,,, false) WinCenter(i, "Right",, 0)
+WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1, Redraw := true) {
 	_gethwnd(hWnd)
 	if WinMax( hWnd )
 		return 0, ErrorLevel := 3
@@ -7182,7 +7399,7 @@ WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1) {
 	, xpos := (Mode="L")||(Mode="Left")?0
 		: (Mode="R")||(Mode="Right")?A_MonitorWorkArea().w-width
 		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2)-(width/2):"")
-	return WinMove(hWnd, xpos, ypos)
+	return WinMove(hWnd, xpos, ypos,,, Redraw)
 }
 
 ;parpadea la ventana especificada. no cambia el estado activo de la ventana.
@@ -7262,12 +7479,6 @@ WinMinimizeToTray(hWnd, Show := 0) {
 	;Hide /Hi = ocultar ventana antes de producir el efecto
 	;Move / M = mover ventana antes de producir el efecto
 	;Show / S = mostrar ventana al terminar la animación
-;EJEMPLO:
-	;MenuIcon( "Tray" )
-	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist("ahk_exe notepad.exe"), WinActivate(i,1)
-	;WinMove(i,,,300,300), WinCenter(i,"Bottom"), WinCenter(i,"Right",, 0), Sleep(500), WinTitleAnimate(i,0,0,,,"HiMS")
-	;Sleep(1000), WinTitleAnimate(i,50,50,,, "HiMS"), Sleep(1000), WinMinimizeToTray(i), Sleep(1000)
-	;WinMinimizeToTray(i,2), Sleep(1000), ExitApp()
 WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
 	_gethwnd(hWnd)
 	, VarSetCapacity(FRECT, 8 * 2, 0), WinGetPos(hWnd, fxpos, fypos, fwsize, fhsize)
@@ -7545,11 +7756,16 @@ WinGet(hWnd, Cmd) {
 ;--------------------------------------------------------------------------------------------------------
 
 ;establecer el titulo de la ventana espesificada
-;Sintaxis: WinSetTitle( [ID], [Titulo] )
-WinSetTitle(hWnd, NewTitle := "") {
+;Sintaxis: WinSetTitle( [ID], [Titulo], [Modo] )
+;Modos: 1 = ocultar el titulo | 2 = ocultar el icono | 3 = ambos.
+WinSetTitle(hWnd, NewTitle := "", Mode := 0) {
 	_gethwnd(hWnd)
-	return i := DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Str", NewTitle)
-		, ErrorLevel := !i
+	if !(Mode)
+		return r:=DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Str", NewTitle), ErrorLevel := !r
+	Flags := Mode=1?1:Mode=2?4:Mode=3?5:0
+	if (Flags)
+		return !(r:=DllCall("UxTheme.dll\SetWindowThemeAttribute", "Ptr", hWnd, "Int", 1, "Int64*", ((Flags+2)<<32)|(Flags+2), "Int", 8)), ErrorLevel := !!r
+	else return false, ErrorLevel := true
 }
 
 ;cambia el icono de la ventana
@@ -7695,9 +7911,9 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title
 }}
 
 ;esperar a que la ventana exista
-;Sintaxis: WinWait( [Título], [Segundos], [clase], [proceso/pid], [ID] )
+;Sintaxis: WinWait( [ID], [Segundos], [clase], [proceso/pid], [Título] )
 ;Nota: devuelve el ID 
-WinWait(Title := "", Seconds := 0, Class := "", ProcessName := "", hWnd := "") {
+WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 	_gethwnd(hWnd)
 	if (Seconds = -1)||(!hWnd&&!Class&&!ProcessName)
 		return false
@@ -8353,10 +8569,16 @@ ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF,
 
 
 
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: UNIDADES ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;listar unidades
+;Sintaxis: DriveEnum( [CDROM|REMOVABLE|FIXED|NETWORK|RAMDISK|UNKNOWN] )
+DriveEnum(Type := "") {
+	DriveGet, OutputVar, List, %Type%
+	return OutputVar
+}
+
 ;expulsar/retraer unidad de CD/DVD/USB
 ;Sintaxis: DriveEject( [unidad], [¿cerrar?] )
 ;NOTA: el script no avanza hasta que la unidad se cierre
