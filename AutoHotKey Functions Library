@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, fuentes & colores & recursos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.04 U32 & U64 || Viernes, 11 de septiempre de 2015
+Actualizado: AHK1.1.22.05 U32 & U64 || Martes, 15 de septiempre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -565,15 +565,15 @@ FileGetInfo(FileName, InfoType := "") {
 ;Útil para cuando la ruta contiene caracteres no permitidos, espacios, parámetros y/o comillas
 FileGetValidPath(Filename) {
 	Filename := Trim(RegExReplace(Filename, "[Q*/?" Chr(34) "<>|`n\E]"))
-	if IsFile( Filename )
-		return Filename, ErrorLevel := 0
-	if IsFile( i := StrLeft( Filename, InStr( Filename, " " ) - 1 ) )
+	if (IsFile(Filename))
+		return Filename, ErrorLevel := false
+	if IsFile(i:=StrLeft(Filename, InStr(Filename, A_Space)-1))
 		return i, ErrorLevel := 0
 	Loop, Parse, % Filename, %A_Space%, %A_Tab%
 	{ _ .= (A_Index=1?"":" ") A_LoopField 
-		if IsFile( _ )
-			return _, ErrorLevel := 0
-	} return Filename, ErrorLevel := 1
+		if (IsFile(_))
+			return _, ErrorLevel := false
+	} return Filename, ErrorLevel := true
 }
 
 ;abre un directorio y selecciona el/los archivo(s)
@@ -839,7 +839,6 @@ CMD(hWnd := "", CMD := "", Close := true) {
 
 
 
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: CARPETAS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -927,6 +926,8 @@ DirCreate(DirName) {
 ;Sintaxis: DirSelect( [Directorio], [Opciones/VentanaID], [Título] )
 DirSelect(StartingFolder := "", Options := 1,  Prompt := "") {
 	FileSelectFolder, OutputVar, %StartingFolder%, %Options%, %Prompt%
+	if (Options=1) && !(OutputVar)
+		ErrorLevel := true
 	return RTrim(OutputVar, "\")
 }
 
@@ -1524,6 +1525,11 @@ StrToInt(String, Flags := 0) {
 StrToInt64(String, Flags := 0) {
 	DllCall("shlwapi.dll\StrToInt64Ex", "Ptr", &String, "Int", Flags, "Int64*", Ret)
 	return Ret
+}
+
+;convertir Float a Integer.
+FloatToInt(Float) {
+	return DllCall("MulDiv", "Float", Float, "Int", 1, "Int", 1, "UInt")
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -2773,20 +2779,27 @@ Download(URL, Filename := "", OverWrite := true, UseCache := false) {
 }
 
 ;comprueba la conexion a internet
-NetGetState(lpdwFlags := 0x40) {
+InternetGetState(lpdwFlags := 0x40) {
 	i := DllCall("Wininet.dll\InternetGetConnectedState", "UInt*", 0x40, "UInt", 0)
 	return i, ErrorLevel := !i
 }
 
 ;obtener tamaño del archivo
-NetGetFileSize(URL) {
-	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	, i.Open("HEAD", URL), i.Send()
-	return i.GetResponseHeader("Content-Length")
+;Sintaxis: InternetGetFileSize( [URL], [KB|MB|GB] )
+InternetGetFileSize(URL, Units := "") {
+	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+	hModule := LoadLibrary("Wininet.dll")
+	, hInternet := DllCall("Wininet.dll\InternetOpenW", "Str", "Microsoft Internet Explorer", "UInt", 4, "Ptr", 0, "Ptr", 0, "UInt", 0)
+	, hInternetUrl := DllCall("Wininet.dll\InternetOpenUrlW", "Ptr", hInternet, "Str", URL, "Ptr", 0, "UInt", 0, "UInt", 0x84000000, "UInt", 0)
+	if (StrLeft(URL, 4)="ftp:")
+		FileSize := DllCall("Wininet.dll\FtpGetFileSize", "Ptr", hInternetUrl, "UIntP", 0)  
+	else DllCall("Wininet.dll\HttpQueryInfoW", "Ptr", hInternetUrl, "UInt", 0x20000005, "UIntP", FileSize, "UIntP", 4, "UIntP", 0)
+	DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternetUrl), DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternet)
+	return _[Units]?FileSize/_[Units]:FileSize, FreeLibrary(hModule)
 }
 
 ;obtener texto
-NetGetString(URL) {
+InternetGetString(URL) {
 	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 	, i.Open("GET", URL), i.Send()
 	return i.ResponseText
@@ -4765,10 +4778,6 @@ LV_SetItemText(hWnd, pszText := "", Item := 1, Column := 1) {
 	return SendMessage(hWnd, 0x1000+116,, Item-1,, &LVITEM)
 }
 
-Loop, Parse, % DesktopIconList(), `n
-	MsgBox % A_LoopField
-ExitApp
-
 ;obtener texto de un item
 ;Sintaxis: LV_GetItemText( [LV], [item], [columna] )
 LV_GetItemText(hWnd, Item := 0, Column := 1, MaxChars := 514) {
@@ -5344,14 +5353,14 @@ CB_SelectItem(hWnd, Pos) {
 }}}
 
 ;añadir item
-;Sintaxis: CB_AddString( [hWnd], [texto], [posición] )
+;Sintaxis: CB_AddString( [hWnd], [texto], [posición], [¿seleccionar?] )
 ;Posición: si no se espesifica y el control no tiene el estilo CBS_SORT, se añade al final de la lista.
 	;si se espesifica -1, se añade al final de la lista.
 ;Nota: devuelve la posición del item.
 ;ErrorLevel: 1 = error al añadir | 2 = espacio insuficiente.
-CB_AddString(hWnd, Text := "", Pos := 0) {
+CB_AddString(hWnd, Text := "", Pos := 0, Select := false) {
 	Index := SendMessage(hWnd, Pos?0x014A:0x0143, Pos?"Int":"Ptr", Pos?(Pos=-1?-1:Pos-1):0,, &Text)
-	return (Index=-1)||(Index=-2)?0:Index+1, ErrorLevel := (Index=-1)?1:(Index=-2)?2:0
+	return (Index=-1)||(Index=-2)?0:Index+1, i:=Select?CB_SelectItem(hWnd, Index+1):"", ErrorLevel := (Index=-1)?1:(Index=-2)?2:0
 }
 
 ;eliminar item
@@ -5543,6 +5552,15 @@ InputBox(Title, Text := "", Default := "", Timeout := 0, EditOptions := "", Widt
 	WinAnimate(hWnd, 100, "S1R")
 	if !(MultiLine)
 		ControlFocus(hWnd, _InputBoxResult), ControlSend(hWnd, _InputBoxResult, "{End}")
+	ControlMove(hWnd, "Button2", GuiSize[1] - 32,,,, true) "," hWnd "," GuiSize[1]
+	, ControlMove(hWnd, "Button3", GuiSize[1] - 63,,,, true)
+	, ControlMove(hWnd, "Button4", GuiSize[1] - 210, GuiSize[2] - 31,,, true)
+	, ControlMove(hWnd, "Button5", GuiSize[1] - 100, GuiSize[2] - 31,,, true)
+	, ControlMove(hWnd, "Static1",,, GuiSize[1] - 70,, true)
+	if !(MultiLine)
+		ControlMove(hWnd, "Static2",,, GuiSize[1] - 10, GuiSize[2] - 102, true)
+		, ControlMove(hWnd, "Edit1",, GuiSize[2] - 60, GuiSize[1] - 10,, true)
+	else ControlMove(hWnd, "Edit1",,, GuiSize[1] - 10, GuiSize[2] - 70, true)
 	if !(WinWaitClose(hWnd, Timeout)) {
 		Gui, %hWnd%:Destroy
 		return "", ErrorLevel := 3
@@ -6627,6 +6645,13 @@ CursorReload() {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;modo de inicio del sistema
+;Sintaxis: SystemBoot()
+;Valor: 0(normal) | 1(a prueba de fallos) | 2(a prueba de fallos con acceso a la red)
+SystemBoot() {
+	return DllCall("User32.dll\GetSystemMetrics", "Int", 67)
+}
+
 ;notifica al sistema que las asociaciones de tipo de archivo han cambiado.
 SystemAssocChanged() {
 	return r:=DllCall("Shell32.dll\SHChangeNotify", "UInt", 0x08000000, "UInt", 0, "Ptr", 0, "Ptr", 0), ErrorLevel := !r
@@ -8568,15 +8593,18 @@ ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF,
 
 
 
-
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: UNIDADES ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;listar unidades
-;Sintaxis: DriveEnum( [CDROM|REMOVABLE|FIXED|NETWORK|RAMDISK|UNKNOWN] )
+;Sintaxis: DriveEnum( [CDROM|REMOVABLE|FIXED|NETWORK|RAMDISK|UNKNOWN separados por coma] )
 DriveEnum(Type := "") {
-	DriveGet, OutputVar, List, %Type%
-	return OutputVar
+	DriveGet, OutputVar, List
+	if (Type)
+		Loop, Parse, % OutputVar
+			if (InVar(DriveGetType(A_LoopField), Type))
+				List .= A_LoopField
+	return Type?List:OutputVar
 }
 
 ;expulsar/retraer unidad de CD/DVD/USB
@@ -8727,54 +8755,33 @@ PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
 	return OutputVar
 }
 
-;obtiene/establece el gama del monitor
-;Sintaxis: MonitorGamma( [1~255 N125] )
-MonitorGamma(dwNewGamma := "") {
-	hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
-	if (dwNewGamma="") {
-		VarSetCapacity(lpRamp, 1536, 0)
-		i := DllCall("Gdi32.dll\GetDeviceGammaRamp", "Ptr", hDC, "Ptr", &lpRamp)
-		return NumGet(lpRamp, 2, "UShort") - 128
-			, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
-	} Loop, % (VarSetCapacity(GB, 1536) / 6)
-		NumPut((i:=((dwNewGamma+128)*(A_Index-1)))>65535?65535:i, GB, 2*(A_Index-1), "UShort") 
-	DllCall("RtlMoveMemory", "Ptr", &GB +  512, "Ptr", &GB, "Ptr", 512)
-	, DllCall("RtlMoveMemory", "Ptr", &GB + 1024, "Ptr", &GB, "Ptr", 512)
-	return i := DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC, "Ptr", &GB)
-		, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
-}
-
 ;obtiene informacion de un monitor
 ;Sintaxis: MonitorInfo( [monitor], [número], [nombre] ]
-MonitorInfo(hMonitor := 0, MonitorNumber := 0, MonitorName := 0) {
-	if !hMonitor&&(MonitorNumber||MonitorName) {
-		for hMonitor, Monitor in MonitorEnum() {
-			if MonitorNumber&&(Monitor.Num!=MonitorNumber)
+;Ejemplo: MsgBox % "Monitor Primario: " MonitorInfo().Name
+MonitorInfo(hWnd := "", Number := "", Name := "") {
+	if !(hWnd) && !(Number) && !(Name)
+		hWnd := MonitorPrimary()
+	if !(hWnd) {
+		for k, v in MonitorEnum() {
+			if (Number) && (v.Num!=Number)
 				continue
-			if MonitorName&&(Monitor.Name!=MonitorName)
-				continue ;i := [],i[hMonitor]:=Monitor, return i
-			Monitor["HMON"] := hMonitor
-			return Monitor, ErrorLevel := !Monitor
-		} return 0, ErrorLevel := 1
+			if (Name) && (v.Name!=Name)
+				continue
+			v["hWnd"] := k
+			return v, ErrorLevel := !v
+		} return false, ErrorLevel := true
 	} cbSize := VarSetCapacity(MONITORINFOEX, 52 * 2, 0)
-	, NumPut( cbSize, MONITORINFOEX, 0, "UInt")
-	, DllCall("User32.dll\GetMonitorInfoW", "Ptr", hMonitor, "Ptr", &MONITORINFOEX)
-	, MonName := StrGet(&MONITORINFOEX + 40, 32)
-	, MonNum := RegExReplace(MonName, ".*(\d+)$", "$1")
-	return {Name: (Name := StrGet(&MONITORINFOEX + 40, 32))
-		, Num: RegExReplace(Name, ".*(\d+)$", "$1")
-		, Left: NumGet(MONITORINFOEX, 4, "Int")
-		, Top: NumGet(MONITORINFOEX, 8, "Int") 
-		, Right: NumGet(MONITORINFOEX, 12, "Int") 
-		, Bottom: NumGet(MONITORINFOEX, 16, "Int") 
-		, WALeft: NumGet(MONITORINFOEX, 20, "Int") 
-		, WATop: NumGet(MONITORINFOEX, 24, "Int") 
-		, WARight: NumGet(MONITORINFOEX, 28, "Int") 
-		, WABottom: NumGet(MONITORINFOEX, 32, "Int") 
-		, Primary: NumGet(MONITORINFOEX, 36, "UInt")}
+	, NumPut( cbSize, MONITORINFOEX, 0, "UInt"), DllCall("User32.dll\GetMonitorInfoW", "Ptr", hWnd, "Ptr", &MONITORINFOEX)
+	, MonName := StrGet(&MONITORINFOEX + 40, 32), MonNum := RegExReplace(MonName, ".*(\d+)$", "$1")
+	return {Name: (Name := StrGet(&MONITORINFOEX + 40, 32)), Num: RegExReplace(Name, ".*(\d+)$", "$1")
+		, Left: NumGet(MONITORINFOEX, 4, "Int"), Top: NumGet(MONITORINFOEX, 8, "Int") , Right: NumGet(MONITORINFOEX, 12, "Int") 
+		, Bottom: NumGet(MONITORINFOEX, 16, "Int") , WALeft: NumGet(MONITORINFOEX, 20, "Int") , WATop: NumGet(MONITORINFOEX, 24, "Int") 
+		, WARight: NumGet(MONITORINFOEX, 28, "Int") , WABottom: NumGet(MONITORINFOEX, 32, "Int") , Primary: NumGet(MONITORINFOEX, 36, "UInt")}
 }
 
 ;obtiene una lista de monitores e informacion
+;Sintaxis: MonitorEnum( [monitor|opcion] )
+;Opcion: -1 = recupera la cantidad de monitores | -2 = solo devuelve el hWnd
 ;EJEMPLO:
 	;Gui, Add, ListView, w660 r10 Grid, HMON|Num|Name|Primary|Left|Top|Right|Bottom|WALeft|WATop|WARight|WABottom
 	;for HMON, M In MonitorEnum()
@@ -8785,71 +8792,54 @@ MonitorInfo(hMonitor := 0, MonitorNumber := 0, MonitorName := 0) {
 MonitorEnum(hMonitor := "") {
 	static MonitorEnumProc := RegisterCallback("MonitorEnumProc", "Fast", 4)
 	static Monitors := {}
-	if !hMonitor&&(Monitors:={}) {
-		i := DllCall("User32.dll\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", MonitorEnumProc, "Ptr", &Monitors)
-		return Monitors, ErrorLevel := !i
-	} return Monitors[hMonitor], ErrorLevel := !Monitors.HasKey(hMonitor)
+	if !(hMonitor) || (hMonitor=-1) || (hMonitor=-2) {
+		Monitors:={"Mode": hMonitor, "Count": 0, "List": []}
+		, i := DllCall("User32.dll\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", MonitorEnumProc, "Ptr", &Monitors)
+		return hMonitor=-1?Monitors.Count:Monitors.List, ErrorLevel := !i
+	} return Monitors.List[hMonitor], ErrorLevel := !Monitors.List.HasKey(hMonitor)
 } MonitorEnumProc(HMON, HDC, PRECT, ObjectAddr) {
 	Monitors := Object(ObjectAddr)
-	Monitors[HMON] := MonitorInfo(HMON)
+	if (Monitors.Mode="")
+		Monitors.List[HMON] := MonitorInfo(HMON),
+	else if (Monitors.Mode=-1)
+		Monitors.Count++
+	else if (Monitors.Mode=-2)
+		Monitors.List.Push(HMON)
 	return true
 }
 
-;Monitor: cambia el brillo, contraste y gama
-;Sintaxis: MonSet( [brillo], [contraste], [gama] )
-MonSet(dwNewBrightness := "", dwNewContrast := "", dwNewGamma := "") {
-	if (dwNewGamma != "") { ;gama
-		hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
-		Loop, % (VarSetCapacity(GB, 1536) / 6) {
-			Number := (dwNewGamma + 128) * (A_Index - 1)
-			Number := Number > 65535 ? 65535 : Number
-			OffSet := 2 * (A_Index - 1)
-			NumPut( Number, GB, OffSet, "UShort") 
-		} DllCall("RtlMoveMemory", "Ptr", &GB +  512, "Ptr", &GB, "Ptr", 512)
-		, DllCall("RtlMoveMemory", "Ptr", &GB + 1024, "Ptr", &GB, "Ptr", 512)
-		, DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC, "Ptr", &GB)
-		, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
-	} if (dwNewBrightness != "") OR (dwNewContrast != "") { ;brillo y contraste
-		hMonitor := DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", 0x00000002)
-		, DllCall("Dxva2.dll\GetNumberOfPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UIntP", pdwNumberOfPhysicalMonitors)
-		, VarSetCapacity(PHYSICAL_MONITOR, (A_PtrSize + 256) * pdwNumberOfPhysicalMonitors, 0)
-		, DllCall("Dxva2.dll\GetPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UInt", pdwNumberOfPhysicalMonitors, "Ptr", &PHYSICAL_MONITOR)
-		, hPhysicalMonitor := NumGet(PHYSICAL_MONITOR, 0, "UPtr")
-		if (dwNewBrightness != "")
-			DllCall("Dxva2.dll\SetMonitorBrightness", "Ptr", hPhysicalMonitor, "UInt", dwNewBrightness)
-		if (dwNewContrast != "")
-			DllCall("Dxva2.dll\SetMonitorContrast", "Ptr", hPhysicalMonitor, "UInt", dwNewContrast)
-		DllCall("Dxva2.dll\DestroyPhysicalMonitors", "UInt", pdwNumberOfPhysicalMonitors, "Ptr", &PHYSICAL_MONITOR)
-}}
+;obtiene el número de monitores
+;Sintaxis: MonitorCount( [¿incluir todos los monitores?] )
+MonitorCount(All := false) {
+	if !(All)
+		return DllCall("User32.dll\GetSystemMetrics", "Int", 80)
+	return MonitorEnum(-1)
+}
 
-;Monitor: obtener el brillo, contraste y gama
-;Sintaxis: MonGet( [brillo (out)], [contraste (out)], [gama (out)] )
-MonGet(ByRef pdwCurrentBrightness := "", ByRef pdwCurrentContrast := "", ByRef pdwCurrentGamma := "") {
-	i := {}
-	if IsByRef( pdwCurrentGamma ) { ;gama
-		hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
-		, VarSetCapacity(lpRamp, 1536, 0)
-		, DllCall("Gdi32.dll\GetDeviceGammaRamp", "Ptr", hDC, "Ptr", &lpRamp)
-		, i.CurrentGamma := pdwCurrentGamma := NumGet(lpRamp, 2, "UShort") - 128
-		, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
-	} if IsByref( pdwCurrentBrightness ) OR IsByref( pdwCurrentContrast ) { ;brillo y contraste
-		hMonitor := DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", 0x00000002)
-		, DllCall("Dxva2.dll\GetNumberOfPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UIntP", pdwNumberOfPhysicalMonitors)
-		, VarSetCapacity(PHYSICAL_MONITOR, (A_PtrSize + 256) * pdwNumberOfPhysicalMonitors, 0)
-		, DllCall("Dxva2.dll\GetPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UInt", pdwNumberOfPhysicalMonitors, "Ptr", &PHYSICAL_MONITOR)
-		, hPhysicalMonitor := NumGet(PHYSICAL_MONITOR, 0, "UPtr")
-		if IsByref( pdwCurrentBrightness )
-			DllCall("Dxva2.dll\GetMonitorBrightness", "Ptr", HPMON, "UIntP", pdwMinimumBrightness, "UIntP", pdwCurrentBrightness, "UIntP", pdwMaximumBrightness, "UInt")
-		if IsByref( pdwCurrentContrast )
-			DllCall("Dxva2.dll\GetMonitorContrast", "Ptr", HPMON, "UIntP", pdwMinimumContrast, "UIntP", pdwCurrentContrast, "UIntP", pdwMaximumContrast, "UInt")
-		i.MinBrightness := pdwMinimumBrightness
-		, i.MaxBrightness := pdwMaximumBrightness
-		, i.CurrentBrightness := pdwCurrentBrightness
-		, i.MinContrast := pdwMinimumContrast
-		, i.MaxContrast := pdwMaximumContrast
-		, i.CurrentContrast := pdwCurrentContrast
-		, DllCall("Dxva2.dll\DestroyPhysicalMonitors", "UInt", pdwNumberOfPhysicalMonitors, "Ptr", &PHYSICAL_MONITOR)
-	} return i
+;recupera hWnd del monitor principal
+;Sintaxis: MonitorPrimary( [info (salida)] )
+;Ejemplo: MsgBox % "hWnd: " MonitorPrimary(h) "`nNúmero: " h.Num "`nNombre: " h.Name
+MonitorPrimary(ByRef Info := "", dwFlags := 0x1) {
+	hMonitor := DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", dwFlags)
+	if (IsByRef(Info))
+		Info := MonitorInfo(v)
+	return hMonitor, ErrorLevel := !hMonitor
+} 
+
+;modificar brillo y gama
+;Sintaxis: SetDeviceGammaRamp( [brillo 1~256 N125], [gama] )
+SetDeviceGammaRamp(Brightness := 125, Gamma := 1.0) {
+	Brightness := (Brightness>256)?256:(Brightness<0)?1:Brightness
+	, VarSetCapacity(gr, 512*3), x := 1/gamma
+	Loop, 256 {
+		(nValue:=(Brightness+128)*(A_Index-1))>65535?(nValue:=65535)
+		nValue := (nValue**x/65535**x)*65535
+		, NumPut(nValue, gr, 2*(A_Index-1), "Ushort")
+		, NumPut(nValue, gr, 512+2*(A_Index-1), "Ushort")
+		, NumPut(nValue, gr, 1024+2*(A_Index-1), "Ushort")
+	} hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
+	return DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC, "Ptr", &gr)
+	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
 }
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
