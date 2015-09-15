@@ -1,7 +1,12 @@
 ###############################################################
-ACTUALIZACION 11/09/2015 - AHK1.1.22.05
+ACTUALIZACION 11/09/2015, 15/09 - AHK1.1.22.05
 ###############################################################
 Funciones Agregadas:
+	• SetDeviceGammaRamp() ~ 15/09
+	• SystemBoot() ~ 15/09
+	• MonitorPrimary() ~ 15/09
+	• MonitorCount() ~ 15/09
+	• FloatToInt() ~ 15/09
 	• CB_SetEditSel()
 	• CB_SetText()
 	• CB_SetEditSel()
@@ -20,12 +25,15 @@ Funciones Agregadas:
 	• SystemAssocChanged()
 
 Mejoras:
+
 	• WinSetTitle()
 	• Download()
 	• HIWORD()
 	• HIBYTE()
 	
 Correcciones:
+	• InputBox() (correccion con el redimencionado de los controles, AHK1.1.22.04) ~ 15/09
+	• DirSelect() ~ 15/09
 	• DesktopGetIconsPos()
 	• DesktopIconList()
 	• LV_GetItemTextEx()
@@ -34,9 +42,16 @@ Correcciones:
 	• Base64Decode()
 	
 Notas:
+	• Renombrador prefijo funciones de internet: Net --> Internet ~ 15/09
 	• WinWait() (cambio de sintaxis)
+
+Funciones Eliminadas:
+	• MonGet() ~ 15/09
+	• MonSet() ~ 15/09
 	
 Otros (cambios menores):
+	• CB_AddString() ~ 15/09
+	• MonitorInfo() ~ 15/09
 	• WinCenter()
 ###############################################################
 
