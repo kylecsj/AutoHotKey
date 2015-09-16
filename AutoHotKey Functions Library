@@ -5497,6 +5497,7 @@ MsgBox(Info*) {
 }
 
  ;--------------------------------------------------------------------------------------------
+;FUNCION INPUTBOXEX 15/09/2015
 ;Sintaxis: InputBox( [título], [texto], [tiempo fuera, en segundos], [opciones del control de edición], [ancho], [alto] )
 ;ErrorLevel:
 	;0 = el usuario precionó Aceptar.
@@ -5508,10 +5509,8 @@ MsgBox(Info*) {
 		;Nota: automáticamente se usa multilinea si se espesifica multilinea en el 3er parametro y si el 2do parametro esta vacio.
 	;espesificar +HScroll en el 5to parametro para habilitar la barra de desplazamiento horizontal.
 ;--------------------------------------------------------------------------------------------
-InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
+InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
 	static hWnd, Multi, Error, GuiSize
-	if (Title="")&&(Text="")&&(Default="")&&(Timeout=0)&&(Options=-3)
-		return (Height="")?Error:(Error:=Height)
 	if (DllCall("User32.dll\IsWindow", "Ptr", hWnd))
 		return "", ErrorLevel := 2
 	Multi := ((InStr(Options, "+Multi"))||((Text="")&&(InStr(Default, "`n"))))?1:0, CurrentGui := WinExist("A")
@@ -5533,13 +5532,13 @@ InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Wi
 		ImageButton.Create(MaxH, [0, 0x1CA7EF,, 0xCCCCCC], [0, 0xC0C0C0,, 0xffffff], [0, 0x808080,, 0xffffff])
 	Gui, %hWnd%:Font, s9 w400 Q5, Segoe UI
 	try {
-		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " (Multi?Options:StrReplace(Options, "+HScroll")), %Default%
+		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " Options, %Default%
 	} catch {
-		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " (Multi?Options:StrReplace(Options, "+HScroll")), %Default%
-		SendMessage, 0x000C,, %Default%,, ahk_id %DefaultH%
+		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " Options
+		DllCall("User32.dll\SendMessage", "Ptr", DefaultH, "UInt", 0x00C2, "Int", 1, "Ptr", &Default)
 	} if !(Multi) {
-		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 HWNDTextH, %Text%
-		SendMessage, 0x1501, 0, %Default%,, ahk_id %TextH%
+		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 HWNDTextH gInputBoxExGuiText, %Text%
+		DllCall("User32.dll\SendMessage", "Ptr", DefaultH, "UInt", 0x1501, "Int", 0, "Ptr", &Default)
 	} Gui, %hWnd%:Font, s11 w500 Q5, Times New Roman
 	Gui, %hWnd%:Add, Button, x212 y186 w95 h27 HWNDAcceptH gInputBoxExGuiAccept Default, Aceptar
 		ImageButton.Create(AcceptH, [0, 0x1CA7EF,, 0xffffff], [0, 0x6AB5FF,, 0xffffff], [0, 0x808080,, 0xffffff])
@@ -5583,6 +5582,12 @@ InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Wi
 	return
 	InputBoxExGuiSize:
 	InputBoxExGuiSize([hWnd, Multi, [A_GuiWidth, A_GuiHeight]])
+	return
+	InputBoxExGuiDropFiles:
+	ControlSetText,, %A_GuiEvent%, ahk_id %DefaultH%
+	return
+	InputBoxExGuiText:
+	ControlFocus,, ahk_id %TextH%
 	return
 } InputBoxExGuiSize(hWnd) {
 	ControlMove, Button2, % hWnd[3][1]-32,,,, % "ahk_id " hWnd[1]
