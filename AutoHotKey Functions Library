@@ -5496,126 +5496,106 @@ MsgBox(Info*) {
 			return ErrorLevel := A_MsgBoxResult := A_LoopField
 }
 
-;Sintaxis: InputBox( [Título], [Texto], [Defecto], [Tiempo Fuera (seg)], [Opciones Edit], [Ancho], [Alto] )
+ ;--------------------------------------------------------------------------------------------
+;Sintaxis: InputBox( [título], [texto], [tiempo fuera, en segundos], [opciones del control de edición], [ancho], [alto] )
 ;ErrorLevel:
-	;0 = el usuario precionó Aceptar
-	;1 = el usuario precionó Cancelar o Cerrar
-	;2 = la ventana ya existe
-	;3 = se ha alcanzado el tiempo máximo para la ventana
+	;0 = el usuario precionó Aceptar.
+	;1 = el usuario precionó Cancelar o Cerró la ventana.
+	;2 = la ventana ya existe.
+	;3 = se ha alcanzado el tiempo máximo para la ventana (tiempo fuera).
 ;Notas: 
 	;espesificar +Multi en el 5to parametro para usar un edit multilinea (el 2do parametro no tiene efecto).
-		;Nota: automáticamente se usa multilinea si se espesifica `n en el 3er parametro y si el 2do parametro esta vacio.
+		;Nota: automáticamente se usa multilinea si se espesifica multilinea en el 3er parametro y si el 2do parametro esta vacio.
 	;espesificar +HScroll en el 5to parametro para habilitar la barra de desplazamiento horizontal.
-	;la funcion no cambia el GUI por defecto.
-;EJEMPLO:
-	;MsgBox % InputBox("titulo", "texto", "defecto") "`n`nErrorLevel: " ErrorLevel
-	;MsgBox % InputBox("titulo",, FileRead(A_WinDir "\System32\Drivers\Etc\Hosts"),, "+Multi +HScroll") "`n`nErrorLevel: " ErrorLevel
-	;MsgBox % InputBox("titulo",, "Multi-Linea Automático `n") "`n`nErrorLevel: " ErrorLevel
-InputBox(Title, Text := "", Default := "", Timeout := 0, EditOptions := "", Width := 420, Height := 217) {
-	static _InputBoxResult, _InputBoxInfoText
-	if (IsWindow(Get("InputBox_hWnd")))
+;--------------------------------------------------------------------------------------------
+InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
+	static hWnd, Multi, Error, GuiSize
+	if (Title="")&&(Text="")&&(Default="")&&(Timeout=0)&&(Options=-3)
+		return (Height="")?Error:(Error:=Height)
+	if (DllCall("User32.dll\IsWindow", "Ptr", hWnd))
 		return "", ErrorLevel := 2
-	MultiLine := Set("InputBox_IsMultiLine", (InStr(EditOptions, "+Multi")||(Text=""&&InStr(Default, "`n")))?1:0)
-	, Set("InputBox_ErrorLevel", false), EditY := MultiLine?35:155, EditH := MultiLine?140:25
-	, MinSize := MultiLine?"548x286":"420x217", GuiSize := StrSplit(Width>420&&Height>217?Width "x" Height:MinSize, "x")
-	, MinSize := MultiLine?((Width>548&&Height>286)?Width "x" Height:MinSize):((Width>420&&Height>217)?Width "x" Height:MinSize)
-	Gui, _InputBoxGuiName:+Label_InputBox -Border -Caption +ToolWindow +OwnDialogs +LastFound +HWNDhWnd +AlwaysOnTop +MinSize%MinSize% +MaxSize%A_ScreenWidth%x%A_ScreenHeight%
-		Set("InputBox_hWnd", hWnd)
-	Gui, %hWnd%:Color, White
+	Multi := ((InStr(Options, "+Multi"))||((Text="")&&(InStr(Default, "`n"))))?1:0, CurrentGui := WinExist("A")
+	, MinSize := Multi?(((Width>548)&&(Height>286))?Width "x" Height:"420x217"):(((Width>420)&&(Height>217))?Width "x" Height:"420x217")
+	, GuiSize := StrSplit((Width>420)&&(Height>217)?Width "x" Height:"420x217", "x")
+	Gui, New, % "+HWNDhWnd +LabelInputBoxExGui -Caption +ToolWindow +AlwaysOnTop +MinSize" (Multi?"548x286":"420x217")
+		. " +MaxSize" A_ScreenWidth "x" A_ScreenHeight
+	Gui, %hWnd%:Color, White, White
 	Gui, %hWnd%:Margin, 0, 0
 	Gui, %hWnd%:Font, s12 w600 Q5, Times New Roman
-	Gui, %hWnd%:Add, Button, x0 y0 w%A_ScreenWidth% h30 HWND_InputBoxTitle Disabled +Left, % " " Title
-		GuiButtonStyle(_InputBoxTitle, 7)
-	Gui, %hWnd%:Add, Text, x0 y0 w350 h30 g_InputBoxTMove BackgroundTrans
+	Gui, %hWnd%:Add, Button, x0 y0 w%A_ScreenWidth% h30 +HWNDTitleH Disabled +Left, % " " Title
+		ImageButton.Create(TitleH, [0, 0x1CA7EF,, 0xffffff],,, [0, 0x1CA7EF,, 0xffffff])
+	Gui, %hWnd%:Add, Text, x0 y0 w350 h30 gInputBoxExGuiMove BackgroundTrans
 	Gui, %hWnd%:Font, s10 Q5 w400, Marlett
-	Gui, %hWnd%:Add, Button, x388 y2 w30 h25 HWND_InputBoxClose g_InputBoxClose, r
-		GuiButtonStyle(_InputBoxClose, 3)
+	Gui, %hWnd%:Add, Button, x388 y2 w30 h25 HWNDCloseH gInputBoxExGuiClose, r
+		ImageButton.Create(CloseH, [0, 0x1CA7EF,, 0xCCCCCC], [0, 0xFF7171,, 0xffffff], [0, 0xFF0000,, 0xffffff])
 	Gui, %hWnd%:Font, s12 w400 Q5, Courier New
-	Gui, %hWnd%:Add, Button, x357 y2 w30 h25 HWND_InputBoxMax g_InputBoxMax, % Chr(9794)
-		GuiButtonStyle(_InputBoxMax, 4)
+	Gui, %hWnd%:Add, Button, x357 y2 w30 h25 HWNDMaxH gInputBoxExGuiMax, % Chr(9794)
+		ImageButton.Create(MaxH, [0, 0x1CA7EF,, 0xCCCCCC], [0, 0xC0C0C0,, 0xffffff], [0, 0x808080,, 0xffffff])
 	Gui, %hWnd%:Font, s9 w400 Q5, Segoe UI
 	try {
-		Gui, %hWnd%:Add, Edit, x5 y%EditY% w410 h%EditH% HWND_InputBoxResult v_InputBoxResult %EditOptions%, %Default%
+		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " (Multi?Options:StrReplace(Options, "+HScroll")), %Default%
 	} catch {
-		Gui, %hWnd%:Add, Edit, x5 y%EditY% w410 h%EditH% HWND_InputBoxResult v_InputBoxResult %EditOptions%
-		Edit_ReplaceSelText(_InputBoxResult, Default)
-	} Set("InputBox_Edit1.hWnd", _InputBoxResult)
-	if !(MultiLine) {
-		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 v_InputBoxInfoText g_InputBoxInfoText, %Text%
-		Edit_SetCueBannerText(_InputBoxResult, " " Default)
+		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " (Multi?Options:StrReplace(Options, "+HScroll")), %Default%
+		SendMessage, 0x000C,, %Default%,, ahk_id %DefaultH%
+	} if !(Multi) {
+		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 HWNDTextH, %Text%
+		SendMessage, 0x1501, 0, %Default%,, ahk_id %TextH%
 	} Gui, %hWnd%:Font, s11 w500 Q5, Times New Roman
-	Gui, %hWnd%:Add, Button, x212 y186 w95 h27 HWND_InputBoxAccept g_InputBoxAccept Default, Aceptar
-		GuiButtonStyle(_InputBoxAccept, 8)
-	Gui, %hWnd%:Add, Button, x320 y186 w95 h27 HWND_InputBoxCancel g_InputBoxClose, Cancelar
-		GuiButtonStyle(_InputBoxCancel, 8)
-	Gui, %hWnd%:Show, % "w" GuiSize[1] " h" GuiSize[2] " Hide"
-	WinAnimate(hWnd, 100, "S1R")
-	if !(MultiLine)
-		ControlFocus(hWnd, _InputBoxResult), ControlSend(hWnd, _InputBoxResult, "{End}")
-	ControlMove(hWnd, "Button2", GuiSize[1] - 32,,,, true) "," hWnd "," GuiSize[1]
-	, ControlMove(hWnd, "Button3", GuiSize[1] - 63,,,, true)
-	, ControlMove(hWnd, "Button4", GuiSize[1] - 210, GuiSize[2] - 31,,, true)
-	, ControlMove(hWnd, "Button5", GuiSize[1] - 100, GuiSize[2] - 31,,, true)
-	, ControlMove(hWnd, "Static1",,, GuiSize[1] - 70,, true)
-	if !(MultiLine)
-		ControlMove(hWnd, "Static2",,, GuiSize[1] - 10, GuiSize[2] - 102, true)
-		, ControlMove(hWnd, "Edit1",, GuiSize[2] - 60, GuiSize[1] - 10,, true)
-	else ControlMove(hWnd, "Edit1",,, GuiSize[1] - 10, GuiSize[2] - 70, true)
-	if !(WinWaitClose(hWnd, Timeout)) {
+	Gui, %hWnd%:Add, Button, x212 y186 w95 h27 HWNDAcceptH gInputBoxExGuiAccept Default, Aceptar
+		ImageButton.Create(AcceptH, [0, 0x1CA7EF,, 0xffffff], [0, 0x6AB5FF,, 0xffffff], [0, 0x808080,, 0xffffff])
+	Gui, %hWnd%:Add, Button, x320 y186 w95 h27 HWNDCancelH gInputBoxExGuiClose, Cancelar
+		ImageButton.Create(CancelH, [0, 0x1CA7EF,, 0xffffff], [0, 0x6AB5FF,, 0xffffff], [0, 0x808080,, 0xffffff])
+	Gui, %hWnd%:Show, % "Hide Center w" GuiSize[1] " h" GuiSize[2]
+	DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", 200, "UInt", 0x00020000+0x00080000)
+	InputBoxExGuiSize([hWnd, Multi, GuiSize])
+	ControlFocus,, % "ahk_id " (Multi?TextH:DefaultH)
+	WinWaitClose, ahk_id %hWnd%,, % (Timeout>0)?Timeout:""
+	if (ErrorLevel) {
 		Gui, %hWnd%:Destroy
 		return "", ErrorLevel := 3
-	} return Get("InputBox_Result"), Get("InputBox_ErrorLevel", ErrorLevel)
-	_InputBoxSize:
-	Get("InputBox_IsMultiLine", MultiLine)
-	, Get("InputBox_hWnd", hWnd)
-	, ControlMove(hWnd, "Button2", A_GuiWidth - 32,,,, true)
-	, ControlMove(hWnd, "Button3", A_GuiWidth - 63,,,, true)
-	, ControlMove(hWnd, "Button4", A_GuiWidth - 210, A_GuiHeight - 31,,, true)
-	, ControlMove(hWnd, "Button5", A_GuiWidth - 100, A_GuiHeight - 31,,, true)
-	, ControlMove(hWnd, "Static1",,, A_GuiWidth - 70,, true)
-	if !(MultiLine)
-		ControlMove(hWnd, "Static2",,, A_GuiWidth - 10, A_GuiHeight - 102, true)
-		, ControlMove(hWnd, "Edit1",, A_GuiHeight - 60, A_GuiWidth - 10,, true)
-	else ControlMove(hWnd, "Edit1",,, A_GuiWidth - 10, A_GuiHeight - 70, true)
+	} try Gui, %CurrentGui%:Default
+	return Result, ErrorLevel := Error
+	InputBoxExGuiMove:
+	DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
 	return
-	_InputBoxInfoText:
-	ControlFocus(Get("InputBox_hWnd"), "Static2")
-	return
-	_InputBoxTMove:
-	Get("InputBox_hWnd", hWnd), ControlFocus(hWnd, "Static2")
-	, DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
-	return
-	_InputBoxGuiNameGuiClose:
-	_InputBoxClose:
-	_InputBoxAccept:
-	Get("InputBox_hWnd", hWnd)
-	, Set("InputBox_Result", ControlGetText(hWnd, Get("InputBox_Edit1.hWnd")))
-	, Set("InputBox_ErrorLevel", A_ThisLabel="_InputBoxAccept"?0:1)
-	, WinAnimate(hWnd, 100, "HS1")
+	InputBoxExGuiAccept:
+	InputBoxExGuiClose:
+	ControlGetText, Result,, ahk_id %DefaultH%
+	Error := (A_ThisLabel="InputBoxExGuiClose")
+	, DllCall("User32.dll\AnimateWindow", "Ptr", hWND, "UInt", 100, "UInt", 0x00010000+0x00080000)
 	Gui, %hWnd%:Destroy
 	return
-	_InputBoxMax:
-	Get("InputBox_hWnd", hWnd)
-	if !(Get("InputBox_ErrorLevel")) {
-		Gui, %hWnd%: +Resize
-		ControlDisable(hWnd, "Button4")
-		, ControlDisable(hWnd, "Button5")
-		, ControlDisable(hWnd, "Button2")
-		, Edit_SetReadOnly(Get("InputBox_Edit1.hWnd"))
-		Set("InputBox_ErrorLevel", true)
+	InputBoxExGuiMax:
+	WinGet, Style, Style, ahk_id %hWnd%
+	if (Style&0x00040000) {
+		Gui, %hWnd%:-Resize
+		Control, Enable,, ahk_id %CloseH%
+		Control, Enable,, ahk_id %AcceptH%
+		Control, Enable,, ahk_id %CancelH%
+		SendMessage, 0x00CF, 0,,, ahk_id %DefaultH%
 	} else {
-		Gui, %hWnd%: -Resize
-		ControlEnable(hWnd, "Button4")
-		, ControlEnable(hWnd, "Button5")
-		, ControlEnable(hWnd, "Button2")
-		, Edit_SetReadOnly(Get("InputBox_Edit1.hWnd", EditId), false)
-		, ControlFocus(hWnd, EditId)
-		Set("InputBox_ErrorLevel", false)
+		Gui, %hWnd%:+Resize
+		Control, Disable,, ahk_id %CloseH%
+		Control, Disable,, ahk_id %AcceptH%
+		Control, Disable,, ahk_id %CancelH%
+		SendMessage, 0x00CF, 1,,, ahk_id %DefaultH%
 	}
 	return
-	_InputBoxDropFiles:
-	ControlSetText(0, Get("InputBox_Edit1.hWnd"), A_GuiEvent)
+	InputBoxExGuiSize:
+	InputBoxExGuiSize([hWnd, Multi, [A_GuiWidth, A_GuiHeight]])
 	return
+} InputBoxExGuiSize(hWnd) {
+	ControlMove, Button2, % hWnd[3][1]-32,,,, % "ahk_id " hWnd[1]
+	ControlMove, Button3, % hWnd[3][1]-63,,,, % "ahk_id " hWnd[1]
+	ControlMove, Button4, % hWnd[3][1]-210, hWnd[3][2]-31,,, % "ahk_id " hWnd[1]
+	ControlMove, Button5, % hWnd[3][1]-100, hWnd[3][2]-31,,, % "ahk_id " hWnd[1]
+	ControlMove, Static1,,, % hWnd[3][1]-70,, % "ahk_id " hWnd[1]
+	if (hWnd[2]) {
+		ControlMove, Edit1,,, % hWnd[3][1]-10, hWnd[3][2]-70, % "ahk_id " hWnd[1]
+	} else {
+		ControlMove, Static2,,, % hWnd[3][1]-10, hWnd[3][2]-102, % "ahk_id " hWnd[1]
+		ControlMove, Edit1,, % hWnd[3][2]-60, hWnd[3][1]-10,, % "ahk_id " hWnd[1]
+	} WinSet, Redraw,, % "ahk_id " hWnd[1]
 }
 
 ;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segundos] )
