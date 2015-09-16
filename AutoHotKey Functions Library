@@ -5496,9 +5496,9 @@ MsgBox(Info*) {
 			return ErrorLevel := A_MsgBoxResult := A_LoopField
 }
 
- ;--------------------------------------------------------------------------------------------
+;--------------------------------------------------------------------------------------------
 ;FUNCION INPUTBOXEX 15/09/2015
-;Sintaxis: InputBox( [título], [texto], [tiempo fuera, en segundos], [opciones del control de edición], [ancho], [alto] )
+;Sintaxis: InputBoxEx( [título], [texto], [tiempo fuera, en segundos], [opciones del control de edición], [ancho], [alto] )
 ;ErrorLevel:
 	;0 = el usuario precionó Aceptar.
 	;1 = el usuario precionó Cancelar o Cerró la ventana.
@@ -5508,6 +5508,7 @@ MsgBox(Info*) {
 	;espesificar +Multi en el 5to parametro para usar un edit multilinea (el 2do parametro no tiene efecto).
 		;Nota: automáticamente se usa multilinea si se espesifica multilinea en el 3er parametro y si el 2do parametro esta vacio.
 	;espesificar +HScroll en el 5to parametro para habilitar la barra de desplazamiento horizontal.
+		;Nota: automáticamente se usa +HScroll si se espesifica multilinea, espesificar -HScroll para quitarlo.
 ;--------------------------------------------------------------------------------------------
 InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
 	static hWnd, Multi, Error, GuiSize
@@ -5516,6 +5517,7 @@ InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", 
 	Multi := ((InStr(Options, "+Multi"))||((Text="")&&(InStr(Default, "`n"))))?1:0, CurrentGui := WinExist("A")
 	, MinSize := Multi?(((Width>548)&&(Height>286))?Width "x" Height:"420x217"):(((Width>420)&&(Height>217))?Width "x" Height:"420x217")
 	, GuiSize := StrSplit((Width>420)&&(Height>217)?Width "x" Height:"420x217", "x")
+	, Options := ((Multi)&&!(InStr(Options, "+HScroll"))&&!(InStr(Options, "-HScroll")))?Options " +HScroll":Options
 	Gui, New, % "+HWNDhWnd +LabelInputBoxExGui -Caption +ToolWindow +AlwaysOnTop +MinSize" (Multi?"548x286":"420x217")
 		. " +MaxSize" A_ScreenWidth "x" A_ScreenHeight
 	Gui, %hWnd%:Color, White, White
@@ -5551,7 +5553,7 @@ InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", 
 	WinWaitClose, ahk_id %hWnd%,, % (Timeout>0)?Timeout:""
 	if (ErrorLevel) {
 		Gui, %hWnd%:Destroy
-		return "", ErrorLevel := 3
+		return (hWnd:=""), ErrorLevel := 3
 	} try Gui, %CurrentGui%:Default
 	return Result, hWnd := "", ErrorLevel := Error
 	InputBoxExGuiMove:
@@ -5561,24 +5563,16 @@ InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", 
 	InputBoxExGuiClose:
 	ControlGetText, Result,, ahk_id %DefaultH%
 	Error := (A_ThisLabel="InputBoxExGuiClose")
-	, DllCall("User32.dll\AnimateWindow", "Ptr", hWND, "UInt", 100, "UInt", 0x00010000+0x00080000)
+	, DllCall("User32.dll\AnimateWindow", "Ptr", hWND, "UInt", 200, "UInt", 0x00010000+0x00080000)
 	Gui, %hWnd%:Destroy
 	return
 	InputBoxExGuiMax:
 	WinGet, Style, Style, ahk_id %hWnd%
-	if (Style&0x00040000) {
-		Gui, %hWnd%:-Resize
-		Control, Enable,, ahk_id %CloseH%
-		Control, Enable,, ahk_id %AcceptH%
-		Control, Enable,, ahk_id %CancelH%
-		SendMessage, 0x00CF, 0,,, ahk_id %DefaultH%
-	} else {
-		Gui, %hWnd%:+Resize
-		Control, Disable,, ahk_id %CloseH%
-		Control, Disable,, ahk_id %AcceptH%
-		Control, Disable,, ahk_id %CancelH%
-		SendMessage, 0x00CF, 1,,, ahk_id %DefaultH%
-	}
+	Gui, % hWnd ":" ((Style&0x00040000)?"-":"+") "Resize"
+	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %CloseH%
+	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %AcceptH%
+	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %CancelH%
+	SendMessage, 0x00CF, !(Style&0x00040000),,, ahk_id %DefaultH%
 	return
 	InputBoxExGuiSize:
 	InputBoxExGuiSize([hWnd, Multi, [A_GuiWidth, A_GuiHeight]])
@@ -5601,6 +5595,8 @@ InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", 
 		ControlMove, Static2,,, % hWnd[3][1]-10, hWnd[3][2]-102, % "ahk_id " hWnd[1]
 		ControlMove, Edit1,, % hWnd[3][2]-60, hWnd[3][1]-10,, % "ahk_id " hWnd[1]
 	} WinSet, Redraw,, % "ahk_id " hWnd[1]
+} InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
+	return InputBoxEx(Title, Text, Default, Timeout, Options, Width, Height)
 }
 
 ;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segundos] )
