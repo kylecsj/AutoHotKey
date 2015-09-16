@@ -5553,7 +5553,7 @@ InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", 
 		Gui, %hWnd%:Destroy
 		return "", ErrorLevel := 3
 	} try Gui, %CurrentGui%:Default
-	return Result, ErrorLevel := Error
+	return Result, hWnd := "", ErrorLevel := Error
 	InputBoxExGuiMove:
 	DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
 	return
