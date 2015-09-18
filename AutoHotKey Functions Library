@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, fuentes & colores & recursos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.05 U32 & U64 || Martes, 15 de septiempre de 2015
+Actualizado: AHK1.1.22.06 U32 & U64 || Viernes, 18 de septiempre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -5496,109 +5496,6 @@ MsgBox(Info*) {
 			return ErrorLevel := A_MsgBoxResult := A_LoopField
 }
 
-;--------------------------------------------------------------------------------------------
-;FUNCION INPUTBOXEX 15/09/2015
-;Sintaxis: InputBoxEx( [título], [texto], [tiempo fuera, en segundos], [opciones del control de edición], [ancho], [alto] )
-;ErrorLevel:
-	;0 = el usuario precionó Aceptar.
-	;1 = el usuario precionó Cancelar o Cerró la ventana.
-	;2 = la ventana ya existe.
-	;3 = se ha alcanzado el tiempo máximo para la ventana (tiempo fuera).
-;Notas: 
-	;espesificar +Multi en el 5to parametro para usar un edit multilinea (el 2do parametro no tiene efecto).
-		;Nota: automáticamente se usa multilinea si se espesifica multilinea en el 3er parametro y si el 2do parametro esta vacio.
-	;espesificar +HScroll en el 5to parametro para habilitar la barra de desplazamiento horizontal.
-		;Nota: automáticamente se usa +HScroll si se espesifica multilinea, espesificar -HScroll para quitarlo.
-;--------------------------------------------------------------------------------------------
-InputBoxEx(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
-	static hWnd, Multi, Error, GuiSize
-	if (DllCall("User32.dll\IsWindow", "Ptr", hWnd))
-		return "", ErrorLevel := 2
-	Multi := ((InStr(Options, "+Multi"))||((Text="")&&(InStr(Default, "`n"))))?1:0, CurrentGui := WinExist("A")
-	, MinSize := Multi?(((Width>548)&&(Height>286))?Width "x" Height:"420x217"):(((Width>420)&&(Height>217))?Width "x" Height:"420x217")
-	, GuiSize := StrSplit((Width>420)&&(Height>217)?Width "x" Height:"420x217", "x")
-	, Options := ((Multi)&&!(InStr(Options, "+HScroll"))&&!(InStr(Options, "-HScroll")))?Options " +HScroll":Options
-	Gui, New, % "+HWNDhWnd +LabelInputBoxExGui -Caption +ToolWindow +AlwaysOnTop +MinSize" (Multi?"548x286":"420x217")
-		. " +MaxSize" A_ScreenWidth "x" A_ScreenHeight
-	Gui, %hWnd%:Color, White, White
-	Gui, %hWnd%:Margin, 0, 0
-	Gui, %hWnd%:Font, s12 w600 Q5, Times New Roman
-	Gui, %hWnd%:Add, Button, x0 y0 w%A_ScreenWidth% h30 +HWNDTitleH Disabled +Left, % " " Title
-		ImageButton.Create(TitleH, [0, 0x1CA7EF,, 0xffffff],,, [0, 0x1CA7EF,, 0xffffff])
-	Gui, %hWnd%:Add, Text, x0 y0 w350 h30 gInputBoxExGuiMove BackgroundTrans
-	Gui, %hWnd%:Font, s10 Q5 w400, Marlett
-	Gui, %hWnd%:Add, Button, x388 y2 w30 h25 HWNDCloseH gInputBoxExGuiClose, r
-		ImageButton.Create(CloseH, [0, 0x1CA7EF,, 0xCCCCCC], [0, 0xFF7171,, 0xffffff], [0, 0xFF0000,, 0xffffff])
-	Gui, %hWnd%:Font, s12 w400 Q5, Courier New
-	Gui, %hWnd%:Add, Button, x357 y2 w30 h25 HWNDMaxH gInputBoxExGuiMax, % Chr(9794)
-		ImageButton.Create(MaxH, [0, 0x1CA7EF,, 0xCCCCCC], [0, 0xC0C0C0,, 0xffffff], [0, 0x808080,, 0xffffff])
-	Gui, %hWnd%:Font, s9 w400 Q5, Segoe UI
-	try {
-		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " Options, %Default%
-	} catch {
-		Gui, %hWnd%:Add, Edit, % "x5 y" (Multi?35:155) " w410 h" (Multi?140:25) " HWNDDefaultH " Options
-		DllCall("User32.dll\SendMessage", "Ptr", DefaultH, "UInt", 0x00C2, "Int", 1, "Ptr", &Default)
-	} if !(Multi) {
-		Gui, %hWnd%:Add, Text, x5 y35 w410 h115 HWNDTextH gInputBoxExGuiText, %Text%
-		DllCall("User32.dll\SendMessage", "Ptr", DefaultH, "UInt", 0x1501, "Int", 0, "Ptr", &Default)
-	} Gui, %hWnd%:Font, s11 w500 Q5, Times New Roman
-	Gui, %hWnd%:Add, Button, x212 y186 w95 h27 HWNDAcceptH gInputBoxExGuiAccept Default, Aceptar
-		ImageButton.Create(AcceptH, [0, 0x1CA7EF,, 0xffffff], [0, 0x6AB5FF,, 0xffffff], [0, 0x808080,, 0xffffff])
-	Gui, %hWnd%:Add, Button, x320 y186 w95 h27 HWNDCancelH gInputBoxExGuiClose, Cancelar
-		ImageButton.Create(CancelH, [0, 0x1CA7EF,, 0xffffff], [0, 0x6AB5FF,, 0xffffff], [0, 0x808080,, 0xffffff])
-	Gui, %hWnd%:Show, % "Hide Center w" GuiSize[1] " h" GuiSize[2]
-	DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", 200, "UInt", 0x00020000+0x00080000)
-	InputBoxExGuiSize([hWnd, Multi, GuiSize])
-	ControlFocus,, % "ahk_id " (Multi?TextH:DefaultH)
-	WinWaitClose, ahk_id %hWnd%,, % (Timeout>0)?Timeout:""
-	if (ErrorLevel) {
-		Gui, %hWnd%:Destroy
-		return (hWnd:=""), ErrorLevel := 3
-	} try Gui, %CurrentGui%:Default
-	return Result, hWnd := "", ErrorLevel := Error
-	InputBoxExGuiMove:
-	DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", 0xA1, "Ptr", 2, "Ptr", 0)
-	return
-	InputBoxExGuiAccept:
-	InputBoxExGuiClose:
-	ControlGetText, Result,, ahk_id %DefaultH%
-	Error := (A_ThisLabel="InputBoxExGuiClose")
-	, DllCall("User32.dll\AnimateWindow", "Ptr", hWND, "UInt", 200, "UInt", 0x00010000+0x00080000)
-	Gui, %hWnd%:Destroy
-	return
-	InputBoxExGuiMax:
-	WinGet, Style, Style, ahk_id %hWnd%
-	Gui, % hWnd ":" ((Style&0x00040000)?"-":"+") "Resize"
-	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %CloseH%
-	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %AcceptH%
-	Control, % (Style&0x00040000)?"Enable":"Disable",,, ahk_id %CancelH%
-	SendMessage, 0x00CF, !(Style&0x00040000),,, ahk_id %DefaultH%
-	return
-	InputBoxExGuiSize:
-	InputBoxExGuiSize([hWnd, Multi, [A_GuiWidth, A_GuiHeight]])
-	return
-	InputBoxExGuiDropFiles:
-	ControlSetText,, %A_GuiEvent%, ahk_id %DefaultH%
-	return
-	InputBoxExGuiText:
-	ControlFocus,, ahk_id %TextH%
-	return
-} InputBoxExGuiSize(hWnd) {
-	ControlMove, Button2, % hWnd[3][1]-32,,,, % "ahk_id " hWnd[1]
-	ControlMove, Button3, % hWnd[3][1]-63,,,, % "ahk_id " hWnd[1]
-	ControlMove, Button4, % hWnd[3][1]-210, hWnd[3][2]-31,,, % "ahk_id " hWnd[1]
-	ControlMove, Button5, % hWnd[3][1]-100, hWnd[3][2]-31,,, % "ahk_id " hWnd[1]
-	ControlMove, Static1,,, % hWnd[3][1]-70,, % "ahk_id " hWnd[1]
-	if (hWnd[2]) {
-		ControlMove, Edit1,,, % hWnd[3][1]-10, hWnd[3][2]-70, % "ahk_id " hWnd[1]
-	} else {
-		ControlMove, Static2,,, % hWnd[3][1]-10, hWnd[3][2]-102, % "ahk_id " hWnd[1]
-		ControlMove, Edit1,, % hWnd[3][2]-60, hWnd[3][1]-10,, % "ahk_id " hWnd[1]
-	} WinSet, Redraw,, % "ahk_id " hWnd[1]
-} InputBox(Title := "", Text := "", Default := "", Timeout := 0, Options := "", Width := 420, Height := 217) {
-	return InputBoxEx(Title, Text, Default, Timeout, Options, Width, Height)
-}
-
 ;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segundos] )
 ;Nota: espesificar un número negativo en tiempo fuera para usar milisegundos
 ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
@@ -5635,66 +5532,6 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 		if TimeOut
 			SetTimer(TrayTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
 }}
-
-;muestra un mensaje cerca del icono del área de notificacion.
-;Sintaxis: TrayTipEx( [titulo], [texto], [tiempo fuera, en segundos], [icono], [¿sonido?], [velocidad de animacion], [esperar, en segundos] )
-;Velocidad de animacion (sintaxis): [velocidad de inicio] [velocidad de cierre]. separados por espacio.
-;Tiempo fuera: espesificar el tiempo en segundos que debe pasar para cerrar la ventana. 0 = esperar indefinidamente.
-;Icono: espesificar un icono, o un array con el icono y el índice. Ejemplo: ["C:\Icons.dll", 5]
-;Esperar: esperar a que la ventana se cierre para continuar. espesificar segundos. 0 = esperar indefinidamente.
-;Notas: devuelve el ID de la ventana. si el cursor esta posicionado sobre la ventana y se establecio un tiempo fuera, la ventana no se destruirá
-	;hasta que el cursor deje de estar sobre la ventana, con 1s de retraso y un tiempo fuera de 5m.
-	;cuando se crea la ventana, se activa por un momento y luego se restaura la ventana que estaba activa antes.
-;Ejemplo: ToolTip("ID: " id:=TrayTipEx("Titulo de la ventana", "Texto de la ventana",, ["shell32", 47])), WinWaitClose(id), ExitApp()
-TrayTipEx(Title := "", Text := "", Seconds := 0, Icon := "", Sound := true, Speed := "375 500", WaitClose := -1) {
-	Gui, _TrayTip:Destroy
-	if (Text=""&&Title="")
-		return 0x0, ErrorLevel := false
-	Gui, _TrayTip:+AlwaysOnTop +HWND_GTrayTip +ToolWindow -Border -Caption
-	Func := Func("_TrayTipEx").Bind(Title, Text, Seconds, Icon, Sound, Speed)
-	, Set("TrayTipEx_ActiveWindow", IsWindow())
-	return Set("TrayTipEx_hWnd", _GTrayTip), SetTimer(Func, -1), WinWaitClose(_GTrayTip, WaitClose)
-} _TrayTipEx(Title, Text, Seconds, Icon, Sound, Speed) {
-	AnimationSpeed := StrSplit(StrReplace(Speed, A_Tab, A_Space), A_Space)
-	, AnimationSpeedA := AnimationSpeed[1]>0?AnimationSpeed[1]:0
-	, Set("TrayTipEx_AnimationSpeed", AnimationSpeed[2]>0?AnimationSpeed[2]:0)
-	, IconIndex := IsObject(Icon)?(Icon[2]>0?"Icon" Icon[2]:""):"", Icon := IsObject(Icon)?Icon[1]:Icon
-	Gui, _TrayTip:Font, s9 cWhite Q5, Segoe UI
-	Gui, _TrayTip:Color, 0x282828, 0x282828	
-	Gui, _TrayTip:Add, Picture, x6 y7 w42 h39 %IconIndex%, %Icon%
-	Gui, _TrayTip:Add, Text, % "x50 y30 h" (InStr(Text, "`n")?30:15), % Trim(r:=Text)
-	Gui, _TrayTip:Default
-	GuiControlGet, i, Pos, Static2
-	if ((h:=((w:=iw+63)>(A_ScreenWidth-200)?70:60))=70) {
-		w := A_ScreenWidth-200, r := ""
-		GuiControl,, Static2, % Trim(StrLeft(Text:=StrReplace(Text, "`n"), 128))
-		Gui, _TrayTip:Add, Text, x50 y45 h15, % Trim(StrTrimLeft(Text, 128))
-	} w := w>=335?w:335, h := InStr(r, "`n")?70:h
-	Gui, _TrayTip:Font, s9 cWhite Q5 w700, Segoe UI
-	Gui, _TrayTip:Add, Text, x50 y12 w340 h15, %Title%
-	Gui, _TrayTip:Add, Button, % "y-3 w15 h20 HWND_TrayTipCloseButton g_TrayTipCloseButton x" (w-17), x
-		ImageButton.Create(_TrayTipCloseButton, [, 0x282828, 0x282828, 0x00CCCCCC], [,,, 0x00FFFFFF], [,,, "Red"])
-	, x := A_ScreenWidth - w, y := (A_ScreenHeight-h)-TaskBarGetPos().h
-	if (Sound) ;comprueba si se debe reproducir un sonido
-		SoundPlay(A_WinDir "\media\notify.wav")
-	Gui, _TrayTip:Show, % "NoActivate x" x  " y" y " w" w " h" h (Speed>0?" Hide":"")
-	if (AnimationSpeedA>0)
-		WinAnimate(Get("TrayTipEx_hWnd"), AnimationSpeedA, "S24R", 215, "h" (h-1) " 0-0 r12-12 w" (w-1))
-	WinActivate(Get("TrayTipEx_ActiveWindow"))
-	if (Seconds>0)
-		SetTimer("_TrayTipTimeOut", -(Seconds*1000))
-	return
-	_TrayTipTimeOut:
-	_TrayTipCloseButton:
-	if (A_ThisLabel="_TrayTipTimeOut"&&MouseGetPos().Win=Get("TrayTipEx_hWnd"))
-		Loop
-			Sleep(1000), _:=MouseGetPos().Win
-		until (_!=Get("TrayTipEx_hWnd")||A_Index=300)
-	if (Get("TrayTipEx_AnimationSpeed")>0)
-		WinAnimate(Get("TrayTipEx_hWnd"), Get("TrayTipEx_AnimationSpeed"), "TH1")
-	Gui, _TrayTip:Destroy
-	return
-}
 
 ;estilo para los botones.
 GuiButtonStyle(hWnd, Type := 1, Round := 0) { ;https://github.com/AHK-just-me/Class_ImageButton
@@ -6761,7 +6598,7 @@ SystemSetFontInfo(Name := "", Size := "", Weight := "", IsItalic := "") {
 ;recupera la ruta completa de una carpeta
 SHGetKnownFolderPath(GUID) { ;WIN_V+
 	if !Get(GUID, i)
-		VarSetCapacity(CLSID, 8 * 2, 0), VarSetCapacity(ppszPath, (260 + 1) * 2, 0)
+		VarSetCapacity(CLSID, 16, 0), VarSetCapacity(ppszPath, (260 + 1) * 2, 0)
 		, DllCall("Ole32.dll\CLSIDFromString", "Str", GUID, "Ptr", &CLSID)
 		, DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", &ppszPath)
 		, Path := ppszPath
@@ -6927,6 +6764,11 @@ A_ProgramsCommon() {
 A_AppData() {
 	return SHGetFolderPath(0x001a) ;CSIDL_APPDATA
 }
+
+A_AppDataLocal() {
+	static A_AppDataLocal
+	return A_AppDataLocal?A_AppDataLocal:(A_AppDataLocal:=EnvGet("LOCALAPPDATA"))
+} ;http://ahkscript.org/boards/viewtopic.php?f=13&p=52910#p52910
 
 ;directorio de sistema de archivos que contiene los datos de aplicación para todos los usuarios
 A_AppDataCommon() {
@@ -8669,7 +8511,7 @@ DriveGetInfo(IpDrive, ByRef lpVolumeNameBuffer := "", ByRef lpFileSystemNameBuff
 		, ErrorLevel := !hR
 }
 
-;recupera la cantidad de espacio libre en Bytes (por defecto)
+;recupera la cantidad de espacio libre en Bytes
 ;Sintaxis: DriveSpaceFree( [unidad], [KB|MB|GB] )
 DriveSpaceFree(IpDrive, Units := 0) {
 	static uKB := uK := 1024, uMB := uM := 1024**2, uGB := uG := 1024**3
@@ -8823,12 +8665,41 @@ SetDeviceGammaRamp(Brightness := 125, Gamma := 1.0) {
 	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
 }
 
+;obtener brillo
+;Sintaxis: MonitorBrightness( [rojo], [verde], [azul] )
+MonitorGetBrightness(ByRef R := "", ByRef G := "", ByRef B := "") {
+	hDC:=DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(gr, 1536, 0)
+	, i:=DllCall("Gdi32.dll\GetDeviceGammaRamp", "Ptr", hDC, "Ptr", &gr), R := NumGet(gr, 2, "UShort") - 128
+	, G := NumGet(gr, 512 + 2, "UShort") - 128, B := NumGet(gr, 1024 + 2, "UShort") - 128
+	return R, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
+}
+
+;modificar brillo
+;Sintaxis: MonitorBrightness( [rojo], [verde], [azul] )
+MonitorSetBrightness(R := "", G := "", B := "") {
+	if (R="")||(G="")||(B="")
+		MonitorGetBrightness(_R, _G, _B), R := (R="")?_R:R, G := (G="")?_G:G, B := (B="")?_B:B
+	Loop % (VarSetCapacity(gr, 1536, 0) / 6)
+		NumPut((r:=(R+128)*(A_Index-1))>65535?65535:r, gr, 2*(A_Index-1), "UShort")
+		, NumPut((g:=(G+128)*(A_Index-1))>65535?65535:g, gr, 512+2*(A_Index-1), "UShort")
+		, NumPut((b:=(B+128)*(A_Index-1))>65535?65535:b, gr, 1024+2*(A_Index-1), "UShort")
+	i:=DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC:=DllCall("user32.dll\GetDC", "Ptr", 0), "Ptr", &gr)
+	return i, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: INCLUDE :::::::::::::::::::::::::::::::::: *i
+;NOTA: poner las clases y funciones en la carpeta Lib.
+	;%A_MyDocuments%\AutoHotkey\Lib
+	;%A_ScriptDir%\Lib
+	;%AHK_INSTALL_PATH%\Lib
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;clases
-#Include <Class_ImageButton>
-#Include <Class_CtlColors>
+#Include <Class_ImageButton> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1103
+#Include <Class_CtlColors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=4026
+#Include *i <Class_LV_Colors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1081
 
 ;funciones
-#Include <Gdip>
+#Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
+#Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
+#Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
