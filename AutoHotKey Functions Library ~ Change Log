@@ -1,4 +1,53 @@
 ###############################################################
+ACTUALIZACION 18/09/2015 - AHK1.1.22.06
+###############################################################
+Funciones Agregadas:
+	• A_AppDataLocal()
+	• MonitorSetBrightness()
+	• MonitorGetBrightness()
+	
+Mejoras:
+	• TrayTipEx() (link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5827)
+	• InputBoxEx() (link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5827)
+	
+Notas:
+	• TrayTipEx() y InputBoxEx() eliminados, necesario incluir aparte.
+	
+Otros (cambios menores):
+	• Otros.
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 11/09/2015, 15/09 - AHK1.1.22.05
 ###############################################################
 Funciones Agregadas:
