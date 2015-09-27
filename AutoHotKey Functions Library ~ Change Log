@@ -1,19 +1,66 @@
 ###############################################################
-ACTUALIZACION 18/09/2015 - AHK1.1.22.06
+ACTUALIZACION 18/09/2015, 27/09 - AHK1.1.22.06
 ###############################################################
 Funciones Agregadas:
+	• ControlSetCursor() ~ 27/09
+	• WindowsVersionEx() ~ 27/09
+	• WindowsVersion() ~ 27/09
+	• IsWindowsVersionOrGreater() ~ 27/09
+	• IsWindowsXPOrGreater() ~ 27/09
+	• IsWindowsXPSP1OrGreater() ~ 27/09
+	• IsWindowsXPSP2OrGreater() ~ 27/09
+	• IsWindowsXPSP3OrGreater() ~ 27/09
+	• IsWindowsVistaOrGreater() ~ 27/09
+	• IsWindowsVistaSP1OrGreater() ~ 27/09
+	• IsWindowsVistaSP2OrGreater() ~ 27/09
+	• IsWindows7OrGreater() ~ 27/09
+	• IsWindows7SP1OrGreater() ~ 27/09
+	• IsWindows8OrGreater() ~ 27/09
+	• IsWindows8Point1OrGreater() ~ 27/09
+	• IsWindows10OrGreater() ~ 27/09
+	• IsWindowsServer() ~ 27/09
+	• RGBToInt() ~ 27/09
+	• DesktopRefresh() ~ 27/09
+	• DesktopGetShellWindows() ~ 27/09
+	• DesktopSelectedItems() ~ 27/09
+	• DesktopSelectItem() ~ 27/09
+	• ShutdownEx() ~ 27/09
 	• A_AppDataLocal()
 	• MonitorSetBrightness()
 	• MonitorGetBrightness()
 	
 Mejoras:
+	• SaveScreenshot() ~ 27/09
 	• TrayTipEx() (link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5827)
 	• InputBoxEx() (link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5827)
-	
+
+Correcciones:
+	• LV_SubItemHitTest() ~ 27/09
+	• LV_SetIconSpacing() ~ 27/09
+
 Notas:
+	• Las funciones que usan Gdip lo inician automáticamente si no se ha iniciado antes. ~ 27/09
+		--> Funciones: ImageGetDimension(), SetDesktopBackground(), ImageConvert(), SaveScreenshot().
+		--> Nota: si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
+	• Añadido VERSION HELPER FUNCTIONS. ~ 27/09
+		--> Link: https://msdn.microsoft.com/en-us/library/windows/desktop/dn424972%28v=vs.85%29.aspx
 	• TrayTipEx() y InputBoxEx() eliminados, necesario incluir aparte.
-	
+
+Funciones Eliminadas:
+	• GuiButtonStyle() ~ 27/09
+	• GuiControlMove/Redraw/Show/Hide() ~ 27/09
+	• AttachCursorControl(), usar ControlSetCursor() ~ 27/09
+
 Otros (cambios menores):
+	• ImageGetDimension() ~ 27/09
+	• SetDesktopBackground() ~ 27/09
+	• ImageConvert() ~ 27/09
+	• SaveScreenshot(). ~ 27/09
+	• WinSetExStyle() ~ 27/09
+	• WinSetStyle() ~ 27/09
+	• FileCopy() ~ 27/09
+	• IL_Create() ~ 27/09
+	• Otros. ~ 27/09
 	• Otros.
 ###############################################################
 
