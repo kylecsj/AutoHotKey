@@ -1,4 +1,89 @@
 ###############################################################
+ACTUALIZACION 29/09/2015 - AHK1.1.22.07
+###############################################################
+Funciones Agregadas:
+	• BC_Click()
+	• TB_SetRange()
+	• TB_GetRange()
+	• TB_SetPos()
+	• TB_GetPos()
+	• PB_SetSmooth()
+	• PB_SetMarquee()
+	• PB_SetBKColor()
+	• PB_GetBKColor()
+	• PB_SetBarColor()
+	• PB_GetBarColor()
+	• PB_SetPos()
+	• PB_GetPos()
+	• PB_SetState()
+	• PB_GetState()
+	• PB_SetRange()
+	• PB_GetRange()
+	• WinVersion()
+
+Mejoras:
+	• WinCenter() ~ Reescrito.
+	
+Correcciones:
+	• _getcolor()
+	• IntToHex()
+	
+Notas:
+	• Añadido PROGRESS BAR CONTROL funciones.
+	• Añadido SLIDER CONTROL funciones.
+	
+Funciones Renombradas:
+	• FileGetValidPath() --> GetValidPathName()
+	• BCM_SetIcon() --> BC_SetIcon()
+	• StrLPath() --> GetLongPathName()
+	• StrSPath() --> GetShortPathName()
+
+Funciones Eliminadas:
+	• StrMin(). usar Min()
+	• StrMax(). usar Max()
+	• WinTitleAnimate()
+	• WinMinimizeToTray()
+	
+Otros (cambios menores):
+	• GetFullPathName()
+	• StrSPath() / GetShortPathName()
+	• StrLPath() / GetLongPathName()
+	• WindowsVersion()
+	• FileCopy()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 18/09/2015, 27/09 - AHK1.1.22.06
 ###############################################################
 Funciones Agregadas:
