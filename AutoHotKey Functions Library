@@ -7,10 +7,10 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
 					escritorio & explorador & menu inicio & papelera de reciclaje,
-					notificaciones, fuentes & colores & recursos, otros.
+					notificaciones, fuentes & colores & recursos, nombres y rutas de archivos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.06 U32 & U64 || Domingo, 27 de septiempre de 2015
+Actualizado: AHK1.1.22.07 U32 & U64 || Martes, 29 de septiempre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
@@ -83,10 +83,10 @@ _mnum(f,s){
 		i[k]:=k?(v=""||v+1=""?n:v):n
 	return IsObject(i)?i:(k?(i=""||i+1=""?n:i):n)
 }_getcolor(c) {
-	static Colors := {"Aqua": "0x00FFFF", "Black": "0x000000", "Blue": "0x0000FF", "Fuchsia": "0xFF00FF", "Gray": "0x808080"
-		, "Green": "0x008000", "Lime": "0x00FF00", "Maroon": "0x800000", "Navy": "0x000080", "Olive": "0x808000", "Purple": "0x800080"
-		, "Red": "0xFF0000", "Silver": "0xC0C0C0", "Teal": "0x008080", "White": "0xFFFFFF", "Yellow": "0xFFFF00"}
-	return Colors[c]?Colors[c]:c
+	static Colors := {Aqua: "0x00FFFF", Black: "0x000000", Blue: "0x0000FF", Fuchsia: "0xFF00FF", Gray: "0x808080"
+		, Green: "0x008000", Lime: "0x00FF00", Maroon: "0x800000", Navy: "0x000080", Olive: "0x808000", Purple: "0x800080"
+		, Red: "0xFF0000", Silver: "0xC0C0C0", Teal: "0x008080", White: "0xFFFFFF", Yellow: "0xFFFF00"}
+	return (Colors[c]="")?c:Colors[c]
 }_vas(obj,ByRef txt){
 	for k,v in obj
 		if (v=txt)
@@ -345,10 +345,11 @@ FileGetAttrib(lpFileName, ByRef hAttrib := "", ByRef _cpath := "") {
 	return _cstr(List, hAttrib, "&", "."), ErrorLevel := false
 }
 
-;cambiar atributo(s)
-;Sintaxis: FileSetAttrib( [atributos], [archivo(s)/carpeta(s)], [modo] )
-;NOTA: devuelve el número de archivos/carpetas modificadas
-;ATRIBUTOS (ejemplo: R-SH+A): 
+;cambiar atributo(s) a carpetas y archivos.
+;Sintaxis: FileSetAttrib( [+/- atributos], [archivo], [modo] )
+;Modo: F = incluir archivos | D = incluir directorios | R = incluir archivos y/o carpetas en subdirectorios.
+;Nota: devuelve el número de archivos/carpetas modificadas
+;Atributos (ejemplo: R-SH+A): 
 	;R = solo lectura (modificable)
 	;A = archivo | modificado (modificable)
 	;S = sistema (modificable)
@@ -366,13 +367,13 @@ FileSetAttrib(Attributes, FilePattern, Mode := 0, Recurse := 0) {
 		FileGetAttrib(FilePattern, hAttrib, lpFileName)
 		Loop, Parse, % Attributes
 			if !(InVar(A_LoopField, "R,A,S,H,N,O,T")) {
-				Mode := A_LoopField="+"||A_LoopField="-"||A_LoopField="^"?A_LoopField:"+"
+				Mode := (((A_LoopField="+")||(A_LoopField="-")||(A_LoopField="^"))?A_LoopField:"+")
 				continue
 			} else hAttrib := _mnum(hAttrib, Mode %A_LoopField%)
 		return i := DllCall("Kernel32.dll\SetFileAttributesW", "Str",  "\\?\" lpFileName, "UInt", hAttrib), ErrorLevel := !i
 	} Loop, Files, %FilePattern%, % _clfm(FilePattern, Mode, Recurse, ok)
 		ok += FileSetAttrib(Attributes, A_LoopFileLongPath), i := A_Index
-	return ok, ErrorLevel := ok!=i
+	return ok, ErrorLevel := (ok!=i)
 }
 
 ;separa un nombre de archivo o URL en su nombre, directorio, la extensión y la unidad.
@@ -389,7 +390,7 @@ SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtens
 FileCopy(Source, Dest, Overwrite := false, Recurse := false) {
 	static CopyFlags
 	if (CopyFlags="")
-		CopyFlags := (DllCall("Kernel32.dll\GetVersion", "UChar")<6)?0:0x00001000
+		CopyFlags := IsWindowsVistaOrGreater()?0x00001000:0
 	Flags := CopyFlags|(Overwrite?0:0x00000001), Count := 0, Dest := GetFullPathName(Dest)
 	if !(InStr(Source, "*")) && !(Recurse) {
 		Source := GetFullPathName(Source), IsDir(Dest)?(Dest:=Dest "\" SplitPath(Source).FileName):
@@ -442,7 +443,7 @@ FileRead(Filename) {
 	} return OutputVar, ErrorLevel := false
 }
 
-;leer texto de un número de linea de un archivo
+;leer texto en la línea espesificada.
 ;Sintaxis: FileReadLine( [Archivo], [Linea] )
 FileReadLine(FileName, LineNum, Encoding := "") {
 	i := FileOpen(FileName, "r", Encoding)
@@ -544,7 +545,7 @@ FileGetInfo(FileName, InfoType := "") {
 			FileInfo[InfoType] := StrGet(aInfoData, InfoSize)
 	return FileInfo
 } FileGetInfo2(Filename, ValidatePath := 0) {
-	Filename := ValidatePath ? FileGetValidPath(Filename) : Filename
+	Filename := ValidatePath ? GetValidPathName(Filename) : Filename
 	if !IsFile( Filename )
 		return "", ErrorLevel := 1
 	Filename := StrReplace(Filename, "\", "\\"), i := {}
@@ -558,21 +559,6 @@ FileGetInfo(FileName, InfoType := "") {
 		, i.InUseCount := a.InUseCount, i.LastAccessed := a.LastAccessed, i.LastModified := a.LastModified, i.ManuFacturer := a.Manufacturer
 		, i.Name := a.Name, i.Path := a.Path, i.Readable := a.Readable, i.Status := a.Status, i.System := a.System, i.Version := a.Version
 	return i, ErrorLevel := !i.Name
-}
-
-;obtiene una ruta valida para un archivo
-;Útil para cuando la ruta contiene caracteres no permitidos, espacios, parámetros y/o comillas
-FileGetValidPath(Filename) {
-	Filename := Trim(RegExReplace(Filename, "[Q*/?" Chr(34) "<>|`n\E]"))
-	if (IsFile(Filename))
-		return Filename, ErrorLevel := false
-	if IsFile(i:=StrLeft(Filename, InStr(Filename, A_Space)-1))
-		return i, ErrorLevel := 0
-	Loop, Parse, % Filename, %A_Space%, %A_Tab%
-	{ _ .= (A_Index=1?"":" ") A_LoopField 
-		if (IsFile(_))
-			return _, ErrorLevel := false
-	} return Filename, ErrorLevel := true
 }
 
 ;abre un directorio y selecciona el/los archivo(s)
@@ -1055,14 +1041,12 @@ DirGetSize(DirName, Units := "", Recurse := true) {
 Links:
 	• http://ahkscript.org/boards/viewtopic.php?t=3925
 	• https://dl.dropboxusercontent.com/u/186419968/html/BaseConversion/index.html
-Nota: algunas operaciones aceptan números de mas de 18 cifras, para ello, el número debe estar encerrado entre comillas.
-	Ejemplo (suma): MsgBox % "Normal: " (9999999999999999999+1) " (ERROR)`nAdd(): " Add("9999999999999999999", 1) " (OK)"
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 */
 ;elevar un numero (potenciación)
 ;Sintaxis: Power( [base], [exponente] )
 ;Ejemplo: MsgBox % Power(99, 999)
-;NOTA: evitar números de 4 cifras o mas (muy lento)
+;Nota: números >999 puede ser muy lento.
 Power(Base, Exponent) {
 	SLB := StrLen(Base), VarSetCapacity(B, SLB, 0)
 	Loop, Parse, % Base
@@ -1209,9 +1193,8 @@ Add(num1, num2, Prefect := false) {
 	if ((len1:=StrLen(num1))>=(len2:=StrLen(num2)))
 		Loop, % (len1-len2)
 			num2 := "0" num2
-	else
-		Loop, % (len2-len1)
-			num1 := "0" num1
+	else Loop, % (len2-len1)
+		num1 := "0" num1
 	if (count!=1&&count!=3)&&((len1:=StrLen(num1))!="*") {
 		Loop {
 			digit := SubStr(num1, 1-A_Index, 1)+SubStr(num2, 1-A_index, 1)+(cr?1:0)
@@ -1235,8 +1218,7 @@ Add(num1, num2, Prefect := false) {
 				break
 			} else if InStr(digit, "-")
 				bw := true, digit += 10
-			else
-				bw := false
+			else bw := false
 			sm := digit sm
 		} if ((dneg2||InStr(cnum1, "-"))&&nc)||(InStr(cnum2, "-")&&!nc)
 			sm := "-" sm
@@ -1247,35 +1229,41 @@ Add(num1, num2, Prefect := false) {
 	return Prefect?Prefect(sm):sm
 }
 
+BitShiftLeft(Value, Bit, BitwiseAnd := "") { ;MsgBox % (54992<<0xC) "," BitShiftLeft(54992, 0xC) 
+	return (BitwiseAnd=""?Round(Value*(2**Bit)):Round(Value*(2**Bit))&BitwiseAnd)
+} BitShiftRight(Value, Bit, BitwiseAnd := "") { ;MsgBox % (54992>>0xC) "," BitShiftRight(54992, 0xC)
+	return (BitwiseAnd=""?Round(Value/(2**Bit)):Round(Value/(2**Bit))&BitwiseAnd)
+}
+
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
 
 ;obtiene el mayor numero
-;EJEMPLO: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max( "5,2,8,-44,7" )
+;Ejemplo: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max("5,2,8,-44,7")
 Max(n*) {
-	n := n.MaxIndex()=1?StrSplit(n[1], ",", A_Space A_Tab):n, _ := n[1]
-	Loop, % n.MaxIndex()
-		_ := _<n[A_Index+1]?n[A_Index+1]:_
+	n := ((n.MaxIndex()=1)?StrSplit(n[1], ",", A_Space A_Tab):n), _ := n[1]
+	Loop, % (n.MaxIndex())
+		_ := ((_<n[A_Index+1])?n[A_Index+1]:_)
 	return _
 }
 
 ;obtiene el menor numero
-;EJEMPLO: MsgBox % Min( 7, 9, 0, 222, -0.2 ) "`n" Min( "5,2,8,-44,7" )
+;Ejemplo: MsgBox % Min( 7, 9, 0, 222, -0.2 ) "`n" Min("5,2,8,-44,7")
 Min(n*) {
-	n := n.MaxIndex()=1?StrSplit(n[1], ",", A_Space A_Tab):n, _ := n[1]
-	Loop, % n.MaxIndex()
-		_ := _>n[A_Index+1]?(n[A_Index+1]=""?_:n[A_Index+1]):_
+	n := ((n.MaxIndex()=1)?StrSplit(n[1], ",", A_Space A_Tab):n), _ := n[1]
+	Loop, % (n.MaxIndex())
+		_ := ((_>n[A_Index+1])?((n[A_Index+1]="")?_:n[A_Index+1]):_)
 	return _
 }
 
 LOWORD(l) {
-    return l & 0xffff
+    return (l & 0xffff)
 } HIWORD(l, Extract := true) {
-    return Extract?((l >> 16) & 0xffff):(l << 16)
+    return (Extract?((l >> 16) & 0xffff):(l << 16))
 } LOBYTE(w) {
-    return w & 0xff
+    return (w & 0xff)
 } HIBYTE(w, Extract := true) {
-    return Extract?((w >> 8) & 0xff):((w << 8) & 0xff)
+    return (Extract?((w >> 8) & 0xff):((w << 8) & 0xff))
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -1286,11 +1274,11 @@ LOWORD(l) {
 ;Sintaxis: Between( [número], [valor menor], [valor mayor], [valores a excluir*] ) 
 ;Valores a excluir: valores separados por coma
 Between(value, low, high, nval*) {
-	nval := nval.MaxIndex()=1?StrSplit(nval[1], ",", A_Space A_Tab):nval
-	Loop, % nval.MaxIndex()
+	nval := ((nval.MaxIndex()=1)?StrSplit(nval[1], ",", A_Space A_Tab):nval)
+	Loop, % (nval.MaxIndex())
 		if (value=nval[A_Index])
 			return false
-	return (value>=low)&&(value<=high)
+	return ((value>=low)&&(value<=high))
 }
 
 ;si el número es par devuelve 1, caso contrario 0 (impar)
@@ -1302,7 +1290,7 @@ IsEven(num) {
 ;Sintaxis: IsNumber( [número], [carácteres no permitidos separados por coma] )
 ;EJEMPLO: MsgBox % IsNumber(-23.02) "`n" IsNumber("*1") "`n" IsNumber(-1) "`n" IsNumber(0xF,"*") "`n" IsNumber(+1)
 IsNumber(num, IfChars := "*,x") {
-	return Contains(num,IfChars)||(num+1)=""?0:1
+	return ((Contains(num,IfChars)||((num+1)=""))?false:true)
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -1311,7 +1299,7 @@ IsNumber(num, IfChars := "*,x") {
 ;convertir a hexadecimal
 ;Sintaxis: Hex( [número], [max num], [¿mayúscula?], [prefijo] )
 Hex(Int, Length := 0, May := false, Prefix := "0x") {
-	return Format(Prefix "{:" (Length>0?0 LTrim(Length,0):"") (May?"X":"x") "}", Int)
+	return Format(Prefix "{:" ((Length>0)?0 LTrim(Length,0):"") (May?"X":"x") "}", Int)
 }
 
 ;convertir a Unsigned Integer
@@ -1347,24 +1335,24 @@ RGB(Color := "", ByRef R := "", ByRef G := "", ByRef B := "") {
 
 ;convertir twips a píxeles
 TwipToPixel(Twip, Round := false, Places := 0) {
-	Twips := Twip * (1.0 / 1440.0) * A_ScreenDPI
-	return Round?Round(Twips, Places):Twips
+	Twips := (Twip * (1.0 / 1440.0) * A_ScreenDPI)
+	return (Round?Round(Twips, Places):Twips)
 } ;https://es.wikipedia.org/wiki/Twip
 
 ;convertir pixeles a twips
 PixelToTwip(Pixel, Round := false, Places := 0) {
-	Pixels := Pixel / (1.0 / 1440.0) / A_ScreenDPI
-	return Round?Round(Pixels, Places):Pixels
+	Pixels := (Pixel / (1.0 / 1440.0) / A_ScreenDPI)
+	return (Round?Round(Pixels, Places):Pixels)
 } ;https://es.wikipedia.org/wiki/Píxel
 
 ;convertir entero a hexadecimal
-IntToHex(int, Prefix := "0x") {
-    l := 8
-    while (l--) {
-        n := (int>>(l*4))&0xf
-        h .= (n>9)?Chr(0x37+n):n
-        if (l == 0 && ,//2 == 0)
-            h .= " "
+IntToHex(Int, Prefix := "0x") {
+	HEX_BYTE := (8 / 4), HEX_INT  := (32 / (8 / HEX_BYTE))
+    while (HEX_INT--) {
+		n := ((int >> (HEX_INT * 4)) & 0xf)
+		h .= ((n>9)?Chr(0x37+n):n)
+		if (HEX_INT==0) && ((HEX_INT//HEX_BYTE)==0)
+			h .= " "
     } return Prefix h
 }
 
@@ -1783,10 +1771,9 @@ ColorSelect(hWnd := 0, Color := "", ShowAll := "") {
 
 ;-------------------------------------------------------------------------------------------------------------------
 
-;enumera todas las fuentes.
+;enumera todas las fuentes instaladas.
 FontEnum(lfCharSet := 1, lfFaceName := "") {
-	hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
-	, VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
+	hDC := DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
 	if (lfFaceName!="")
 		DllCall("lstrcpynW", "Ptr", &LOGFONT+28, "Str", lfFaceName, "Int", StrLen(lfFaceName)+1)
 	lpEnumFunc := RegisterCallback("EnumFontFamExProc", "Fast", 4), Param := {List: ""}
@@ -2006,27 +1993,6 @@ StrPutVar(String, Encoding := "UTF-16", ByRef Length := "") {
 	return &Var
 }
 
-;obtiene un array con el texto entre comillas
-;Sintaxis: SplitTextBetweenQuotes( [texto], [cantidad] )
-;EJEMPLO: MsgBox % SplitTextBetweenQuotes(Chr(34) "AA" Chr(34) 1 Chr(34) "BB" Chr(34), 2)[2]
-SplitTextBetweenQuotes(String, Count) {
-	Array := []
-	Loop, %Count%
-		_ .= ".*" Chr(34) "(.*)" Chr(34)
-	RegExMatch(String Chr(34) Chr(34), "U)" Chr(34) "(.*)" Chr(34) _, i)
-	Loop, %Count%
-		Array[A_Index] := i%A_Index%
-	return Array, ErrorLevel := Array.MaxIndex()
-} StrSplitP(String, Delimiter := "'", OmitChars := "", ReplaceLiteralVar := 0) {
-	Array := [], Index := 0
-	Loop, Parse, % String, %Delimiter%, %OmitChars%
-		if IsEven(A_Index) {
-			Index++
-			Array[Index] := ReplaceLiteralVar ? ReplaceLiteralVar(A_LoopField) : A_LoopField
-		}
-	return Array, ErrorLevel := Array.MaxIndex()
-}
-
 StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093%28v=vs.85%29.aspx
     len := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", String, "Int", StrLen(String), "Ptr", 0, "Int", 0)
     Loop {
@@ -2039,24 +2005,6 @@ StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop
         len *= -1
     } return RegExReplace(StrGet(&buf, len, "UTF-16"), "\pM")
 }
-	
-;Separa una cadena en una matriz de subcadenas utilizando los delimitadores especificados.
-;Sintaxis: StrSplit( [cadena], [delimitador], [omitir], [defecto si es vacio] )
-;NOTA: ErrorLevel se establecen en la cantidad total de índices
-;StrSplit(String, Delimiter := "", OmitChars := "", Default := "") {
-;	if IsObject( String )
-;		return String, ErrorLevel := String.MaxIndex()
-;	Array := []
-;	Loop, Parse, % String, %Delimiter%, %OmitChars%
-;		Array[ A_Index ] := A_LoopField = "" ? Default : A_LoopField
-;	return Array, ErrorLevel := Array.MaxIndex()
-;}
-;StrMergeArray(Array, Delimiter := "") {
-;	if IsObject( Array )
-;		for k, v in Array
-;			Array .= k = 1 ? v : Delimiter v
-;	return Array
-;}
 
 ;quitar caracteres de izquierda a derecha
 ;Sintaxis : StrTrimLeft( [Var], [Limite] )
@@ -2124,22 +2072,6 @@ ValidatePath(ByRef IpPath) {
 	return IpPath := StrReplace(IpPath, "\\", "\")
 }
 
-;obtiene el mayór número (no negativos)
-;Ver: Max()
-StrMax(num, Delimiter := ",") {
-	num := RegExReplace(num, "[^0-9\Q" Delimiter "\E]")
-	, RegExMatch(Sort(num, "D" Delimiter " N R"), "[\d.-]*", z)
-	return z
-}
-
-;obtiene el menór número (no negativos)
-;Ver: Min()
-StrMin(num, Delimiter := ",") {
-	num := RegExReplace(num, "[^0-9\Q" Delimiter "\E]")
-	, RegExMatch(Sort(num, "D" Delimiter " N"), "[\d.-]*", z)
-	return z
-}
-
 Sort(VarName, Options := "") {
 	Sort, VarName, %Options%
 	return VarName
@@ -2147,9 +2079,7 @@ Sort(VarName, Options := "") {
 
 ;convertir texto en minúscula 
 StrLower(String, T := 0) {
-	return Format(T ? "{:T}" : "{:L}", String)
-	;String2 := DllCall("User32.dll\CharLowerW", "Str", String)
-	;return StrGet( String2, StrLen(String) )
+	return Format(T?"{:T}":"{:L}", String)
 }
 
 ;comprueba si es minúscula
@@ -2161,9 +2091,7 @@ IsLower(String) {
 
 ;convertir texto en mayuscula
 StrUpper(String, T := 0) {
-	return Format(T ? "{:T}" : "{:U}", String)
-	;String2 := DllCall("User32.dll\CharUpperW", "Str", String)
-	;return StrGet( String2, StrLen(String) )
+	return Format(T?"{:T}":"{:U}", String)
 }
 
 ;comprueba si es mayúscula
@@ -2171,24 +2099,6 @@ IsUpper(String) {
 	if String is UPPER
 		return true
 	return false
-}
-
-;Convierte la ruta especificada a su forma larga
-StrLPath(lpszShortPath) {
-	lpszShortPath := RegExReplace(RegExReplace(RegExReplace(lpszShortPath, "^\s+"), "\s+$"), "\\+$")
-	, cchBuffer := DllCall("Kernel32.dll\GetLongPathNameW", "Str", "\\?\" lpszShortPath, "Ptr", 0, "UInt", 0)
-	, VarSetCapacity( lpszLongPath, cchBuffer * 2, 0 )
-	, i := DllCall("Kernel32.dll\GetLongPathNameW", "Str", "\\?\" lpszShortPath, "Str", lpszLongPath, "UInt", cchBuffer)
-	return i ? RegExReplace(lpszLongPath, "^\\\\\?\\+") : lpszShortPath, ErrorLevel := !i
-}
-
-;Convierte la ruta especificada a su forma corta
-StrSPath(lpszShortPath) {
-	lpszShortPath := RegExReplace(RegExReplace(RegExReplace(lpszShortPath, "^\s+"), "\s+$"), "\\+$")
-	, cchBuffer := DllCall("Kernel32.dll\GetShortPathNameW", "Str", "\\?\" lpszShortPath, "Ptr", 0, "UInt", 0)
-	, VarSetCapacity(lpszLongPath, cchBuffer * 2, 0)
-	, i := DllCall("Kernel32.dll\GetShortPathNameW", "Str", "\\?\" lpszShortPath, "Str", lpszLongPath, "UInt", cchBuffer)
-	return i ? RegExReplace(lpszLongPath, "^\\\\\?\\+") : lpszShortPath, ErrorLevel := !i
 }
 
 StrDownload(URL) {
@@ -3387,6 +3297,118 @@ RegisterSessionNotification(Status, Session := 1, Func := "") { ;http://ahkscrip
 
 
 
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+; ::::::::::::::::::::::::::::::::::::::::::::: NOMBRES Y RUTAS DE ARCHIVOS ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;recupera la ruta y el nombre completo del archivo/carpeta especificado.
+GetFullPathName(Filename) {
+	Size := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", 0, "Ptr", 0, "PtrP", 0)
+	, VarSetCapacity(OutputVar, Size * 2, 0) 
+	, r := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", Size, "Str", OutputVar, "PtrP", 0)
+	return r?RTrim(OutputVar, "\"):Filename, ErrorLevel := !r
+}
+
+;convierte la ruta especificada a su forma larga
+GetLongPathName(Filename) {
+	Size := DllCall("Kernel32.dll\GetLongPathNameW", "Str", "\\?\" Filename, "Ptr", 0, "UInt", 0), VarSetCapacity(OutputVar, Size * 2, 0)
+	, r := DllCall("Kernel32.dll\GetLongPathNameW", "Str", "\\?\" Filename, "Str", OutputVar, "UInt", Size)
+	return r?LTrim(OutputVar, "\\?\"):Filename, ErrorLevel := !r
+}
+
+;convierte la ruta especificada a su forma corta
+GetShortPathName(Filename) {
+	Size := DllCall("Kernel32.dll\GetShortPathNameW", "Str", "\\?\" Filename, "Ptr", 0, "UInt", 0), VarSetCapacity(OutputVar, Size * 2, 0)
+	, r := DllCall("Kernel32.dll\GetShortPathNameW", "Str", "\\?\" Filename, "Str", OutputVar, "UInt", Size)
+	return r?LTrim(OutputVar, "\\?\"):Filename, ErrorLevel := !r
+}
+
+;obtiene una ruta valida (solo archivos) removiendo caracteres no permitidos, espacios, parámetros y comillas.
+GetValidPathName(Filename) {
+	Filename := Trim(RegExReplace(Filename, "[Q*/?" Chr(34) "<>|`n\E]"))
+	if (IsFile(Filename))
+		return Filename, ErrorLevel := false
+	if IsFile(i:=StrLeft(Filename, InStr(Filename, A_Space)-1))
+		return i, ErrorLevel := 0
+	Loop, Parse, % Filename, %A_Space%, %A_Tab%
+	{ _ .= (A_Index=1?"":" ") A_LoopField 
+		if (IsFile(_))
+			return _, ErrorLevel := false
+	} return Filename, ErrorLevel := true
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3581,16 +3603,6 @@ GetDesktopBackground() {
 	nSize := VarSetCapacity(DESKWALLPAPER, 260 * 2, 0)
 	i := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0073, "UInt", nSize, "Str", DESKWALLPAPER, "UInt", 0)
 	return DESKWALLPAPER, ErrorLevel := !i
-}
-
-;recupera la ruta y el nombre completo del archivo/carpeta especificado
-GetFullPathName(lpFileName) {
-	if InStr(lpFileName, ":")&&(StrLen(lpFileName)=2)
-		lpFileName .= "\"
-	nBufferLength := DllCall("Kernel32.dll\GetFullPathNameW", "Str", lpFileName, "UInt", 0, "Ptr", 0, "PtrP", 0)
-	, VarSetCapacity(lpBuffer, nBufferLength * 2, 0) 
-	, i := DllCall("Kernel32.dll\GetFullPathNameW", "Str", lpFileName, "UInt", nBufferLength, "Str", lpBuffer, "PtrP", 0)
-	return RTrim(lpBuffer, "\"), ErrorLevel := !i
 }
 
 ComVar() { ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3964
@@ -4704,20 +4716,20 @@ Edit_SelectFont(hWnd, Quality := 2, Redraw := false) {
 ; ::::::::::::::::::::::::::::::::::::::::::::: BUTTON CONTROL ::::::::::::::::::::::::::::::::::
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;establece un icono a un boton
-;Sintaxis: BCM_SetIcon( [hWnd], [Icono], [Indice], [opciones] )
-;Opciones:
+;Sintaxis: BC_SetIcon( [hWnd], [Icono], [Indice], [opciones] )
+;Opciones: espesificar la letra seguida de un valor.
 	;W = ancho | H = alto
 	;L = margen izquierdo | R = margen derecho
 	;T = margen superior | B = margen inferior
 	;A = alineación (0 = izquierda, 1 = derecha, 2 = superior, 3 = inferior, 4 = centro)
 ;EJEMPLO:
 	;Gui, Add, Button, w94 h25 hwndhWnd, AutoHotKey
-	;BCM_SetIcon(hWnd, A_AhkPath,, "L2")
+	;BC_SetIcon(hWnd, A_AhkPath,, "L2")
 	;Gui, Show
 	;return
 	;GuiClose:
 	;Exitapp
-BCM_SetIcon(hWnd, Icon, Index := 1, Options := "") {
+BC_SetIcon(hWnd, Icon, Index := 1, Options := "") {
 	static List := []
 	for k, v in List
 		if !(IsWindow(k))
@@ -4737,7 +4749,12 @@ BCM_SetIcon(hWnd, Icon, Index := 1, Options := "") {
 	return IL_Add(ImageList, Icon, Index), List[hWnd] := ImageList
 }
 
-
+;simula clic en el boton.
+;Sintaxis: BC_Click( [hWnd] )
+;Nota: la ventana debe estar activa.
+BC_Click(hWnd) {
+	return SendMessage(hWnd, 0x00F5)
+}
 
 
 
@@ -5470,6 +5487,252 @@ CB_GetText(hWnd, Index := -1) {
 	, SendMessage(hWnd, 0x0148, "Int", Index-1, "Str", Text)
 	return Text
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;::::::::::::::::::::::::::::::::::::::::::::: PROGRESS BAR CONTROL ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;establece el valor mínimo y máximo.
+;Sintaxis: PB_SetRange( [hWnd], [min], [max] )
+PB_SetRange(hWnd, Min := 0, Max := 100) {
+	Min := (Min>-1)?Min:0, Max := (Max>Min)?Max:(Min+1)
+	return SendMessage(hWnd, 0x0406, "Int", Min, "Int", Max)
+}
+
+;establecer estado.
+;Sintaxis: PB_SetState( [hWnd], [estado] )
+;Estado: Normal | Error | Paused
+PB_SetState(hWnd, State := 1) {
+	if (State="Normal") || (State="N") || (State=1)
+		return SendMessage(hWnd, 0x0410, "Int", 1)
+	if (State="Error") || (State="E") || (State=2)
+		return SendMessage(hWnd, 0x0410, "Int", 2)
+	if (State="Paused") || (State="P") || (State=3)
+		return SendMessage(hWnd, 0x0410, "Int", 3)
+	return false, ErrorLevel := true
+}
+
+;establecer/incrementar/decrementar valor.
+;Sintaxis: PB_SetPos( [hWnd], [+/- valor] )
+;Devuelve: la posición anterior.
+;Nota: si el valor está fuera del rango del control, la posición se establece en el límite más cercano.
+PB_SetPos(hWNd, Value := "+10") {
+	M := InStr(Value, "+"), L := InStr(Value, "-")
+	if (M) || (L) ;+/-
+		Pos := PB_GetPos(hWnd), Value := (M?(Pos+StrReplace(Value, "+")):(Pos-StrReplace(Value, "-")))
+	return SendMessage(hWnd, 0x0402, "Int", Value)
+}
+
+;establece el color de la barra de indicador de progreso.
+;Sintaxis: PB_SetBarColor( [hWnd], [color] )
+;Color: espesificar el nombre del color o RGB.
+;Nota: devuelve el color anterior.
+PB_SetBarColor(hWnd, Color) {
+	return RGB(SendMessage(hWnd, 0x0409,,,, RGBToInt(_getcolor(Color))))
+}
+
+;establee el color de fondo de la barra de progreso.
+;Sintaxis: PB_SetBKColor( [hWnd], [color] )
+;Color: espesificar el nombre del color o RGB.
+;Nota: devuelve el color anterior.
+PB_SetBKColor(hWnd, Color) {
+	return RGB(SendMessage(hWnd, 0x2001,,,, RGBToInt(_getcolor(Color))))
+}
+
+;----------------------------------------------------------------------------------------------------------------------------------------------
+
+;establece la barra de progreso para el modo de marquesina. esto hace que la barra de progreso para moverse como una marquesina.
+;Sintaxis: PB_SetMarquee( [hWnd], [0|1], [retraso, en milisegundos] )
+PB_SetMarquee(hWnd, State := true, Delay := 0) {
+	WinSetStyle(hWnd, (State?"":"-") 0x08)
+	return SendMessage(hWnd, 0x040A, "Int", !!State, "UInt", (Delay>-1)?Delay:0)
+}
+
+;muestra el progreso en una barra de desplazamiento suave.
+;Sintaxis: PB_SetSmooth( [hWnd], [0|1], [¿reverse?] )
+;Reverse: el comportamiento de animación que la barra de progresa lo utiliza cuando se mueve hacia atrás
+PB_SetSmooth(hWnd, State := true, Reverse := false) {
+	Pos := PB_GetPos(hWnd), r:=WinSetStyle(hWnd, (State?"":"-") (Reverse?0x10:0x01))
+	return r, PB_SetPos(hWnd, Pos), ErrorLevel := !r
+}
+
+;----------------------------------------------------------------------------------------------------------------------------------------------
+
+;obtener el valor minimo y maximo.
+;Sintaxis: PB_GetRange( [hWnd], [min (out)], [max (out)] )
+;Nota: devuelve un Array con los valores [min, max].
+PB_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
+	VarSetCapacity(PBRANGE, 8, 0), SendMessage(hWnd, 0x0407,,,, &PBRANGE)
+	return [Min:=NumGet(PBRANGE, 0, "Int"), Max:=NumGet(PBRANGE, 4, "Int")]
+}
+
+;obtener estado.
+;Sintaxis: PB_GetState( [hWnd] )
+;Devuelve: Normal | Error | Paused
+PB_GetState(hWnd) {
+	State := SendMessage(hWnd, 0x0411)
+	return (r:=(State=1)?"Normal":(State=2)?"Error":(State=3)?"Paused":""), ErrorLevel := !r
+}
+
+;obtener valor.
+;Sintaxis: PB_GetPos( [hWnd] )
+PB_GetPos(hWnd) {
+	return SendMessage(hWnd, 0x0408)
+}
+
+;obtiene el color RGB de la barra de indicador de progreso.
+;Sintaxis: PB_GetBarColor( [hWnd] )
+PB_GetBarColor(hWnd) {
+	return RGB(SendMessage(hWnd, 0x040F))
+}
+
+;obtiene el color RGB de fondo de la barra de progreso.
+;Sintaxis: PB_GetBKColor( [hWnd] )
+PB_GetBKColor(hWnd) {
+	return RGB(SendMessage(hWnd, 0x040E))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;::::::::::::::::::::::::::::::::::::::::::::: SLIDER CONTROL ::::::::::::::::::::::::::::::::::
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+;establecer posicion
+;Sintaxis: TB_SetPos( [hWnd], [valor], [¿redibujar?] )
+TB_SetPos(hWnd, Value, Redraw := true) {
+	return SendMessage(hWnd, 0x0405, "Int", !!Redraw, "Int", Value)
+}
+
+;establecer valor minimo y maximo.
+;Sintaxis: TB_SetRange( [hWnd], [min], [max], [¿redibujar?] )
+TB_SetRange(hWnd, Min := 0, Max := 100, Redraw := true) {
+	Min := (Min>-1)?Min:0, Max := (Max>Min)?Max:(Min+1)
+	return SendMessage(hWnd, 0x0406, "Int", !!Redraw,, LOWORD(Min)+HIWORD(Max, false))
+}
+
+;----------------------------------------------------------------------------------------------------------------------------------------------
+
+;obtener posicion
+;Sintaxis: TB_GetPos( [hWnd] )
+TB_GetPos(hWnd) {
+	return SendMessage(hWnd, 0x0400)
+}
+
+;obtener valor minimo y maximo.
+;Sintaxis: TB_GetRange( [hWnd], [min (out)], [max (out)] )
+;Nota: devuelve un Array [min, max].
+TB_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
+	return [Min:=SendMessage(hWnd, 0x0401), Max:=SendMessage(hWnd, 0x0402)]
+}
+
+
+
+
 
 
 
@@ -6704,7 +6967,7 @@ A_Temp() {
 		uSize := DllCall("kernel32.dll\GetTempPathW", "UInt", 0, "Ptr", 0)
 		, VarSetCapacity(lpBuffer, uSize * 2, 0)
 		, DllCall("kernel32.dll\GetTempPathW", "UInt", uSize + 1, "Str", lpBuffer)
-	return i?i:Set(A_ThisFunc, StrLPath(lpBuffer))
+	return i?i:Set(A_ThisFunc, GetLongPathName(lpBuffer))
 }
 
 ;recupera/establece el directorio de trabajo
@@ -6879,9 +7142,9 @@ A_Cursor() {
 }
 
 A_OSVersion() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_OSVersion
 } A_OSType() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_OSType
 }
 
 A_TickCount(ByRef ElapsedTime := "") {
@@ -6956,7 +7219,6 @@ A_Year(Year := "") {
 
 /* -------------------------------------------------------------------------------------------------------------------------------------------------------------
  ::::::::::::::::::::::::::::::::::::::::::::: VERSION HELPER FUNCTIONS ::::::::::::::::::::::::::::::::::
-• Link: https://msdn.microsoft.com/en-us/library/windows/desktop/dn424972%28v=vs.85%29.aspx
 • Ejemplo:
 	MsgBox %  "IsWindowsXPOrGreater: " IsWindowsXPOrGreater()
 		. "`nIsWindowsXPSP1OrGreater: " IsWindowsXPSP1OrGreater()
@@ -6970,8 +7232,7 @@ A_Year(Year := "") {
 		. "`nIsWindows8OrGreater: " IsWindows8OrGreater()
 		. "`nIsWindows8Point1OrGreater: " IsWindows8Point1OrGreater()
 		. "`nIsWindows10OrGreater: " IsWindows10OrGreater()
-		. "`nIsWindowsServer: " isWindowsServer()
-		. "`n`nWindowsVersion: " WindowsVersion(SP) " Service Pack " SP
+		. "`nIsWindowsServer: " IsWindowsServer()
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 */
 IsWindowsVersionOrGreater(MajorVersion, MinorVersion, ServicePackMajor) {
@@ -7028,10 +7289,15 @@ IsWindowsServer() { ; = WIN_SERVER
 ;devuelve una cadena que identifica al sistema operativo actual.
 ;Sintaxis 1: WindowsVersion( [Service Pack (salida)] )
 ;Sintaxis 2: WindowsVersionEx( [¿mostrar Service Pack y Arquitectura?] )
+;Sintaxis 3: WinVersion()
 ;Service Pack: número del último Service Pack instalado en el sistema (0, 1, 2, 3 ...).
 ;Devuelve: WIN_SERVER2003R2, WIN_HOMESERVER, WIN_SERVER2008, WIN_SERVER2008R2, WIN_SERVER2012, WIN_SERVER2012R2, WIN_SERVER2016
 	;WIN_XP, WIN_V, WIN_7, WIN_8, WIN_8.1, WIN_10
-;Ejemplo: MsgBox % WindowsVersion(SP) " SP " SP " (" WindowsVersionEx(true) ")."
+;Nota: si hay una nueva version de windows (aún no incluida en la funcion), devuelve lo mismo que WinVersion().
+;Ejemplo: 
+	;MsgBox % "WindowsVersion: " WindowsVersion(SP) " Service Pack " SP
+	;	. "`nWindowsVersionEx: " WindowsVersionEx(true)
+	;	. "`nWinVersion: " WinVersion()
 WindowsVersion(ByRef ServicePackMajor := "") {
 	static WindowsVersion, ServicePackMajor2
 	if (WindowsVersion!="")
@@ -7049,7 +7315,7 @@ WindowsVersion(ByRef ServicePackMajor := "") {
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=1))?"WIN_7"
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=2))?"WIN_8"
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=3))?"WIN_8.1"
-	: ((VersionInfo.MajorVersion=10)&&(VersionInfo.MinorVersion=0))?"WIN_10":"")), ServicePackMajor := (ServicePackMajor2:=VersionInfo.ServicePackMajor)
+	: ((VersionInfo.MajorVersion=10)&&(VersionInfo.MinorVersion=0))?"WIN_10":WinVersion())), ServicePackMajor := (ServicePackMajor2:=VersionInfo.ServicePackMajor)
 } WindowsVersionEx(Ex := false) {
 	static WindowsVersionEx, WindowsVersion
 	if (Ex=2)
@@ -7059,7 +7325,12 @@ WindowsVersion(ByRef ServicePackMajor := "") {
     for OS in ComObjGet("winmgmts:").ExecQuery("SELECT * FROM Win32_OperatingSystem") {
 		WindowsVersion := Trim(OS.Caption), WindowsVersionEx := Trim((OS.CSDVersion?OS.CSDVersion A_Space:) (A_Is64bitOS?"x64":"x86"))
 		return Ex?WindowsVersion A_Space WindowsVersionEx:WindowsVersion
-}} ;https://msdn.microsoft.com/en-us/library/aa394239%28v=vs.85%29.aspx
+}} WinVersion() { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724833(v=vs.85).aspx
+	VersionInfo := SysGetVersion()
+	return VersionInfo.MajorVersion "." VersionInfo.MinorVersion "." VersionInfo.BuildNumber
+}
+
+
 
 
 
@@ -7303,7 +7574,6 @@ WinMinimizeAllUndo(Force := false) {
 ;Invoca un elemento de menú de la barra de menú de la ventana especificada
 ;Sintaxis: WinMenuSelectItem( [ID], [Menu Principal], [Submenus*] )
 ;EJEMPLO: WinMenuSelectItem( IsWindow(), "Archivo", "Abrir..." )
-;VER: MenuGetItemList()
 WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 	return MenuSelect(hWnd, Menu, Submenu*) ;AHKv2 --> MenuSelect()
 }
@@ -7311,31 +7581,34 @@ WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
 
-;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha
-;Sintaxis: WinCenter( [ID], [Top|Bottom|Right|Left], [¿obviar barra de tareas?], [¿centrar?], [¿redibujar?] )
-;EJEMPLO:
-	;WinMinimizeAll(), Run("notepad.exe"), Sleep(500), i := WinExist( "ahk_exe notepad.exe" ), WinActivate( i, 1 )
-	;MsgBox % "Centrar Ventana: " WinCenter( i ) " - " i
-	;MsgBox % "Centrar Ventana (Omitir Barra De Tareas): " WinCenter( i,, 1)
-	;MsgBox % "Centrar Ventana, Arriba: " WinCenter(i, "Top")
-	;MsgBox % "Centrar Ventana, Derecha: " WinCenter(i, "Right")
-	;MsgBox % "Posicionar Ventana Abajo: " WinCenter(i, "Bottom",, 0)
-	;MsgBox % "Posicionar Ventana A La Izquierda: " WinCenter(i, "Left",, 0)
-	;MsgBox % "Posicionar Ventana, Arriba-Derecha: " WinCenter(i, "Top" ,,, false) WinCenter(i, "Right",, 0)
-WinCenter(hWnd, Mode := 0, ByWorkArea := 0, Center := 1, Redraw := true) {
+;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha.
+;Sintaxis: WinCenter( [ID], [Posición] )Top|Bottom y/o Right|Left] )
+;Posición: se pueden combinar.
+	;Center = centrar ventana.
+	;Top | Bottom = posicionar arriba. posicionar abajo.
+	;Left | Right = posicionar a la izquierda. posicionar a la derecha.
+;Nota: al alto de la pantalla se le resta el alto de la barra de tareas.
+;Ejemplo: abra Notepad para el ejemplo.
+	;MsgBox % "Centrar ventana: " ((!!WinActivate(hWnd:=WinExist("ahk_class Notepad"), 3)+WinMove(hWNd,,, 543, 403)+!!WinCenter(hWnd))-2)
+	;MsgBox % "Posicionar arriba a la izquierda: " WinCenter(hWnd, "Top Left")
+	;MsgBox % "Posicionar arriba a la derecha: " WinCenter(hWnd, "Top Right")
+	;MsgBox % "Posicionar abajo a la izquierda: " WinCenter(hWnd, "Bottom Left")
+	;MsgBox % "Posicionar abajo a la derecha: " WinCenter(hWnd, "Bottom Right")
+	;MsgBox % "Posicionar arriba y centrarla: " WinCenter(hWnd, "Top Center")
+	;MsgBox % "Posicionar abajo y centrarla: " WinCenter(hWnd, "Bottom Center")
+	;MsgBox % "Posicionar a la izquierda y centrarla: " WinCenter(hWnd, "Left Center")
+	;MsgBox % "Posicionar a la derecha y centrarla: " WinCenter(hWnd, "Right Center")
+WinCenter(hWnd, Pos := "") {
 	_gethwnd(hWnd)
-	if WinMax( hWnd )
-		return 0, ErrorLevel := 3
-	WinGetPos(hWnd,,, width, height)
-	, ypos := (Mode="T")||(Mode="Top")?0
-		: (Mode="B")||(Mode="Bottom")?A_MonitorWorkArea().h-height
-		: (Center?((ByWorkArea?A_MonitorWorkArea().h:A_ScreenHeight)/2)-(height/2):"")
-	, xpos := (Mode="L")||(Mode="Left")?0
-		: (Mode="R")||(Mode="Right")?A_MonitorWorkArea().w-width
-		: (Center?((ByWorkArea?A_MonitorWorkArea().w:A_ScreenWidth)/2)-(width/2):"")
-	return WinMove(hWnd, xpos, ypos,,, Redraw)
+	if (WinMax(hWnd))
+		return false, ErrorLevel := 2
+	WinGetPos(hWnd, x, y, w, h), w2 := A_ScreenWidth, h2 := (A_ScreenHeight - TaskbarGetPos().h)
+	, T := InStr(Pos, "Top"), B := InStr(Pos, "Bottom"), L := InStr(Pos, "Left"), R := InStr(Pos, "Right"), C := InStr(Pos, "Center")
+	if (T) || (B) || (L) || (R)
+		return WinMove(hWnd, L?0:R?(w2-w):C?((w2/2)-(w/2)):x, T?0:B?(h2-h):C?((h2/2) - (h/2)):y)
+	return WinMove(hWnd, (w2/2) - (w/2), (h2/2) - (h/2))
 }
-
+ 
 ;parpadea la ventana especificada. no cambia el estado activo de la ventana.
 ;Sintaxis: WinFlash( [ID], [opciones], [veces que parpadea la ventana], [velocidad de parpadeo en milisegundos] )
 ;Opciones (se pueden sumar para combinar):
@@ -7386,59 +7659,14 @@ WinAnimate(hWnd, Time := 200, Mode := "RS1", Transparent := "", Region := "") {
 	return i, ErrorLevel := !i
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
 
-;minimizar ventana al área de notificacion con animación
-;Sintaxis: WinMinimizeToTray( [ID], [¿Mostrar?] )
-;EJEMPLO: ver WinTitleAnimate()
-WinMinimizeToTray(hWnd, Show := 0) {
-	static Array := []
-	_gethwnd(hWnd)
-	if Show {
-		if (Show = 2)
-			MenuIcon("Tray")
-		WinShow( hWnd )
-		return WinTitleAnimate( hWnd, Array[hWnd].x, Array[hWnd].y, Array[hWnd].w, Array[hWnd].h )
-			, WinMove( hWnd, Array[hWnd].x, Array[hWnd].y )
-	} MenuIcon("Tray", 1), Array[hWnd] := WinGetPos(hWnd)
-	, hTray := DllCall("User32.dll\FindWindowW", "Str", "Shell_TrayWnd", "Ptr", 0)
-	, WinGetPos( hTray, txpos, typos, twsize, thsize)
-	, ControlGetPos( hTray, "TrayNotifyWnd1", nxpos, nypos, nwsize, nhsize )
-	, SW:=A_ScreenWidth,SH:=A_ScreenHeight,xpos:=SW-nhsize,ypos:=SH-nhsize,P:=((typos>(SH/3))?("B"):(txpos>(SW/3))
-	? ("R"):((txpos<(SW/3))&&(thsize<(SH/3)))?("T"):("L")),((P="L")?(xpos:=nxpos+twsize):(P="T")?(ypos:=nypos+thsize):) 
-	return WinTitleAnimate( hWnd, xpos, ypos, nhsize, nhsize, "MHi" )
-}
-
-;permite producir una animacion para el titulo de la ventana
-;Sintaxis: WinTitleAnimate( [ID], [x], [y], [ancho], [alto], [Opciones] )
-;OPCIONES: puede incluir una, dos o las tres
-	;Hide /Hi = ocultar ventana antes de producir el efecto
-	;Move / M = mover ventana antes de producir el efecto
-	;Show / S = mostrar ventana al terminar la animación
-WinTitleAnimate(hWnd, X := "", Y := "", W := "", H := "", Flag := 0) {
-	_gethwnd(hWnd)
-	, VarSetCapacity(FRECT, 8 * 2, 0), WinGetPos(hWnd, fxpos, fypos, fwsize, fhsize)
-	, NumPut(fxpos, FRECT, 0, "Int"), NumPut(fypos, FRECT, 4, "Int")
-	, NumPut(fwsize+fxpos, FRECT, 8, "Int"), NumPut(fhsize+fypos, FRECT, 12, "Int")
-	, VarSetCapacity(TRECT, 8 * 2, 0)
-	, NumPut(x=""?fxpos:x, TRECT, 0, "Int"), NumPut(y=""?fypos:y, TRECT, 4, "Int")
-	, NumPut(W=""?fwsize+fxpos:W+X, TRECT, 8, "Int"), NumPut(H=""?fhsize+fypos:H+Y, TRECT, 12, "Int")
-	if InStr(Flag, "Hi")
-		WinHide(hWnd)
-	if InStr(Flag, "M")
-		WinMove(hWnd, x=""?fxpos:x, y=""?fypos:y)
-	return i := DllCall("User32.dll\DrawAnimatedRects", "Ptr", hWnd, "Int", 0x3, "Ptr", &FRECT, "Ptr", &TRECT)
-		, x := InStr(Flag, "S")?WinShow(hWnd):""
-		, ErrorLevel := !i
-}
-
 ;mover ventana
 ;Sintaxis: WinMove( [ID], [x], [y], [ancho], [alto], [¿redibujar?] )
 WinMove(hWnd, x := "", y := "", Width := "", Height := "", Redraw := true) {
 	_gethwnd(hWnd)
-	if (x=""||y=""||Width=""||Height="")
+	if (x="") || (y="") || (Width="") || (Height="")
 		WinGetPos(hWnd, x_, y_, w_, h_)
-	x := x=""?x_:x, y := y=""?y_:y, Width := Width=""?w_:Width, Height := Height=""?h_:Height
-	return i := DllCall("User32.dll\MoveWindow", "Ptr", hWnd, "Int", x, "Int", y, "Int", Width, "Int", Height, "Int", Redraw)
-		, ErrorLevel := !i
+	x := (x="")?x_:x, y := (y="")?y_:y, Width := (Width="")?w_:Width, Height := (Height="")?h_:Height
+	return r:=DllCall("User32.dll\MoveWindow", "Ptr", hWnd, "Int", x, "Int", y, "Int", Width, "Int", Height, "Int", !!Redraw), ErrorLevel:=!r
 }
 
 ;cerrar ventana
@@ -7450,14 +7678,12 @@ WinClose(hWnd, Seconds := -1, Force := false) {
 		WinGetPID(hWnd, WinThreadId)
 		, hThread := DllCall("Kernel32.dll\OpenThread", "UInt", 0x0001, "UInt", 0, "UInt", WinThreadId)
 		return i := DllCall("Kernel32.dll\TerminateThread", "Ptr", hThread, "UInt", 0)
-			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hThread)
-			, ErrorLevel := !i, WinWaitClose(hWnd, Seconds)
+			, DllCall("Kernel32.dll\CloseHandle", "Ptr", hThread), ErrorLevel := !i, WinWaitClose(hWnd, Seconds)
 	} return i := PostMessage(hWnd, 0x0002), WinWaitClose(hWnd, Seconds)
 } WinKill(hWnd, Seconds := -1) {
 	_gethwnd(hWnd)
-	return WinClose(hWnd, Seconds, true)?true
-		: DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", true)
-} WinDestroy(hWnd) { ;sirve para cerrar las ventanas creadas por el script.
+	return WinClose(hWnd, Seconds, true)?true:DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", 0, "Int", true)
+} WinDestroy(hWnd) { ;solo para cerrar las ventanas creadas por el script.
 	_gethwnd(hWnd)
 	return DllCall("User32.dll\DestroyWindow", "Ptr", hWnd)
 }
@@ -7508,7 +7734,7 @@ WinRestore(hWnd, Force := 0) {
 }
 
 ;oculta la ventana
-;NOTA: para ocultar la ventana solo en la barra de tareas usar WinTaskBarRemove()
+;NOTA: para ocultar la ventana solo en la barra de tareas usar TaskBarRemove()
 WinHide(hWnd) {
 	_gethwnd(hWnd) ;SW_HIDE = 0
 	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", false), ErrorLevel := !i 
@@ -7695,7 +7921,7 @@ WinSetTitle(hWnd, NewTitle := "", Mode := 0) {
 	Flags := Mode=1?1:Mode=2?4:Mode=3?5:0
 	if (Flags)
 		return !(r:=DllCall("UxTheme.dll\SetWindowThemeAttribute", "Ptr", hWnd, "Int", 1, "Int64*", ((Flags+2)<<32)|(Flags+2), "Int", 8)), ErrorLevel := !!r
-	else return false, ErrorLevel := true
+	return false, ErrorLevel := true
 }
 
 ;cambia el icono de la ventana
@@ -8208,11 +8434,10 @@ SoundBeep(Frequency := 523, Duration := 150) {
 ;reproduce un sonido, video u otro tipo de archivo compatible
 ;Sintaxis: SoundPlay( [archivo], [¿esperar?] )
 SoundPlay(Filename, Wait := false) {
-	if Wait {
+	if (Wait) {
 		SoundPlay, %Filename%, 1
 		SoundPlay, ________.wav
-	} else
-		SoundPlay, %Filename%
+	} else SoundPlay, %Filename%
 	return !ErrorLevel
 }
 
@@ -8796,7 +9021,7 @@ MonitorSetBrightness(R := "", G := "", B := "") {
 #Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 #Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 #Include *i <ToolTipEx>
-#Include *i <LinearGradient> ;LinearGradient
+#Include *i <LinearGradient> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3593
 
 ;constantes
 ;Link: http://ahkscript.org/boards/viewtopic.php?f=6&t=4557
