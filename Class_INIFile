@@ -1,0 +1,265 @@
+;--------------------------------------------------------------------------------------------------------
+;EJEMPLO DE USO: ESCRIBIR, LEER Y ELIMINAR.
+;--------------------------------------------------------------------------------------------------------
+;crear contenido del archivo ini.
+INI_Text := "
+(
+[Section 1]
+Key 1.0=Value 1.0
+
+[Section 2]
+Key 2.0=Value 2.0
+
+[Section 3]
+Key 3.0=Value 3.0
+Key 3.1=Value 3.1
+Key 3.2=Value 3.2
+)"
+
+;iniciar desde texto.
+obj := INIFile(INI_Text,, true)
+MsgBox % obj.GetText() ;mostrar texto inicial.
+
+;escribir
+obj.Write("Modified 1.0", "Section 1", "Key 1.0")
+obj.Write("Modified 1.1", "Section 1", "Key 1.1")
+obj.Write("Modified 2.1", "Section 2", "Key 2.1")
+obj.Write("Modified 2.2", "Section 2", "Key 2.2")
+obj.Write("Modified 4.0", "Section 4", "Key 4.0")
+obj.Write("Modified 4.1", "Section 4", "Key 4.1")
+obj.Write("Modified 5.0", "Section 5", "Key 5.0")
+MsgBox % obj.GetText() ;mostrar texto modificado
+
+;leer
+MsgBox % obj.Read(,,, Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+MsgBox % obj.Read("Section 4",,, Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+MsgBox % obj.Read("Section 6",,, Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+MsgBox % obj.Read("Section 3", "Key 3.1",, Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+MsgBox % obj.Read("Section 3", "Key 3.3",, Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+MsgBox % obj.Read("Section 3", "Key 3.3", -1 "*", Error) "`n`n--------------------------------------------------`nErrorLevel: " Error
+
+;eliminar
+obj.Delete("Section 5")
+obj.Delete("Section 1", "Key 1.0")
+MsgBox % obj.GetText() ;mostrar texto modificado
+
+;guardar archivo en el escritorio con el nombre test.ini.
+obj.SetFile(A_Desktop "\test.ini") ;necesario ya que no se espesifico un archivo al crear el objeto.
+obj.Save() ;guardar. (si no se espesifica SetFile antes, no tiene efecto). o usar: obj.Save(, A_Desktop "\test.ini").
+obj := "" ;eliminar objeto.
+
+;abre el archivo guardado. Ejemplo para ver si el archivo es bloqueado.
+obj := INIFile(A_Desktop "\test.ini",,, true) ;crear nuevo objeto y bloquear archivo para uso exclusivo de la funcion.
+MsgBox % obj.GetText() ;mostrar texto.
+MsgBox % "Intente leer/escribir o eliminar el archivo antes de cerrar este MsgBox`n" A_Desktop "\test.ini"
+obj := "" ;eliminar objeto
+ExitApp
+
+;--------------------------------------------------------------------------------------------------------
+;crear objeto para el archivo.
+;Sintaxis: INIFile( [archivo], [¿guardar al destruir?], [¿usar texto en vez de leer un archivo?], [¿bloquear?] )
+;Bloquear: determina si se debe bloquear el archivo mientras esté en uso. (solo podrá ser usado por la función).
+	;--> para bloquear/desbloquear el archivo, debe usar las funciones Lock() y UnLock().
+;Notas:
+	;• los espacios son omitidos cuando se usa Read() para leer un valor.
+	;• en vez de epesificar un archivo, puede espesificar directamente el texto, estableciendo el 3er parametro en verdadero.
+		;--> si hace esto, la funcion Save() no tiene efecto. usar SetFile() para establecer un archivo.
+	;• usar SetFile( [archivo] ) para cambiar el archivo destino.
+	;• toda linea que empieze con '[' es conciderada una seccion y debe terminar con ']'.
+;--------------------------------------------------------------------------------------------------------
+INIFile(Filename, SaveOnExit := false, LoadFromText := false, LockFile := false) {
+	return new ___Class___IniFile___(Filename, SaveOnExit, LoadFromText, LockFile)
+} class ___Class___IniFile___ {
+	;--------------------------------------------------------------------------------------------------------
+	;crear objeto: INIFile() + funciones para uso interno.
+	;--------------------------------------------------------------------------------------------------------
+	__New(Filename, SaveOnExit, LoadFromText, LockFile) {
+		if (LoadFromText)
+			Text := Filename, this.OldText := Filename
+		else  {
+			FileRead, Text, %Filename%
+			if (ErrorLevel)
+				return false
+			this.Filename := Filename
+			if (LockFile) 
+				this.hWnd := DllCall("Kernel32.dll\CreateFileW", "Str", "\\?\" this.Filename, "UInt", 0x80000000, "UInt", 0, "Ptr", 0, "UInt", 3, "UInt", 0, "Ptr", 0x80)
+				, this.Lock()
+		} this.Text := this.Process(Text)
+		, this.Modified := false
+		, this.SaveOnExit := !!SaveOnExit
+		, this.LoadFromText := !!LoadFromText
+	} Process(Text) {
+		Loop, Parse, % Text, `n, `r
+			NewText .= (A_LoopField=""?"":((NewText=""?"":"`n") (SubStr(A_LoopField, 1, 1)="["?Trim(A_LoopField):LTrim(A_LoopField))))
+		return NewText
+	} __Delete() {
+		if !(this.LoadFromText) && (this.SaveOnExit)
+			this.Save()
+		if (this.hWnd)
+			DllCall("Kernel32.dll\CloseHandle", "Ptr", this.hWnd)
+	} Lock() { ;bloquea el archivo. impide que se lea, elimine o escriba en él.
+		if (this.hWnd) !(this.Locked) && (this.Filename) && !(this.LoadFromText)
+			DllCall("Kernel32.dll\LockFile", "Ptr", this.hWnd, "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 0), this.Locked := true
+	} UnLock() { ;desbloquea el archivo.
+		if (this.hWnd) && (this.LockFile) && (this.Locked)
+			DllCall("Kernel32.dll\UnlockFile", "Ptr", this.hWnd, "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 0), this.Locked := false
+	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;volver a leer el archivo.
+	;Nota: los cambios son descartados.
+	;--------------------------------------------------------------------------------------------------------
+	Reload() {
+		if (this.LoadFromText)
+			this.Text := this.OldText
+		else {
+			this.UnLock()
+			FileRead, Text, % this.Filename
+			if (ErrorLevel)
+				return false
+			this.Lock()
+			this.Text := this.Process(Text)
+		} this.Modified := false
+	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;escribir cambios en el archivo.
+	;Sintaxis: Save( [¿dejar una linea en blanco entre secciones?], [cambiar archivo actual] )
+	;--------------------------------------------------------------------------------------------------------
+	Save(Space := true, Filename := "") {
+		if (this.Modified) && !(this.LoadFromText)
+			this.Modified := false, this.UnLock()
+			, FileOpen(Filename=""?this.Filename:(this.Filename:=Filename), "w`n").Write(this.Text:=this.Finalize(this.Text, Space))
+			, this.Lock()
+	} Finalize(Text, Space) {
+		Loop, Parse, % Text, `n, `r
+		{	if !(A_LoopField)
+				continue
+			if (SubStr(A_LoopField, 1, 1)="[")
+				NewText .=  ((A_Index=1)?"":"`n" (Space?"`n":"")) A_LoopField
+			else NewText .= (A_Index=1)?"":"`n" A_LoopField
+		} return NewText
+	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;recupera los cambios echos hasta el momento.
+	;Sintaxis: GetText( [¿corregir texto?], [¿dejar una linea en blanco entre secciones?] )
+	;--------------------------------------------------------------------------------------------------------
+	GetText(Process := true, Space := true) {
+		return (Process?this.Finalize(this.Text, Space):this.Text)
+	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;establece el texto reescribiendo todos los cambios.
+	;Sintaxis: SetText( [texto] )
+	;--------------------------------------------------------------------------------------------------------
+	SetText(NewText) {
+		this.Text := NewText
+	}
+
+	;--------------------------------------------------------------------------------------------------------
+	;establece el archivo en el que guardar los cambios.
+	;Sintaxis: SetFile( [archivo] )
+	;--------------------------------------------------------------------------------------------------------
+	SetFile(Filename) {
+		this.UnLock()
+		if !(InStr(i:=FileExist(Filename),"D")&&i)
+			this.Filename := Filename, this.LoadFromText := false
+		this.Lock()
+	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;escribir
+	;Sintaxis: Write( [valor], [seccion], [clave] )
+	;--------------------------------------------------------------------------------------------------------
+	Write(Value, Section, Key) {
+		Len := StrLen(Key), Lines := 0, this.Text .= "`n"
+		Loop, Parse, % this.Text, `n, `r
+		{	if !(Found) && (A_LoopField="[" Section "]")
+				Found := true
+			Lines++
+		} if !(Found)
+			this.Text .= "`n[" Section "]`n" Key "=" Value
+		else {
+			Loop, Parse, % this.Text, `n, `r
+			{ if !(Write) && (A_LoopField="[" Section "]")
+					Write := true, NewText .= ((A_Index=1)?"":"`n") A_LoopField
+				else if (Write) {
+					if (A_Index=Lines) || (SubStr(A_LoopField, 1, 1)="[")
+						NewText .= "`n" (F?A_LoopField:"`n" (F:=Key) "=" Value "`n" A_LoopField)
+					else NewText .= "`n" ((SubStr(A_LoopField, 1, Len)=Key)?(F:=Key) "=" Value:A_LoopField)
+				} else NewText .= ((A_Index=1)?"":"`n") A_LoopField
+			} this.Text := NewText, this.Modified := true
+	}	}
+
+	;--------------------------------------------------------------------------------------------------------
+	;leer
+	;Sintaxis: Read( [seccion], [clave], [defecto], [ByRef Error] )
+	;Seccion: dejar vacio para recuperar todas las secciones.
+	;Clave: dejar vacío para recuperar todas las claves en la seccion espesificada.
+	;Defecto: valor que devuelve si la clave no existe en la seccion espesificada.
+	;Error: 0 si hubo algun error. 1|2 si no hubo errores.
+		;--> [Vacío] = 0 si la seccion  existe y se encontraron claves. 1 si no se encontraron claves. 2 si la seccion no existe.
+		;--> Seccion + Clave = 0 si la clave existe. 1 si la clave no existe.
+		;--> Seccion = 0 si se encontraron secciones. 1 si no se encontraron secciones.
+	;Nota: cuando lee un valor, los espacios al inicio y fin son omitidos.
+	;--------------------------------------------------------------------------------------------------------
+	Read(Section := "", Key := "", Default := "", ByRef Error := "") {
+		if (Section="") {
+			Loop, Parse, % this.Text, `n, `r
+				if (SubStr(A_LoopField, 1, 1)="[")
+					Sections .= (A_Index=1?"":"`n") A_LoopField
+			return Sections, Error := (Sections="")
+		} else if (Key="") {
+			Loop, Parse, % this.Text, `n, `r
+			{	 if !(Read) && (A_LoopField="[" Section "]")
+					Read := true
+				else if (Read) && (SubStr(A_LoopField, 1,1)="[")
+					break
+				else if (Read)
+					Keys .= ((A_LoopField="")?"":(Keys=""?"":"`n") StrSplit(A_LoopField, "=", A_Space A_Tab)[1])
+			} return Keys, Error := ((Read="")?2:(Keys="")?1:0)
+		} else {
+			Len := StrLen(Key)
+			Loop, Parse, % this.Text, `n, `r
+			{ 	if !(Read) && (A_LoopField="[" Section "]")
+					Read := true
+				else if (Read) && (SubStr(A_LoopField, 1,1)="[")
+					break
+				else if (Read) && (SubStr(A_LoopField, 1, Len)=Key) {
+					Exist := true, Value := StrSplit(A_LoopField, "=", A_Space A_Tab)[2]
+					break
+			}} return Exist?Value:Default, Error := Exist?false:true
+	}	}
+	
+	;--------------------------------------------------------------------------------------------------------
+	;eliminar
+	;Sintaxis: Delete( [seccion], [clave] )
+	;Notas: deja vacio el 2do parametro para eliminar la seccion entera.
+	;--------------------------------------------------------------------------------------------------------
+	Delete(Section := "", Key := "") {
+		if (Key="") {
+			Loop, Parse, % this.Text, `n, `r
+			{	if !(Delete) && (A_LoopField="[" Section "]")
+					Delete := true
+				else if (Delete) && (SubStr(A_LoopField, 1,1)="[")
+					Delete := false, NewText .= (NewText=""?"":"`n") A_LoopField
+				else if !(Delete)
+					NewText .= (NewText=""?"":"`n") A_LoopField
+			} this.Text := NewText
+		} else if (Section!="") {
+			Len := StrLen(Key)
+			Loop, Parse, % this.Text, `n, `r
+			{	if !(Delete) && (A_LoopField="[" Section "]")
+					Delete := true, NewText .= (NewText=""?"":"`n") A_LoopField
+				else if (Delete) {
+					if (SubStr(A_LoopField, 1, Len)=Key) {
+						Delete := false
+						continue
+					} NewText .= (NewText=""?"":"`n") A_LoopField
+				} else NewText .= (NewText=""?"":"`n") A_LoopField
+			} this.Text := NewText
+	}	}
+}
+
+
