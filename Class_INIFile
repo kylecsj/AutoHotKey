@@ -163,7 +163,7 @@ INIFile(Filename, SaveOnExit := false, LoadFromText := false, LockFile := false)
 	;--------------------------------------------------------------------------------------------------------
 	SetFile(Filename) {
 		this.UnLock()
-		if !(InStr(i:=FileExist(Filename),"D")&&i)
+		if !(InStr(i:=FileExist(Filename),"D")) && (i)
 			this.Filename := Filename, this.LoadFromText := false
 		this.Lock()
 	}
