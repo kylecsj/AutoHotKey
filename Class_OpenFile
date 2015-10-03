@@ -1,0 +1,135 @@
+;AHK1.1.22.07: http://ahkscript.org/download/
+
+;----------------------------------------------------------------------
+;TEST
+Filename := A_Desktop "\testfile.txt"
+;----------------------------------------------------------------------
+FileDelete, %Filename%
+FileAppend, % "", %Filename% ;create file
+obj := OpenFile(Filename)
+obj.Append("Line 1`nLine 2`nLine 3") ;append text
+MsgBox % obj.Read() ;Line 1 | Line 2 | Line 3
+MsgBox % obj.ReadLine(2) ;Line 2
+obj.AppendLine(". Line 3.1", 3) ;append line 3
+MsgBox % obj.Read() ;Line 1 | Line 2 | Line 3. Line 3.1
+obj.WriteLine("Line 10", 10) ;write line 10
+MsgBox % obj.Read() ;Line 1 | Line 2 | Line 3. Line 3.1 ||||||| Line 10
+obj.WriteLine("Line 3X", 3) ;write line 3
+MsgBox % obj.ReadLine(3) ;Line 3X
+obj.WriteLine("", 2, true) ;delete line 2
+MsgBox % obj.Read() ;Line 1 | Line 3X ||||||| Line 10
+obj.Write("...") ;write ...
+MsgBox % obj.Read() ;...
+obj.Write("") ;delete content
+;--------------------------------
+st := A_TickCount
+Loop, 500
+	obj.WriteLine("Line " A_Index ".", A_Index)
+w := (A_TickCount-st), st := A_TickCount
+Loop, 500
+	obj.ReadLine(A_Index)
+r := (A_TickCount-st), st := A_TickCount
+MsgBox % "WriteLine: " w " ms`nReadLine: " r " ms`n`n500 Lines r/w."
+;--------------------------------
+obj.Save() ;save file
+MsgBox % obj.Read() ;show content
+FileDelete, % Filename
+ExitApp
+
+;----------------------------------------------------------------------
+;CLASS
+;----------------------------------------------------------------------
+;Sintaxis: OpenFile( [archivo] )
+OpenFile(Filename) {
+	return new ___class___file___(Filename)
+} class ___class___file___ {
+	__New(Filename) {
+		if (InStr(FileExist(Filename), "R"))
+			FileSetAttrib, -R, %Filename%
+		this.oFile := FileOpen(Filename, "rw`n-rwd")
+		if !(IsObject(this.oFile))
+			return false
+		this.Text  := this.oFile.Read()
+		, this.File := Filename
+	} __Delete() {
+		this.oFile.Close()
+	} Close() {
+		this.oFile.Close()
+	}
+	
+	;guardar archivo
+	Save(Filename := "") {
+		if (Filename!="") {
+			this.oFile.Close()
+			, this.oFile := FileOpen(this.File:=Filename, "rw`n-rwd")
+			, this.oFile.Length := this.Length, this.oFile.Seek(0), this.oFile.Write(this.Text)
+		} else {
+			if !(IsObject(this.oFile)) {
+				if (IsObject(this.oFile:=FileOpen(this.File, "rw`n-rwd")))
+					this.oFile.Length := this.Length, this.oFile.Seek(0), this.oFile.Write(this.Text)
+			} else this.oFile.Length := this.Length, this.oFile.Seek(0), this.oFile.Write(this.Text)
+	}}
+	
+	;leer
+	Read() {
+		return this.Text
+	}
+	
+	;leer linea
+	ReadLine(Line) {
+		Loop, Parse, % this.Text, `n, `r
+		{	if (A_Index=Line) {
+				Text := A_LoopField
+				break
+		}} return Text
+	}
+	
+	;escribir (reemplazar)
+	Write(Text) {
+		this.Text := Text
+	}
+	
+	;reemplazar linea
+	;Sintaxis: WriteLine( [texto], [linea], [¿eliminar linea?] )
+	WriteLine(Text, Line, DeleteLine := "") {
+		Lines := StrSplit(this.Text, "`n", "`r").MaxIndex()
+		if ((Lines?Lines:0)<Line)
+			Loop, % (Line-(Lines?Lines:0))
+				this.Text .= "`n"
+		Loop, Parse, % this.Text, `n, `r
+			NewText .= (DeleteLine&&A_Index=Line)?"":((A_Index=1?"":"`n") (A_Index=Line?Text:A_LoopField))
+		this.Text := NewText
+	}
+	
+	;escribir (añadir)
+	Append(Text) {
+		this.Text .= Text
+	}
+	
+	;añadir a una linea
+	;Sintaxis: AppendLine( [texto], [linea], [L (añadir a la izquierdda)] )
+	AppendLine(Text, Line, Pos := "") {
+		Lines := StrSplit(this.Text, "`n", "`r").MaxIndex()
+		if ((Lines?Lines:0)<Line)
+			Loop, % (Line-(Lines?Lines:0))
+				this.Text .= "`n"
+		Loop, Parse, % this.Text, `n, `r
+			NewText .= (A_Index=1?"":"`n") (Pos="L"?"":A_LoopField) (A_Index=Line?Text:"") (Pos="L"?A_LoopField:"")
+		this.Text := NewText
+	}
+	
+	;---------------------------------------------------------------------------------
+	
+	;archvio actual
+	CurrentFile[] {
+		Get {
+			return this.File
+	}}
+	
+	;tamaño
+	Length[] {
+		Get {
+		return StrLen(this.Text)
+	}}
+	
+}
