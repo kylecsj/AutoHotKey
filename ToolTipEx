@@ -1,0 +1,41 @@
+/*
+ToolTipEx("Ejemplo 1 - Normal")
+Sleep 3000
+ToolTipEx("Ejemplo 2 - Color Del Texto Rojo",,,, "Red")
+Sleep 3000
+ToolTipEx("Ejemplo 3 - Color Del Texto Azul",,,, [, "Blue"])
+Sleep 3000
+ToolTipEx("Ejemplo 4 - Color De Fondo Amarillo",,,, ["Yellow"])
+Sleep 3000
+ToolTipEx() ;quitar
+Sleep 1000
+ToolTipEx("Ejemplo 5 - Color De Fondo Negro, Color Del Texto Amarillo",,,, ["Black", "Yellow"])
+Sleep 3000
+ExitApp
+*/
+
+;Sintaxis: ToolTipEx( [texto], [x], [y], [animación], [color] )
+;Color: color del texto, o un array: [color fondo, color texto]
+;Animación: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
+ToolTipEx(Text := "", x := "", y := "", Anim := 0x00080000, Color := "Black") {
+	static hWnd
+	if (Text!="") {
+		try Gui, %hWnd%:Destroy
+		if (x="")||(y="")
+			MouseGetPos, _x, _y
+		Gui, New, +HWNDhWnd +LabelToolTipExGui -Caption +AlwaysOnTop +ToolWindow
+		Gui, %hWnd%:Color, % (IsObject(Color)&&Color[1]!="")?Color[1]:0xEAEBF4, % (IsObject(Color)&&Color[1]!="")?Color[1]:0xEAEBF4
+		Gui, %hWnd%:Add, Text, % "c" ((IsObject(Color)&&Color[2]!="")?Color[2]:(IsObject(Color)?"Black":Color)), %Text%
+		Gui, %hWnd%:Show, % "x" (x=""?_x:x) " y" (y=""?_y:y) (Anim?" Hide":)
+		Anim?DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", 350, "UInt", Anim+0x00020000):
+		WinGetPos, x, y, w, h, ahk_id %hWnd%
+		WinSet, Transparent, 235, ahk_id %hWnd%
+		WinSet, Region, r3-3 0-0 w%w% h%h%, ahk_id %hWnd%
+	} else if (x!="")||(y!="") {
+		try Gui, %hWnd%:Show, % (x!=""?"x" x:) (y!=""?" y" y:)
+	} else {
+		Anim?DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", 350, "UInt",  Anim+0x00010000):
+		try Gui, %hWnd%:Destroy
+		hWnd := ""
+	} return  hWnd, ErrorLevel := !hWnd
+}
