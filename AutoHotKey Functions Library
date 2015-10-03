@@ -10,7 +10,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					notificaciones, fuentes & colores & recursos, nombres y rutas de archivos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.07 U32 & U64 || Martes, 29 de septiempre de 2015
+Actualizado: AHK1.1.22.07 U32 & U64 || Sábado, 03 de octubre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
@@ -29,11 +29,6 @@ _mnum(f,s){
 		x:=(m="&"?z&v:m="="?z=v:m="~"?InStr(z, k):0)?(m="~"?v:k):(i="-"?0:i="+"?0:i="|"?0:"")
 		, x:=i="."?(_.=x):i="|"?(_|=x):i="-"?(_-=x):i="+"?(_+=x):""
 	return _, ErrorLevel := _=""
-}_trim(s,o:=""){
-	DllCall("Shlwapi.dll\StrTrimW", "Str", s, "Str", o=""?A_Space A_Tab:o)
-	return s
-}_len(s){
-	return DllCall("Kernel32.dll\lstrlenW", "Str", s)
 }_cpath(p, ByRef c:=""){
 	return c:=(StrLen(i:=GetFullPathName(p))=2?i "\":i)
 }_clfm(f,m,r, ByRef ok:=""){
@@ -78,10 +73,6 @@ _mnum(f,s){
 	if IsByRef(c)
 		c:=c=-1?ControlExist(h,ControlGetFocus(h)):c=-2?MouseGetPos(,,,,2).ctrl
 		: c=-3?Get("LastControlId"):ControlExist(h,c), Set("LastControlId", c)
-}_fillbyte(i,n:=0,k:=false){
-	for k,v in i
-		i[k]:=k?(v=""||v+1=""?n:v):n
-	return IsObject(i)?i:(k?(i=""||i+1=""?n:i):n)
 }_getcolor(c) {
 	static Colors := {Aqua: "0x00FFFF", Black: "0x000000", Blue: "0x0000FF", Fuchsia: "0xFF00FF", Gray: "0x808080"
 		, Green: "0x008000", Lime: "0x00FF00", Maroon: "0x800000", Navy: "0x000080", Olive: "0x808000", Purple: "0x800080"
@@ -132,8 +123,6 @@ _mnum(f,s){
 
 
 
-
-
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 ;<--------------------	---------------	<<-------------	FUNCIONES	------------->>	---------------	---------------	---------------	---------------	------->
@@ -146,75 +135,73 @@ _mnum(f,s){
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;eliminar archivo(s)
 ;Sintaxis: FileDelete( [archivo], [¿operar en subcarpetas?] )
-FileDelete(FilePattern, Recurse := false) {
-	if !_wildc(FilePattern, Recurse) {
-		FilePattern := GetFullPathName(FilePattern)
-		if !(i := DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" FilePattern))
-			FileSetAttrib("-R", A_LoopFileLongPath)
-			, i := DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" FilePattern)
-		return i, ErrorLevel := !i
-	} ok := i := 0
-	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileDelete( A_LoopFileLongPath ), i++
-	return ok, ErrorLevel := ok = i ? 1 : 0
+;ErrorLevel: array que contiene los archivos que no se puedieron eliminar (0 si se eliminaron todos).
+;Return: array que contiene los archivos eliminados (0 si no se eliminó ninguno).
+FileDelete(Filename, Recurse := false) {
+	if  !(Recurse) && !(InStr(Filename, "*")) && !(InStr(Filename, "?")) {
+		Filename := GetFullPathName(Filename)
+		if !(DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" Filename)) {
+			FileSetAttrib, -R, %Filename%
+			if !(DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" Filename))
+				return false, ErrorLevel := [Filename]
+		} return [Filename], ErrorLevel := false
+	} Result := [], Error := []
+	Loop, Files, %Filename%, % (Recurse?"FR":"F")
+	{	 if !(DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" A_LoopFileFullPath)) {
+			FileSetAttrib, -R, %A_LoopFileFullPath%
+			if !(DllCall("Kernel32.dll\DeleteFileW", "Str", "\\?\" A_LoopFileFullPath))
+				Error.Push(A_LoopFileFullPath)
+			else Result.Push(A_LoopFileFullPath)
+		} else Result.Push(A_LoopFileFullPath)
+	} return (Result.MaxIndex()?Result:false), ErrorLevel := (Error.MaxIndex()?Error:false)
 }
 
-;eliminar archivo(s) al reiniciar
-FileRDelete(FilePattern, Recurse := false) {
-	if !_wildc(FilePattern, Recurse) {
-		FilePattern := GetFullPathName(FilePattern)
-		return i := DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" FilePattern, "Ptr", 0, "UInt", 0x4)
-			, ErrorLevel := !i
-	} ok := i := 0
-	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileRDelete( A_LoopFileLongPath ), i++
-	return ok, ErrorLevel := ok = i ? 1 : 0
-}
+;eliminar archivo al reiniciar
+FileRDelete(Filename) {
+	Filename := GetFullPathName(Filename)
+	return r:=DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" Filename, "Ptr", 0, "UInt", 0x4), ErrorLevel := !r
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa365240%28v=vs.85%29.aspx
 
-;eliminar archivo(s) de forma segura
-;Sintáxis: FileSDelete( [archivo], [pasadas], [¿incluir subcarpetas?] )
-FileSDelete(FilePattern, Pases := 1, Recurse := 0) {
-	if !_wildc(FilePattern, Recurse) {
-		if !IsFile(FilePattern, FilePattern)||!IsObject(i:=FileOpenEx(FilePattern))
-			return 0, ErrorLevel := 1
-		Loop, %Pases% {
-			nSize := i.Length < (10 ** 8) ? i.Length : (10 ** 8)
-			, VarSetCapacity(IpBuffer, nSize, A_Index)
-			Loop, % Floor(i.Length / (10 ** 8))
-				i.RawWrite(IpBuffer, nSize)
-			nSize := Mod(i.Length, (10 ** 8))
-			, VarSetCapacity(IpBuffer, nSize, A_index)
-			, i.RawWrite(IpBuffer, nSize)
-		} i.Close(), FileSetTime(2000, FilePattern, "MCA")
-		return i := FileDelete( FilePattern ), ErrorLevel := !i
-	} ok := i := 0
-	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileSDelete( A_LoopFileLongPath, Pases ), i++
-	return ok, ErrorLevel := ok = i ? 0 : 1
+;eliminar archivo de forma segura
+;Sintaxis: FileSecureDelete( [archivo], [pasadas] )
+FileSecureDelete(Filename, Passes := 1) {
+	static v := 100000000
+	if !(IsObject(obj:=FileOpen(Filename, "rw-rwd"))) {
+		FileSetAttrib, -R, %Filename%
+		if !(IsObject(obj:=FileOpen(Filename, "rw-rwd")))
+			return false, ErrorLevel := true
+	} Bytes := (((Length:=obj.Length)<v)?Length:v), Bytes2 := Mod(Length, v), c := Floor(Length / v)
+	Loop, % (Passes) {
+		VarSetCapacity(Buffer, Bytes, A_Index)
+		Loop, % (c)
+			obj.RawWrite(Buffer, Bytes)
+		VarSetCapacity(Buffer, Bytes2, A_index), obj.RawWrite(Buffer, Bytes2)
+	} obj.Close()
+	FileDelete, %Filename%
+	return !ErrorLevel
 }
 
 ;renombrar archivo
 ;Sintaxis: FileRename( [archivo], [nuevo nombre], [¿sobreescribir?] )
-FileRename(FileName, NewName, OverWrite := false) {
-	if ((NewName:=ValidateName(NewName))="")
-		return false, ErrorLevel := true
-	SplitPath(FileName,, DirName)
-	if !OverWrite&&FileExist(DirName "\" NewName)
+FileRename(Filename, NewName, OverWrite := false) {
+	SplitPath, Filename,, Dirname
+	if !(OverWrite) && (FileExist(Dirname "\" NewName))
 		return false, ErrorLevel := 2
-	return FileMove(FileName, DirName "\" NewName, OverWrite)
+	FileMove, %Filename%, %Dirname%\%NewName%, % !!(OverWrite)
+	return !ErrorLevel
 }
 
 ;obtener version 
 ;Sintaxis: FileGetVersion( [archivo] )
 FileGetVersion(Filename) {
-	FileGetVersion, FileVersion, %Filename%
-	return FileVersion
+	FileGetVersion, OutputVar, %Filename%
+	return OutputVar
 }
 
 ;comparar dos versiones 
 ;Sintaxis: VersionCompare( [version1], [version2], [resultado] )
 ;Resultado: +(ver1 > ver2) | -(ver1 < ver2) | =(ver1 = ver2)
-;Devuelve: 0(Ver1 = Ver2) | 1(Ver1 > Ver2) | 2(Ver1 < Ver2)
+;Return: 0(Ver1 = Ver2) | 1(Ver1 > Ver2) | 2(Ver1 < Ver2)
 VersionCompare(version1, version2, ByRef OutputVar := "") {
 	if !(v2:=Trim(RegExReplace(version2, "[^0-9.]"), "."))
 		return true, OutputVar := "+"
@@ -263,23 +250,9 @@ FileGetSize(FileName, Units := "", Places := "") {
 	return Places=""?FileSize:Round(FileSize, Places)
 }
 
-;Sintaxis: FileCreate( [archivo], [Acceso deseado], [0|1(R)|2(W)|4(D)] )
-FileCreate(lpFileName, dwDesiredAccess := 28, dwShareMode := 7, lpSecurityAttributes := 0, dwCreationDisposition := 3, dwFlagsAndAttributes := 0, hTemplateFile := 0) {
-	if (dwDesiredAccess = "r")
-		dwDesiredAccess := 0x80000000
-	else	if (dwDesiredAccess = "w")
-		dwDesiredAccess := 0x40000000
-	else	if (dwDesiredAccess = "rw")
-		dwDesiredAccess := 0x80000000|0x40000000
-	return DllCall("Kernel32.dll\CreateFileW", "Str", "\\?\" lpFileName, "UInt", dwDesiredAccess, "UInt", dwShareMode
-		, "UInt", lpSecurityAttributes, "UInt", dwCreationDisposition, "UInt", dwFlagsAndAttributes, "Ptr", hTemplateFile)
-}
-
 ;mover archivo
 ;Sintaxis: FileMove( [archivo], [destino], [sobreescribir] )
 FileMove(FileName, Dest, OverWrite := false) {
-	if !IsFile(FileName)
-		return false, ErrorLevel := 2
 	FileMove, %FileName%, %Dest%, %OverWrite%
 	return !ErrorLevel
 }
@@ -313,18 +286,11 @@ FileGetTime(Filename, WhichTime := 0, ByRef ObjTime := "") {
 	return i
 }
 
-;recyclar archivo(s) o carpeta(s)
-;FileRecycle( [archivo/carpeta], [¿operar en subcarpetas?] )
-FileRecycle(FilePattern, Recurse := 0) {
-	if !_wildc(FilePattern, Recurse) {
-		FilePattern := GetFullPathName(FilePattern)
-		, FileSetAttrib("-RS", FilePattern)
-		FileRecycle, %FilePattern%
-		return !ErrorLevel
-	} ok := i := 0
-	Loop, Files, %FilePattern%, % Recurse ? "FR" : "F"
-		ok += FileRecycle(A_LoopFileFullPath), i++
-	return ok, ErrorLevel := ok = i ? 1 : 0
+;recyclar
+;FileRecycle( [archivo] )
+FileRecycle(Filename) {
+	FileRecycle, %Filename%
+	return !ErrorLevel
 }
 
 ;comprueba si es archivo
@@ -332,7 +298,7 @@ FileRecycle(FilePattern, Recurse := 0) {
 IsFile(Filename, ByRef FullPathName := "") {
 	if IsByRef(FullPathName)
 		FullPathName := GetFullPathName(Filename)
-	return !InStr(i:=FileExist(Filename),"D")&&i
+	return (!InStr(i:=FileExist(Filename),"D")&&i)
 }
 
 ;obtener atributos de un archivo o carpeta
@@ -392,7 +358,7 @@ FileCopy(Source, Dest, Overwrite := false, Recurse := false) {
 	if (CopyFlags="")
 		CopyFlags := IsWindowsVistaOrGreater()?0x00001000:0
 	Flags := CopyFlags|(Overwrite?0:0x00000001), Count := 0, Dest := GetFullPathName(Dest)
-	if !(InStr(Source, "*")) && !(Recurse) {
+	if  !(Recurse) && !(InStr(Source, "*")) && !(InStr(Source, "?")) {
 		Source := GetFullPathName(Source), IsDir(Dest)?(Dest:=Dest "\" SplitPath(Source).FileName):
 		return r:=DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" Dest, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags), ErrorLevel := !r
 	} Loop, Files, %Source%, % "F" (Recurse?"R":"")
@@ -436,9 +402,8 @@ FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
 ;leer archivo
 ;Sintáxis: FileRead( [Archivo] )
 FileRead(Filename) {
-	try {
-		FileRead, OutputVar, %Filename%
-	} catch {
+	try FileRead, OutputVar, %Filename%
+	catch {
 		return OutputVar, ErrorLevel := true
 	} return OutputVar, ErrorLevel := false
 }
@@ -446,69 +411,66 @@ FileRead(Filename) {
 ;leer texto en la línea espesificada.
 ;Sintaxis: FileReadLine( [Archivo], [Linea] )
 FileReadLine(FileName, LineNum, Encoding := "") {
-	i := FileOpen(FileName, "r", Encoding)
+	if !(IsObject(obj:=FileOpen(Filename, "r`n-wd", Encoding)))
+		return false, ErrorLevel := true
 	Loop, % (LineNum-1)
-		i.ReadLine()
-	return i.ReadLine(), ErrorLevel := !IsObject(i), i.Close()
+		obj.ReadLine()
+	return obj.ReadLine(), ErrorLevel := false
 }
 
 ;escribir en un archivo (añadir)
 ;Sintáxis: FileAppend( [Texto], [*Archivo], [codificación] )
 FileAppend(Text, Filename, Encoding := "") {
 	FileAppend, %Text%, %Filename%, %Encoding%
-	if ErrorLevel {
-		FileSetAttrib("-R", Filename)
+	if (ErrorLevel) {
+		FileSetAttrib, -R, %Filename%
 		FileAppend, %Text%, %Filename%, %Encoding%
 	} return !ErrorLevel
 }
 
-;escribir en un número de linea de un archivo (añadir)
-;Sintáxis: FileAppendLine( [Texto], [Archivo], [Número de linea], [codificación] )
-FileAppendLine(Text, Filename, LineNum, Encoding := "") {
-	ThisContent := [], FileAppend("`n", Filename, Encoding)
-	Loop, Read, %Filename%
-		ThisContent.Push(A_LoopReadLine)
-	if (ThisContent.MaxIndex()<LineNum) {
-		i := FileOpen(Filename, "a", Encoding)
-		Loop, % (LineNum-ThisContent.MaxIndex())
-			ThisContent.Push(""), i.Write("`n")
-		i.Close()
-	} for k, v in ThisContent
-		ThisFileNewText .= v (k=LineNum?Text:"") "`n"
-	return FileWrite(RTrim(ThisFileNewText, "`n"), Filename, Encoding)
+;añadir texto a una linea espesífica.
+;Sintáxis: FileAppendLine( [Texto], [Archivo], [Número de linea], [codificación], [L (añadir a la izquierda)] )
+FileAppendLine(Text, Filename, LineNum, Encoding := "", Pos := "") {
+	if !(IsObject(obj:=FileOpen(Filename, "rw`n-rwd", Encoding))) {
+		FileSetAttrib, -R, %Filename%
+		if !(IsObject(obj:=FileOpen(Filename, "rw`n-rwd", Encoding)))
+			return false, ErrorLevel := true
+	} _ := obj.Read(), Lines := StrSplit(_, "`n", "`r").MaxIndex()
+	if ((Lines?Lines:0)<LineNum) {
+		Loop, % (LineNum-(Lines?Lines:0))
+			_ .= "`n"
+	} Loop, Parse, % _, `n, `r
+		NewText .= (A_Index=1?"":"`n") (Pos="L"?"":A_LoopField) (A_Index=LineNum?Text:"") (Pos="L"?A_LoopField:"")
+	obj.Length := StrLen(NewText), obj.Seek(0)
+	return (bytes:=obj.Write(NewText)), ErrorLevel := !(bytes)
 }
 
 ;escribir en un archivo (mismo efecto que eliminar el archivo y volver a crearlo).
 ;Sintáxis: FileWrite( [Texto], [*Archivo], [codificación] )
 FileWrite(Text, Filename, Encoding := "") {
-	if InStr(FileName, "*") {
-		i := FileOpenEx(Filename, "w", Encoding) 
-		return i.RawWrite(Text, StrLen(Text))
-	} return FileOpenEx(Filename, "w", Encoding).Write(Text)
+	if !(IsObject(obj:=FileOpen(Filename, "w`n-rwd", Encoding))) {
+		FileSetAttrib, -R, %Filename%
+		if !(IsObject(obj:=FileOpen(Filename, "w`n-rwd", Encoding)))
+			return false, ErrorLevel := true
+	} obj.Length := StrLen(Text)
+	return (bytes:=obj.Write(Text)), ErrorLevel := !(bytes)
 }
 
-;escribir en un número de linea de un archivo (reemplazar linea entera)
-;Sintáxis: FileWriteLine( [Texto], [Archivo], [Número de linea], [codificación] )
-FileWriteLine(Text, Filename, LineNum, Encoding := "") {
-	ThisContent := [], FileAppend("`n", Filename, Encoding)
-	Loop, Read, %Filename%
-		ThisContent.Push(A_LoopReadLine)
-	if (ThisContent.MaxIndex()<LineNum) {
-		i := FileOpen(Filename, "a", Encoding)
-		Loop, % (LineNum-ThisContent.MaxIndex())
-			ThisContent.Push(""), i.Write("`n")
-		i.Close()
-	} for k, v in ThisContent
-		ThisFileNewText .= (k=LineNum?Text:v) "`n"
-	return FileWrite(RTrim(ThisFileNewText, "`n"), Filename, Encoding)
-}
-
-FileOpenEx(FileName, Mode := "rw`n`r", Encoding := "") {
-	i := FileOpen(FileName:=StrReplace(FileName, "*"), Mode, Encoding)
-	if (!IsObject(i)&&Contains(Mode, "w,a"))
-		FileSetAttrib("-R", FileName)
-		, i := FileOpen(FileName, Mode, Encoding)
-	return i, ErrorLevel := !IsObject(i)
+;escribir en una linea espesifica (reemplazar linea entera).
+;Sintáxis: FileWriteLine( [Texto], [Archivo], [Número de linea], [codificación], [¿eliminar linea?] )
+FileWriteLine(Text, Filename, LineNum, Encoding := "", DeleteLine := false) {
+	if !(IsObject(obj:=FileOpen(Filename, "rw`n-rwd", Encoding))) {
+		FileSetAttrib, -R, %Filename%
+		if !(IsObject(obj:=FileOpen(Filename, "rw`n-rwd", Encoding)))
+			return false, ErrorLevel := true
+	} _ := obj.Read(), Lines := StrSplit(_, "`n", "`r").MaxIndex()
+	if ((Lines?Lines:0)<LineNum) {
+		Loop, % (LineNum-(Lines?Lines:0))
+			_ .= "`n"
+	} Loop, Parse, % _, `n, `r
+		NewText .= (DeleteLine&&(A_Index=LineNum))?"":((A_Index=1?"":"`n") (A_Index=LineNum?Text:A_LoopField))
+	obj.Length := StrLen(NewText), obj.Seek(0)
+	return (bytes:=obj.Write(NewText)), ErrorLevel := !(bytes)
 }
 
 FileFNPath(Filename, Start := "(", End := ")") {
@@ -617,8 +579,6 @@ FileSetSecurity(File, Trustee := "S-1-1-0", AccessMask := 2032127, Flags := 0) {
 	, newAce.AccessMask := AccessMask, newAce.AceFlags := Flags, newAce.AceType := false, dacl.AddAce(newAce)
 	return sdutil.SetSecurityDescriptor(File, true, sd, true)
 }
-
-
 
 
 
@@ -839,46 +799,41 @@ DirDelete(DirName, Recurse := false) {
 
 ;vaciar directorio sin eliminarlo
 ;Sintaxis: DirEmpty( [directorio], [¿incluir subdirectorios?] )
+;Return: array que contiene los archivos y carpetas eliminados (0 si no se eliminó nada).
+;ErrorLevel: array que contiene los archivos y carpetas que no se puedieron eliminar (0 si se eliminó todo).
 DirEmpty(DirName, Recurse := false) {
+	Error := [], OutputVar := []
 	Loop, Files, %DirName%\*.*, FD
-		FileDelete(A_LoopFileFullPath)
-		, DirDelete(A_LoopFileFullPath, Recurse)
-	Loop, Files, %DirName%\*.*, F
-		return 0, ErrorLevel := true
-	return 1, ErrorLevel := false
-}
-
-;eliminar directorio al reiniciar
-;Sintaxis: DirRDelete( [directorio] )
-DirRDelete(DirName) {
-	DirName := GetFullPathName(DirName)
-	return i:=DllCall("Kernel32.dll\MoveFileExW", "Str", "\\?\" DirName, "Ptr", 0, "UInt", 0x4)
-		, ErrorLevel := !i
+	{	if IsFile(A_LoopFileFullPath) {
+			if !(FileDelete(A_LoopFileFullPath))
+				Error.Push(A_LoopFileFullPath)
+			else OutputVar.Push(A_LoopFileFullPath)
+		} else {
+			if !(DirDelete(A_LoopFileFullPath, Recurse))
+				Error.Push(A_LoopFileFullPath)
+			else OutputVar.Push(A_LoopFileFullPath)
+	}} return OutputVar.MaxIndex()?OutputVar:false, ErrorLevel := Error.MaxIndex()?Error:false
 }
 
 ;eliminar directorio de forma segura
-;Sintáxis: DirSDelete( [directorio], [pasadas] )
-DirSDelete(DirName, Pases := 1) {
-	if !IsDir(DirName)
-		return !(i:=IsFile(DirName)), ErrorLevel := i
-	return FileSDelete(DirName "\*.*", Pases, true)
-		+ FileSetTime(2000, DirName, "MAC")
-		+ DirDelete(DirName, true)
+;Sintáxis: DirSecureDelete( [directorio], [pasadas] )
+DirSecureDelete(DirName, Passes := 1) {
+	Loop, Files, %DirName%\*.*, FR
+		FileSecureDelete(A_LoopFileFullPath, Passes)
+	return DirDelete(DirName, true)
 }
 
 ;renombrar directorio
-;Sintaxis: Rename( [directorio], [nuevo nombre], [eliminar] )
-;Eliminar: 1 = si ya existe una carpeta con el mismo nombre eliminarla.
-;ErrorLevel: devuelve 2 si la carpeta ya existe y OverWrite es falso.
-DirRename(DirName, NewName, OverWrite := false) {
-	if ((NewName:=ValidateName(NewName))="")
-		return 0, ErrorLevel := true
-	SplitPath(DirName,, Dir)
-	if FileExist(Dir "\" NewName) {
-		if !OverWrite
-			return 0, ErrorLevel := 2
-		DirDelete(Dir "\" NewName, true)
-	} return DirMove(DirName, Dir "\" NewName, "R")
+;Sintaxis: Rename( [directorio], [nuevo nombre], [¿eliminar si ya existe una carpeta con el mismo nombre?], [¿eliminar si la carpeta no está vacía?] )
+DirRename(Dirname, NewName, OverWrite := false, Recurse := false) {
+	SplitPath, Dirname,, Dir
+	if (FileExist(Dir "\" NewName)) {
+		if !(OverWrite)
+			return false, ErrorLevel := 2
+		if !(DirDelete(Dir "\" NewName, Recurse))
+			return false, ErrorLevel := 3
+	} FileMoveDir, %Dirname%, %Dir%\%NewName%, R
+	return !ErrorLevel
 }
 
 ;mover directorio
@@ -887,7 +842,7 @@ DirRename(DirName, NewName, OverWrite := false) {
 DirMove(DirName, Dest, OverWrite := false) {
 	if (OverWrite=2)
 		DirDelete(Dest, true)
-	FileMoveDir, % RTrim(DirName, "\"), % RTrim(Dest, "\"), % OverWrite="R"?"R":(OverWrite?true:false)
+	FileMoveDir, %DirName%, %Dest%, % ((OverWrite="R")?"R":!!(OverWrite))
 	return !ErrorLevel
 }
 
@@ -1283,7 +1238,7 @@ Between(value, low, high, nval*) {
 
 ;si el número es par devuelve 1, caso contrario 0 (impar)
 IsEven(num) {
-	return !(num&1)
+	return !(num&1) ;Mod(num, 2)
 }
 
 ;determina si es Número
@@ -2719,14 +2674,16 @@ InternetGetState(lpdwFlags := 0x40) {
 ;Sintaxis: InternetGetFileSize( [URL], [KB|MB|GB] )
 InternetGetFileSize(URL, Units := "") {
 	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
-	hModule := LoadLibrary("Wininet.dll")
-	, hInternet := DllCall("Wininet.dll\InternetOpenW", "Str", "Microsoft Internet Explorer", "UInt", 4, "Ptr", 0, "Ptr", 0, "UInt", 0)
+	!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Wininet.dll"))?(hModule:=LoadLibrary("Wininet.dll")):
+	hInternet := DllCall("Wininet.dll\InternetOpenW", "Str", "Microsoft Internet Explorer", "UInt", 4, "Ptr", 0, "Ptr", 0, "UInt", 0)
 	, hInternetUrl := DllCall("Wininet.dll\InternetOpenUrlW", "Ptr", hInternet, "Str", URL, "Ptr", 0, "UInt", 0, "UInt", 0x84000000, "UInt", 0)
 	if (StrLeft(URL, 4)="ftp:")
 		FileSize := DllCall("Wininet.dll\FtpGetFileSize", "Ptr", hInternetUrl, "UIntP", 0)  
 	else DllCall("Wininet.dll\HttpQueryInfoW", "Ptr", hInternetUrl, "UInt", 0x20000005, "UIntP", FileSize, "UIntP", 4, "UIntP", 0)
 	DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternetUrl), DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternet)
-	return _[Units]?FileSize/_[Units]:FileSize, FreeLibrary(hModule)
+	if (hModule)
+		FreeLibrary(hModule)
+	return _[Units]?FileSize/_[Units]:FileSize, ErrorLevel := !FileSize
 }
 
 ;obtener texto
@@ -3307,8 +3264,7 @@ RegisterSessionNotification(Status, Session := 1, Func := "") { ;http://ahkscrip
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;recupera la ruta y el nombre completo del archivo/carpeta especificado.
 GetFullPathName(Filename) {
-	Size := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", 0, "Ptr", 0, "PtrP", 0)
-	, VarSetCapacity(OutputVar, Size * 2, 0) 
+	Size := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", 0, "Ptr", 0, "PtrP", 0), VarSetCapacity(OutputVar, Size * 2, 0) 
 	, r := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", Size, "Str", OutputVar, "PtrP", 0)
 	return r?RTrim(OutputVar, "\"):Filename, ErrorLevel := !r
 }
@@ -7582,22 +7538,22 @@ WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 ;--------------------------------------------------------------------------------------------------------
 
 ;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha.
-;Sintaxis: WinCenter( [ID], [Posición] )Top|Bottom y/o Right|Left] )
+;Sintaxis: WinCenter( [ID], [Posición] )
 ;Posición: se pueden combinar.
 	;Center = centrar ventana.
 	;Top | Bottom = posicionar arriba. posicionar abajo.
 	;Left | Right = posicionar a la izquierda. posicionar a la derecha.
 ;Nota: al alto de la pantalla se le resta el alto de la barra de tareas.
 ;Ejemplo: abra Notepad para el ejemplo.
-	;MsgBox % "Centrar ventana: " ((!!WinActivate(hWnd:=WinExist("ahk_class Notepad"), 3)+WinMove(hWNd,,, 543, 403)+!!WinCenter(hWnd))-2)
-	;MsgBox % "Posicionar arriba a la izquierda: " WinCenter(hWnd, "Top Left")
-	;MsgBox % "Posicionar arriba a la derecha: " WinCenter(hWnd, "Top Right")
-	;MsgBox % "Posicionar abajo a la izquierda: " WinCenter(hWnd, "Bottom Left")
-	;MsgBox % "Posicionar abajo a la derecha: " WinCenter(hWnd, "Bottom Right")
-	;MsgBox % "Posicionar arriba y centrarla: " WinCenter(hWnd, "Top Center")
-	;MsgBox % "Posicionar abajo y centrarla: " WinCenter(hWnd, "Bottom Center")
-	;MsgBox % "Posicionar a la izquierda y centrarla: " WinCenter(hWnd, "Left Center")
-	;MsgBox % "Posicionar a la derecha y centrarla: " WinCenter(hWnd, "Right Center")
+ 	;MsgBox % "Centrar ventana: " ((!!WinActivate(WinExist("ahk_class Notepad"), 3)+WinMove(-3,,, 543, 403)+!!WinCenter(-3))-2)
+	;MsgBox % "Posicionar arriba a la izquierda: " WinCenter(-3, "Top Left")
+	;MsgBox % "Posicionar arriba a la derecha: " WinCenter(-3, "Top Right")
+	;MsgBox % "Posicionar abajo a la izquierda: " WinCenter(-3, "Bottom Left")
+	;MsgBox % "Posicionar abajo a la derecha: " WinCenter(-3, "Bottom Right")
+	;MsgBox % "Posicionar arriba y centrarla: " WinCenter(-3, "Top Center")
+	;MsgBox % "Posicionar abajo y centrarla: " WinCenter(-3, "Bottom Center")
+	;MsgBox % "Posicionar a la izquierda y centrarla: " WinCenter(-3, "Left Center")
+	;MsgBox % "Posicionar a la derecha y centrarla: " WinCenter(-3, "Right Center")
 WinCenter(hWnd, Pos := "") {
 	_gethwnd(hWnd)
 	if (WinMax(hWnd))
@@ -7605,7 +7561,7 @@ WinCenter(hWnd, Pos := "") {
 	WinGetPos(hWnd, x, y, w, h), w2 := A_ScreenWidth, h2 := (A_ScreenHeight - TaskbarGetPos().h)
 	, T := InStr(Pos, "Top"), B := InStr(Pos, "Bottom"), L := InStr(Pos, "Left"), R := InStr(Pos, "Right"), C := InStr(Pos, "Center")
 	if (T) || (B) || (L) || (R)
-		return WinMove(hWnd, L?0:R?(w2-w):C?((w2/2)-(w/2)):x, T?0:B?(h2-h):C?((h2/2) - (h/2)):y)
+		return WinMove(hWnd, L?0:R?(w2-w):C?((w2/2)-(w/2)):x, T?0:B?(h2-h):C?((h2/2)-(h/2)):y)
 	return WinMove(hWnd, (w2/2) - (w/2), (h2/2) - (h/2))
 }
  
@@ -9010,11 +8966,14 @@ MonitorSetBrightness(R := "", G := "", B := "") {
 		;--> %A_ScriptDir%\Lib
 		;--> %AHK_INSTALL_PATH%\Lib
 	;• las funciones y clases con *i son opcionales (omite si no existe).
+return
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;clases
 #Include <Class_ImageButton> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1103
 #Include <Class_CtlColors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=4026
 #Include *i <Class_LV_Colors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1081
+#Include *i <Class_INIFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_INIFile
+#Include *i <Class_OpenFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_OpenFile
 
 ;funciones
 #Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
