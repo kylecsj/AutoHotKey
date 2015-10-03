@@ -1,5 +1,5 @@
 ###############################################################
-ACTUALIZACION 29/09/2015 - AHK1.1.22.07
+ACTUALIZACION 29/09/2015 / 03/10 - AHK1.1.22.07
 ###############################################################
 Funciones Agregadas:
 	• BC_Click()
@@ -22,34 +22,55 @@ Funciones Agregadas:
 	• WinVersion()
 
 Mejoras:
+	• FileDelete() ~ 03/10
+	• FileWriteLine() ~ 03/10
+	• FileAppendLine() ~ 03/10
+	• FileWrite() ~ 03/10
+	• FileReadLine() ~ 03/10
 	• WinCenter() ~ Reescrito.
 	
 Correcciones:
+	• FileCopy() ~ 03/10
 	• _getcolor()
 	• IntToHex()
 	
 Notas:
+	• Añadido Include para Class_INIFile. reemplzao de IniRead/Write/Delete. más rápido. ~ 03/10
+		• Link: https://github.com/flipeador/AutoHotKey/blob/master/Class_INIFile
 	• Añadido PROGRESS BAR CONTROL funciones.
 	• Añadido SLIDER CONTROL funciones.
 	
 Funciones Renombradas:
+	• FileSDelete() --> FileSecureDelete() ~ 03/10
+	• DirSDelete() --> DirSecureDelete() ~ 03/10
 	• FileGetValidPath() --> GetValidPathName()
 	• BCM_SetIcon() --> BC_SetIcon()
 	• StrLPath() --> GetLongPathName()
 	• StrSPath() --> GetShortPathName()
 
 Funciones Eliminadas:
+	• FileOpenEx() ~ 03/10
+	• DirRDelete(). usar FileRDelete() ~ 03/10
 	• StrMin(). usar Min()
 	• StrMax(). usar Max()
 	• WinTitleAnimate()
 	• WinMinimizeToTray()
 	
 Otros (cambios menores):
+	• DirEmpty() ~ 03/10
+	• FileRename() ~ 03/10
+	• InternetGetFileSize() ~ 03/10
+	• DirSDelete() / DirSecureDelete() ~ 03/10
 	• GetFullPathName()
 	• StrSPath() / GetShortPathName()
 	• StrLPath() / GetLongPathName()
 	• WindowsVersion()
 	• FileCopy()
+	
+Cambios (reescrito. cambio de sintaxis):
+	• FileSDelete() / FileSecureDelete() ~ 03/10
+	• FileRDelete() ~ 03/10
+	• FileRecycle() ~ 03/10
 ###############################################################
 
 
