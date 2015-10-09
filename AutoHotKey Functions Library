@@ -3186,7 +3186,7 @@ DesktopSelectedItems(ByRef Count := "", Deselect := false) {
 ;Sintaxis: DesktopSelectItem( [nombre], [0|1] )
 DesktopSelectItem(Name, State := true) {
 	sfv := DesktopGetShellWindows().Document, items := sfv.SelectedItems
-	return !(ErrorLevel:=!IsObject(items)), sfv.SelectItem(items.Item("FACU"), !!State)
+	return !(ErrorLevel:=!IsObject(items)), sfv.SelectItem(items.Item(Name), !!State)
 }
 
 
@@ -3558,79 +3558,27 @@ BlockInput(OnOff, Delay := 500, DisableTaskManager := true, Suspend := true) {
 			, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
 		return DllCall("User32.dll\BlockInput", "Int", true)
 }}
-	
-;animar el icono del área de notificación cambiando entre distintos iconos.
-;Sintaxis: TrayIconAnimate( [icono original], [icono(s*)], [velocidad (ms)], [tiempo fuera (ms)], [Index] )
-;Notas: si no espesifica tiempo fuera, debe volver a llamar a la funcion sin espesificar ningún parametro para detenerlo.
-	;espesificar -2 en el 1er parametro para obtener el tiempo restante antes de detenerse (solo si se espesifica tiempo fuera).
-	;en el 2do parametro puede espesificar un icono o varios en un array [ico1, ico2, ico3, ico4, icoX].
-	;el icono espesificado en el 1er parametro se establece automáticamente al detener el tiempo.
-	;para no incluir el icono por defecto, no espesificar nada en el 1er parametro.
-	;para cambiar la velocidad, espesificar -3 en el 1er parametro y el tiempo en ms en el 2do parametro.
-	;para incluir un icono de una dll, espesificar los índices en el 5to parametro en el mismo orden de los iconos en el 2do.
-		;el primero corresponde al icono espesificado en el 1er parametro. deben estar separados por coma ','. defecto es 1 para todos.
-;Ejemplo:
-	;TrayIconAnimate(A_Desktop "\1.ico", [A_Desktop "\2.ico", A_Desktop "\3.ico"],, 10000) ;10seg
-	;Loop {
-	;	ToolTip % (i:=TrayIconAnimate(-2)) " (" (A_Index>=50?"2":"3") "70ms)" ;obtener tiempo restante
-	;	Sleep 100
-	;	if (A_Index=50) ;5 segundos
-	;		TrayIconAnimate(-3, 270) ;ajustar velocidad a 270ms
-	;} until !(i>0) ;parar (break): si el número es negativo, los milisegundos ya han pasado (tiempo fuera)
-	;ExitApp
-TrayIconAnimate(Icon := 0, Icons := 0, Delay := 370, TimeOut := 0, IconsIndex := "") {
-	static TrayIconAnimate := Func("TrayIconAnimate").Bind(-1)
-	static IconIndex, IconTimeOut, SetIcon, DefaultIcon, _
-	if !Icon&&!Icons { ;0 = terminar
-		SetTimer(TrayIconAnimate, "Off")
-		try Menu, Tray, Icon, % DefaultIcon?SetIcon[SetIcon.MaxIndex()]:_[-1], % _[DefaultIcon]
-	} else if (Icon=-1) { ;-1 = cambiar icono
-		if (IconTimeOut>0&&A_TickCount>=IconTimeOut)
-			return TrayIconAnimate()
-		try Menu, Tray, Icon, % SetIcon[IconIndex], % _[IconIndex+1]>1?_[IconIndex+1]:1
-		IconIndex := IconIndex>=SetIcon.MaxIndex()?1:IconIndex+1
-	} else if (Icon=-2) { ;-2 = obtener tiempo restante
-		return IconTimeOut-A_TickCount
-	} else if (Icon=-3) { ;-3 = cambiar velocidad
-		if (Icons>0)
-			SetTimer(TrayIconAnimate, Icons)
-	} else { ;iniciar
-		SetIcon := [], IconIndex := 1, DefaultIcon := !!IsFile(Icon), _ := StrSplit(IconsIndex, ",")
-		if !IsObject(Icons)
-			SetIcon[1] := Icons
-		else
-			for k, v in Icons
-				SetIcon[k] := v
-		if DefaultIcon
-			SetIcon[SetIcon.MaxIndex()+1] := Icon
-		return true, IconTimeOut := TimeOut>0?A_TickCount+TimeOut:0
-			, _[-1] := A_IconFile, _[0] := A_IconNumber
-			, SetTimer(TrayIconAnimate, Delay,, true), ErrorLevel := !Delay
-}}
 
 ;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
 ;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
-GetActiveObjects(Prefix := "", CaseSensitive := false) { ;http://ahkscript.org/boards/viewtopic.php?f=6&t=6494 || By Lexikos
+GetActiveObjects(Prefix := "", CaseSensitive := false) {
     DllCall("ole32.dll\CoGetMalloc", "UInt", 1, "Ptr*", malloc), objects := {}
     , DllCall("ole32.dll\CreateBindCtx", "UInt", 0, "Ptr*", bindCtx)
     , DllCall(NumGet(NumGet(bindCtx+0)+8*A_PtrSize), "Ptr", bindCtx, "Ptr*", rot)
     , DllCall(NumGet(NumGet(rot+0)+9*A_PtrSize), "Ptr", rot, "Ptr*", enum)
     while DllCall(NumGet(NumGet(enum+0)+3*A_PtrSize), "Ptr", enum, "UInt", 1, "Ptr*", mon, "Ptr", 0) = 0
-    {
-        DllCall(NumGet(NumGet(mon+0)+20*A_PtrSize), "Ptr", mon, "Ptr", bindCtx, "Ptr", 0, "Ptr*", pname) 
-        , name := StrGet(pname, "UTF-16")
-        , DllCall(NumGet(NumGet(malloc+0)+5*A_PtrSize), "Ptr", malloc, "Ptr", pname)
+    {	DllCall(NumGet(NumGet(mon+0)+20*A_PtrSize), "Ptr", mon, "Ptr", bindCtx, "Ptr", 0, "Ptr*", pname) 
+        , name := StrGet(pname, "UTF-16"), DllCall(NumGet(NumGet(malloc+0)+5*A_PtrSize), "Ptr", malloc, "Ptr", pname)
         if InStr(name, Prefix, CaseSensitive) = 1 {
             DllCall(NumGet(NumGet(rot+0)+6*A_PtrSize), "Ptr", rot, "Ptr", mon, "Ptr*", punk)
             if (pdsp := ComObjQuery(punk, "{00020400-0000-0000-C000-000000000046}"))
                 obj := ComObject(9, pdsp, 1), ObjRelease(punk)
-            else
-                obj := ComObject(13, punk, 1)
+            else obj := ComObject(13, punk, 1)
             objects[SubStr(name, StrLen(Prefix) + 1)] := obj
         } ObjRelease(mon)
     } ObjRelease(enum), ObjRelease(rot), ObjRelease(bindCtx), ObjRelease(malloc)
     return objects
-}
+} ;http://ahkscript.org/boards/viewtopic.php?f=6&t=6494
 
 ;Define el contenido de la variable de entorno especificada para el proceso actual.
 ;Sintaxis: EnvAdd( [nombre], [valor], [user|system] )
@@ -3934,48 +3882,6 @@ Translate(String, From := "", To := "") {
 	return RegExReplace(i.ResponseText, "^.*?""(.*?)"".*$", "$1")
 }
 
-;efecto de agua para una imagen. (ver notas)
-;Sintaxis: ImageWaterCtrl( [ID], [Modo], [Opciones*] )
-;PARÁMETROS:
-	;ID = HWND de la ventana (GUI) | ruta de waterctrl.dll (ver notas) | control (modo SETPARENT)
-	;MODOS (descripcion) = OPCIONES (las opciones varian dependiendo el modo espesificado):
-		;SETPATH = establecer directorio de waterctrl.dll (ver notas). Nota: solo debe espesificarce una vez
-		;ENABLE (habilitar) = [Imagen ruta o Imagen HWND] [xpos] [ypos] [radio] [alto]
-		;DISABLE (deshabilitar)
-		;BLOB (efecto gota de agua) = [xpos] [ypos] [radio] [alto]
-		;SETPARENT (establecer en el control espesificado en ID)
-		;FLATTEN = parar efecto
-		;EXIT = liberar la memoria para waterctrl.dll
-;NOTAS: 
-	;--> necesario waterctrl.dll, descarga: http://restools.hanzify.org/article.asp?id=80 | http://restools.hanzify.org/inno/waterctrl/inno_waterctrl_v2.zip
-	;--> poner waterctrl.dll en el mismo directorio que el script o espesificar la ruta en el primer parámetro y establecer el Modo a 'SETPATH'
-	;--> valor de ErrorLevel = ver funcion
-;EJEMPLO (quitar '/*' y '*/'):
-	/*;cargar waterctrl.dll. poner WaterCtrl.dll en el escritorio
-	ImageWaterCtrl( A_Desktop "\WaterCtrl.dll", "SETPATH")
-	Gui, +HWND_G
-		;establecer ventana. poner imagen en el escritorio con el nombre ahk_logo, extension .BMP
-		;link imagen (o buscar una .BMP): https://i.imgur.com/uK1ZX7p.png
-		ImageWaterCtrl(_G, "Enable", A_Desktop "\ahk_logo.bmp") 
-	Gui, Add, Text, x0 y111 w542 h111 HWND_T
-		;establecer imagen en el control de texto
-		ImageWaterCtrl(_T, "SETPARENT") 
-	Gui, Add, Button, x15 y255 gWaterBlob, WaterBlob
-	Gui, Add, Button, x85 y255 gFlattenWater, FlattenWater
-	Gui, Show,, ImageWaterCtrl
-	Return
-	WaterBlob:
-	ImageWaterCtrl(, "BLOB", 500, 50) ;efecto gota
-	ImageWaterCtrl(, "BLOB", 50, 50) ;efecto gota
-	ImageWaterCtrl(, "BLOB", 250, 50) ;efecto gota
-	Return
-	FlattenWater:
-	ImageWaterCtrl(, "FLATTEN") ;quitar efectos
-	Return
-	GuiClose:
-	ImageWaterCtrl(, "EXIT") ;liberar WaterCtrl.dll 
-	ExitApp
-	*/
 ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
 	static LoadLibrary, LibraryPath
 	if (Mode="SETPATH")
@@ -5375,7 +5281,7 @@ TC_HighlightItem(hWnd, Item := 0, State := 1) {
 #############################################################################################################################################
 */
 ;renombrar item
-;Sintaxis: SB_SetText( [hWnd], [texto], [posición], [¿seleccionar item?] )
+;Sintaxis: CB_SetText( [hWnd], [texto], [posición], [¿seleccionar item?] )
 ;Nota: si no espesifica el 3er parámetro, no se modifica ningún item, solo cambia el texto en el control.
 CB_SetText(hWnd, Text := "", Index := 0, Select := false) {
 	if !(Index)
