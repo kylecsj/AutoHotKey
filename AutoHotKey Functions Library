@@ -7,10 +7,11 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					ventanas, servicios, unidades, sonido, monitor, números &
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
 					escritorio & explorador & menu inicio & papelera de reciclaje,
-					notificaciones, fuentes & colores & recursos, nombres y rutas de archivos, otros.
+					notificaciones, fuentes & colores & recursos, nombres y rutas de archivos,
+					tareas programadas, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.07 U32 & U64 || Sábado, 03 de octubre de 2015
+Actualizado: AHK1.1.22.07 U32 & U64 || Viernes, 09 de octubre de 2015
 Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
@@ -130,9 +131,35 @@ _mnum(f,s){
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: ARCHIVOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;General
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;copiar archivo(s)
+;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?] )
+;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
+FileCopy(Source, Dest, Overwrite := false, Recurse := false) {
+	static CopyFlags
+	if (CopyFlags="")
+		CopyFlags := IsWindowsVistaOrGreater()?0x00001000:0
+	Flags := CopyFlags|(Overwrite?0:0x00000001), Count := 0, Dest := GetFullPathName(Dest)
+	if  !(Recurse) && !(InStr(Source, "*")) && !(InStr(Source, "?")) {
+		Source := GetFullPathName(Source), IsDir(Dest)?(Dest:=Dest "\" SplitPath(Source).FileName):
+		return r:=DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" Dest, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags), ErrorLevel := !r
+	} Loop, Files, %Source%, % "F" (Recurse?"R":"")
+		Count := (Count+!!DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" A_LoopFileFullPath, "Str", "\\?\" Dest "\" A_LoopFileName, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)), Index := A_Index
+	return Count, ErrorLevel := (Count!=Index)
+}
+
+;recyclar
+;FileRecycle( [archivo] )
+FileRecycle(Filename) {
+	FileRecycle, %Filename%
+	return !ErrorLevel
+}
+
 ;eliminar archivo(s)
 ;Sintaxis: FileDelete( [archivo], [¿operar en subcarpetas?] )
 ;ErrorLevel: array que contiene los archivos que no se puedieron eliminar (0 si se eliminaron todos).
@@ -181,6 +208,13 @@ FileSecureDelete(Filename, Passes := 1) {
 	return !ErrorLevel
 }
 
+;mover archivo
+;Sintaxis: FileMove( [archivo], [destino], [sobreescribir] )
+FileMove(FileName, Dest, OverWrite := false) {
+	FileMove, %FileName%, %Dest%, %OverWrite%
+	return !ErrorLevel
+}
+
 ;renombrar archivo
 ;Sintaxis: FileRename( [archivo], [nuevo nombre], [¿sobreescribir?] )
 FileRename(Filename, NewName, OverWrite := false) {
@@ -191,79 +225,26 @@ FileRename(Filename, NewName, OverWrite := false) {
 	return !ErrorLevel
 }
 
-;obtener version 
-;Sintaxis: FileGetVersion( [archivo] )
-FileGetVersion(Filename) {
-	FileGetVersion, OutputVar, %Filename%
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Diálogos
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;dialogo para seleccionar archivos
+;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones/VentanaID], [Título de la ventana] )
+FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
+	FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
 	return OutputVar
 }
 
-;comparar dos versiones 
-;Sintaxis: VersionCompare( [version1], [version2], [resultado] )
-;Resultado: +(ver1 > ver2) | -(ver1 < ver2) | =(ver1 = ver2)
-;Return: 0(Ver1 = Ver2) | 1(Ver1 > Ver2) | 2(Ver1 < Ver2)
-VersionCompare(version1, version2, ByRef OutputVar := "") {
-	if !(v2:=Trim(RegExReplace(version2, "[^0-9.]"), "."))
-		return true, OutputVar := "+"
-	if !(v1:=Trim(RegExReplace(version1, "[^0-9.]"), "."))
-		return 2, OutputVar := "-"
-	vA := StrSplit(v1, "."), vB := StrSplit(v2, ".")
-	Loop, % (vA.MaxIndex()>vB.MaxIndex()?vA.MaxIndex():vB.MaxIndex()) {
-		if (vA.MaxIndex()<A_Index)
-			vA[A_Index] := 0
-		if (vB.MaxIndex()<A_Index)
-			vB[A_Index] := 0
-		if (vA[A_Index]>vB[A_Index])
-			return true, OutputVar := "+"
-		if (vB[A_Index]>vA[A_Index])
-			return 2, OutputVar := "-"
-	} return false, OutputVar := "="
-} FileVersionCompare(v1, v2) {
-	return VersionCompare(v1, v2)
-} ;http://ahkscript.org/boards/viewtopic.php?f=6&t=5959
-
-;comparar el tamaño de varios archivos
-;RESULTADO:
-	;0: todos tienen el mismo tamaño
-	;1: el primer tamaño (1º archivo) es mayor al segundo (2º archivo)
-	;2: el primer tamaño (1º archivo) es menor al segundo (2º archivo)
-	;3+: devuelve la posicion de larchivo con el tamaño diferente
-FileSizeCompare(Files*) {
-	if !(Files.MaxIndex() >= 2)
-		return 0, ErrorLevel := 1
-	Loop, % Files.MaxIndex() {
-		CurrentFileSize := FileGetSize(Files[A_Index])
-		, FirstFileSize := A_Index=1?CurrentFileSize:FirstFileSize
-		, SecondFileSize := A_Index=2?CurrentFileSize:SecondFileSize
-		if (A_Index > 1) && (CurrentFileSize != LastFileSize)
-			return FirstFileSize>SecondFileSize?1:(FirstFileSize<SecondFileSize?2:A_Index)
-		LastFileSize := CurrentFileSize
-	} return ErrorLevel := 0
+;dialogo para guardar archivo
+;Sintaxis: FileSave( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
+FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
+	FileSelectFile, OutputVar, S%Options%, %RootDirFilename%, %Prompt%, %Filter%
+	return OutputVar
 }
 
-;obtener tamaño del archivo, en bytes.
-;Sintáxis: FileGetSize( [archivo], [KB|MB|GB], [decimales] )
-FileGetSize(FileName, Units := "", Places := "") {
-	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
-	FileGetSize, FileSize, %FileName%
-	FileSize := _[Units]?FileSize/_[Units]:FileSize
-	return Places=""?FileSize:Round(FileSize, Places)
-}
-
-;mover archivo
-;Sintaxis: FileMove( [archivo], [destino], [sobreescribir] )
-FileMove(FileName, Dest, OverWrite := false) {
-	FileMove, %FileName%, %Dest%, %OverWrite%
-	return !ErrorLevel
-}
-
-;Sintaxis: FileSetTime( [fecha], [archivo], [M|C|A], [0(F)|1(FD)|2(D)], [0|1(R)] )
-FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders := false, Recurse := false) {
-	Loop, Parse, % WhichTimeMCA
-		FileSetTime, %Time%, %FilePattern%, %A_LoopField%, %OperateOnFolders%, %Recurse%
-	return !ErrorLevel
-}
-
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Obtener
+;--------------------------------------------------------------------------------------------------------------------------------------------------
 ;obtener fecha de creacion, modificacion y/o último acceso
 ;Sintaxis: FileGetTime( [archivo/carpeta], [M/C/A] )
 ;EJEMPLO:
@@ -286,19 +267,20 @@ FileGetTime(Filename, WhichTime := 0, ByRef ObjTime := "") {
 	return i
 }
 
-;recyclar
-;FileRecycle( [archivo] )
-FileRecycle(Filename) {
-	FileRecycle, %Filename%
-	return !ErrorLevel
+;obtener version 
+;Sintaxis: FileGetVersion( [archivo] )
+FileGetVersion(Filename) {
+	FileGetVersion, OutputVar, %Filename%
+	return OutputVar
 }
 
-;comprueba si es archivo
-;Sintaxis: IsFile( [archivo] )
-IsFile(Filename, ByRef FullPathName := "") {
-	if IsByRef(FullPathName)
-		FullPathName := GetFullPathName(Filename)
-	return (!InStr(i:=FileExist(Filename),"D")&&i)
+;obtener tamaño del archivo, en bytes.
+;Sintáxis: FileGetSize( [archivo], [KB|MB|GB], [decimales] )
+FileGetSize(FileName, Units := "", Places := "") {
+	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+	FileGetSize, FileSize, %FileName%
+	FileSize := _[Units]?FileSize/_[Units]:FileSize
+	return Places=""?FileSize:Round(FileSize, Places)
 }
 
 ;obtener atributos de un archivo o carpeta
@@ -309,6 +291,66 @@ FileGetAttrib(lpFileName, ByRef hAttrib := "", ByRef _cpath := "") {
 	if ((hAttrib:=DllCall("Kernel32.dll\GetFileAttributesW", "Str", "\\?\" _cpath(lpFileName, _cpath)))=-1)
 		return false, ErrorLevel := true
 	return _cstr(List, hAttrib, "&", "."), ErrorLevel := false
+}
+
+;obtener informacion de un acceso directo
+;Sintaxis: FileGetShortcut( [acceso directo], [comando], [directorio de trabajo], [parámetros], [descripcion], [icono], [índice], [modo de inicio] )
+;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
+;Nota: si el archivo espesificado no es un acceso directo válido, devuelve el archivo espesificado.
+FileGetShortcut(ShortcutFile, ByRef OutTarget := "", ByRef OutDir := "", ByRef OutArgs := "", ByRef OutDescription := "", ByRef OutIcon := "", ByRef OutIconNum := "", ByRef OutRunState := "") {
+	FileGetShortcut, %ShortcutFile%, OutTarget, OutDir, OutArgs, OutDescription, OutIcon, OutIconNum, OutRunState
+	return ErrorLevel?ShortcutFile:(OutTarget?OutTarget:ShortcutFile)
+}
+
+;obtiene informacion sobre un archivo
+;Sintaxis: FileGetInfo( [archivo], [tipo de informacion] )
+;EJEMPLOS:
+	;MsgBox % FileGetInfo( comspec ).CompanyName
+	;MsgBox % FileGetInfo( comspec, "FileDescription" )
+FileGetInfo(FileName, InfoType := "") {
+	static InfoList := ["Comments","InternalName","ProductName","CompanyName","LegalCopyright","ProductVersion"
+		,"FileDescription","LegalTrademarks","PrivateBuild","FileVersion","OriginalFilename","SpecialBuild"]
+	;InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeExW", "UInt", 0x01, "Str", FileName, "Ptr", 0)
+	InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeW", "Str", FileName, "Ptr", 0)
+	, VarSetCapacity(InfoData, InfoSize * 2, 0)
+	;, DllCall("Version.dll\GetFileVersionInfoExW", "UInt", 0x01, "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
+	, DllCall("Version.dll\GetFileVersionInfoW", "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
+	, DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\VarFileInfo\Translation", "PtrP", aInfoData, "PtrP", InfoSize+1)
+	, Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort")
+	, Lang_CodePage := Format( "{:04X}{:04X}", Lang, CodePage)
+	if InfoType {
+		DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
+		return StrGet(aInfoData, InfoSize)
+	} FileInfo := {}
+	for Index, InfoType in InfoList
+		if DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
+			FileInfo[InfoType] := StrGet(aInfoData, InfoSize)
+	return FileInfo
+} FileGetInfo2(Filename, ValidatePath := 0) {
+	Filename := ValidatePath ? GetValidPathName(Filename) : Filename
+	if !IsFile( Filename )
+		return "", ErrorLevel := 1
+	Filename := StrReplace(Filename, "\", "\\"), i := {}
+	for a in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM CIM_Datafile WHERE Name = '" Filename "'")
+		i.AccessMask := a.AccessMask, i.Archive := a.Archive, i.Caption := a.Caption, i.Compressed := a.Compressed
+		, i.CompressionMethod := a.CompressionMethod, i.CreationClassName := a.CreationClassName, i.CreationDate := a.CreationDate
+		, i.CSCreationClassName := a.CSCreationClassName, i.CSName := a.CSName, i.Description := a.Description, i.Drive := a.Drive
+		, i.EightDotThreeFileName := a.EightDotThreeFileName, i.Encrypted := a.Encrypted, i.EncryptionMethod := a.EncryptionMethod
+		, i.Extension := a.Extension, i.FileName := a.FileName, i.FileSize := a.FileSize, i.FileType := a.FileType, i.Writeable := a.Writeable
+		, i.FSCreationClassName := a.FSCreationClassName, i.FSName := a.FSName, i.Hidden := a.Hidden, i.InstallDate := a.InstallDate
+		, i.InUseCount := a.InUseCount, i.LastAccessed := a.LastAccessed, i.LastModified := a.LastModified, i.ManuFacturer := a.Manufacturer
+		, i.Name := a.Name, i.Path := a.Path, i.Readable := a.Readable, i.Status := a.Status, i.System := a.System, i.Version := a.Version
+	return i, ErrorLevel := !i.Name
+}
+
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Establecer
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Sintaxis: FileSetTime( [fecha], [archivo], [M|C|A], [0(F)|1(FD)|2(D)], [0|1(R)] )
+FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders := false, Recurse := false) {
+	Loop, Parse, % WhichTimeMCA
+		FileSetTime, %Time%, %FilePattern%, %A_LoopField%, %OperateOnFolders%, %Recurse%
+	return !ErrorLevel
 }
 
 ;cambiar atributo(s) a carpetas y archivos.
@@ -342,39 +384,6 @@ FileSetAttrib(Attributes, FilePattern, Mode := 0, Recurse := 0) {
 	return ok, ErrorLevel := (ok!=i)
 }
 
-;separa un nombre de archivo o URL en su nombre, directorio, la extensión y la unidad.
-;Sintaxis: SplitPath( [Nombre / URL], [nombre.ext], [directorio], [extension], [nombre], [unidad] )
-SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtension := "", ByRef OutNameNoExt := "", ByRef OutDrive := "") {
-	SplitPath, InputVar, OutFileName, OutDir, OutExtension, OutNameNoExt, OutDrive
-	i := {}, i.FileName := (i.FN:=OutFileName), i.Dir := OutDir, i.Ext := (i.Extension:=OutExtension), i.Name := OutNameNoExt, i.Drive := OutDrive
-	return i
-}
-
-;copiar archivo(s)
-;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?] )
-;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
-FileCopy(Source, Dest, Overwrite := false, Recurse := false) {
-	static CopyFlags
-	if (CopyFlags="")
-		CopyFlags := IsWindowsVistaOrGreater()?0x00001000:0
-	Flags := CopyFlags|(Overwrite?0:0x00000001), Count := 0, Dest := GetFullPathName(Dest)
-	if  !(Recurse) && !(InStr(Source, "*")) && !(InStr(Source, "?")) {
-		Source := GetFullPathName(Source), IsDir(Dest)?(Dest:=Dest "\" SplitPath(Source).FileName):
-		return r:=DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" Dest, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags), ErrorLevel := !r
-	} Loop, Files, %Source%, % "F" (Recurse?"R":"")
-		Count := (Count+!!DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" A_LoopFileFullPath, "Str", "\\?\" Dest "\" A_LoopFileName, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)), Index := A_Index
-	return Count, ErrorLevel := (Count!=Index)
-}
-
-;obtener informacion de un acceso directo
-;Sintaxis: FileGetShortcut( [acceso directo], [comando], [directorio de trabajo], [parámetros], [descripcion], [icono], [índice], [modo de inicio] )
-;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
-;Nota: si el archivo espesificado no es un acceso directo válido, devuelve el archivo espesificado.
-FileGetShortcut(ShortcutFile, ByRef OutTarget := "", ByRef OutDir := "", ByRef OutArgs := "", ByRef OutDescription := "", ByRef OutIcon := "", ByRef OutIconNum := "", ByRef OutRunState := "") {
-	FileGetShortcut, %ShortcutFile%, OutTarget, OutDir, OutArgs, OutDescription, OutIcon, OutIconNum, OutRunState
-	return ErrorLevel?ShortcutFile:(OutTarget?OutTarget:ShortcutFile)
-}
-
 ;crear acceso directo
 ;Sintaxis: FileCreateShortcut( [comando], [acceso directo], [parámetros], [descricpion], [icono], [tecla de acceso], [índice], [modo de inicio] )
 ;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
@@ -385,39 +394,22 @@ FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Descripti
 	return !ErrorLevel
 }
 
-;dialogo para seleccionar archivos
-;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones/VentanaID], [Título de la ventana] )
-FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
-	FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar
+;establecer seguridad para el archivo/carpeta
+;Sintaxis: FileSetSecurity( [archivo/carpeta], [usuario], [acceso], [opcion] )
+;Usuario: https://msdn.microsoft.com/en-us/library/windows/desktop/aa379637%28v=vs.85%29.aspx
+;Accesos: 2032127 = FULL | 1179817 = READ | 1179958 = WRITE | 1245631 = CHANGE
+;Opcion: 0 = carpeta | 1 = carpeta+archivos | 2 = carpeta+subcarpetas | 3 = carpeta+subcarpetas+archivos
+FileSetSecurity(File, Trustee := "S-1-1-0", AccessMask := 2032127, Flags := 0) {
+	dacl := ComObjCreate("AccessControlList"), sd := ComObjCreate("SecurityDescriptor")
+	, newAce := ComObjCreate("AccessControlEntry"), sdutil := ComObjCreate("ADsSecurityUtility")
+	, sd := sdUtil.GetSecurityDescriptor(File, true, true), dacl := sd.DiscretionaryAcl, newAce.Trustee := Trustee
+	, newAce.AccessMask := AccessMask, newAce.AceFlags := Flags, newAce.AceType := false, dacl.AddAce(newAce)
+	return sdutil.SetSecurityDescriptor(File, true, sd, true)
 }
 
-;dialogo para guardar archivo
-;Sintaxis: FileSave( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
-FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
-	FileSelectFile, OutputVar, S%Options%, %RootDirFilename%, %Prompt%, %Filter%
-	return OutputVar
-}
-
-;leer archivo
-;Sintáxis: FileRead( [Archivo] )
-FileRead(Filename) {
-	try FileRead, OutputVar, %Filename%
-	catch {
-		return OutputVar, ErrorLevel := true
-	} return OutputVar, ErrorLevel := false
-}
-
-;leer texto en la línea espesificada.
-;Sintaxis: FileReadLine( [Archivo], [Linea] )
-FileReadLine(FileName, LineNum, Encoding := "") {
-	if !(IsObject(obj:=FileOpen(Filename, "r`n-wd", Encoding)))
-		return false, ErrorLevel := true
-	Loop, % (LineNum-1)
-		obj.ReadLine()
-	return obj.ReadLine(), ErrorLevel := false
-}
-
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Escribir
+;--------------------------------------------------------------------------------------------------------------------------------------------------
 ;escribir en un archivo (añadir)
 ;Sintáxis: FileAppend( [Texto], [*Archivo], [codificación] )
 FileAppend(Text, Filename, Encoding := "") {
@@ -473,6 +465,90 @@ FileWriteLine(Text, Filename, LineNum, Encoding := "", DeleteLine := false) {
 	return (bytes:=obj.Write(NewText)), ErrorLevel := !(bytes)
 }
 
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Leer
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;leer archivo
+;Sintáxis: FileRead( [Archivo] )
+FileRead(Filename) {
+	try FileRead, OutputVar, %Filename%
+	catch {
+		return OutputVar, ErrorLevel := true
+	} return OutputVar, ErrorLevel := false
+}
+
+;leer texto en la línea espesificada.
+;Sintaxis: FileReadLine( [Archivo], [Linea] )
+FileReadLine(FileName, LineNum, Encoding := "") {
+	if !(IsObject(obj:=FileOpen(Filename, "r`n-wd", Encoding)))
+		return false, ErrorLevel := true
+	Loop, % (LineNum-1)
+		obj.ReadLine()
+	return obj.ReadLine(), ErrorLevel := false
+}
+
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;Otros
+;--------------------------------------------------------------------------------------------------------------------------------------------------
+;comprueba si es archivo
+;Sintaxis: IsFile( [archivo] )
+IsFile(Filename, ByRef FullPathName := "") {
+	if IsByRef(FullPathName)
+		FullPathName := GetFullPathName(Filename)
+	return (!InStr(i:=FileExist(Filename),"D")&&i)
+}
+
+;comparar dos versiones 
+;Sintaxis: VersionCompare( [version1], [version2], [resultado] )
+;Resultado: +(ver1 > ver2) | -(ver1 < ver2) | =(ver1 = ver2)
+;Return: 0(Ver1 = Ver2) | 1(Ver1 > Ver2) | 2(Ver1 < Ver2)
+VersionCompare(version1, version2, ByRef OutputVar := "") {
+	if !(v2:=Trim(RegExReplace(version2, "[^0-9.]"), "."))
+		return true, OutputVar := "+"
+	if !(v1:=Trim(RegExReplace(version1, "[^0-9.]"), "."))
+		return 2, OutputVar := "-"
+	vA := StrSplit(v1, "."), vB := StrSplit(v2, ".")
+	Loop, % (vA.MaxIndex()>vB.MaxIndex()?vA.MaxIndex():vB.MaxIndex()) {
+		if (vA.MaxIndex()<A_Index)
+			vA[A_Index] := 0
+		if (vB.MaxIndex()<A_Index)
+			vB[A_Index] := 0
+		if (vA[A_Index]>vB[A_Index])
+			return true, OutputVar := "+"
+		if (vB[A_Index]>vA[A_Index])
+			return 2, OutputVar := "-"
+	} return false, OutputVar := "="
+} FileVersionCompare(v1, v2) {
+	return VersionCompare(v1, v2)
+} ;http://ahkscript.org/boards/viewtopic.php?f=6&t=5959
+
+;comparar el tamaño de varios archivos
+;RESULTADO:
+	;0: todos tienen el mismo tamaño
+	;1: el primer tamaño (1º archivo) es mayor al segundo (2º archivo)
+	;2: el primer tamaño (1º archivo) es menor al segundo (2º archivo)
+	;3+: devuelve la posicion de larchivo con el tamaño diferente
+FileSizeCompare(Files*) {
+	if !(Files.MaxIndex() >= 2)
+		return 0, ErrorLevel := 1
+	Loop, % Files.MaxIndex() {
+		CurrentFileSize := FileGetSize(Files[A_Index])
+		, FirstFileSize := A_Index=1?CurrentFileSize:FirstFileSize
+		, SecondFileSize := A_Index=2?CurrentFileSize:SecondFileSize
+		if (A_Index > 1) && (CurrentFileSize != LastFileSize)
+			return FirstFileSize>SecondFileSize?1:(FirstFileSize<SecondFileSize?2:A_Index)
+		LastFileSize := CurrentFileSize
+	} return ErrorLevel := 0
+}
+
+;separa un nombre de archivo o URL en su nombre, directorio, la extensión y la unidad.
+;Sintaxis: SplitPath( [Nombre / URL], [nombre.ext], [directorio], [extension], [nombre], [unidad] )
+SplitPath(InputVar, ByRef OutFileName := "", ByRef OutDir := "", ByRef OutExtension := "", ByRef OutNameNoExt := "", ByRef OutDrive := "") {
+	SplitPath, InputVar, OutFileName, OutDir, OutExtension, OutNameNoExt, OutDrive
+	i := {}, i.FileName := (i.FN:=OutFileName), i.Dir := OutDir, i.Ext := (i.Extension:=OutExtension), i.Name := OutNameNoExt, i.Drive := OutDrive
+	return i
+}
+
 FileFNPath(Filename, Start := "(", End := ")") {
 	Filename := GetFullPathName(Filename), SplitPath(Filename, FullName, Dir, Ext, Name)
 	, Filename := Dir "\" Name, Ext := Ext=""?"":"." Ext
@@ -482,46 +558,20 @@ FileFNPath(Filename, Start := "(", End := ")") {
 		else return (tmppath?tmppath:Filename) Ext
 }}
 
-;obtiene informacion sobre un archivo
-;Sintaxis: FileGetInfo( [archivo], [tipo de informacion] )
-;EJEMPLOS:
-	;MsgBox % FileGetInfo( comspec ).CompanyName
-	;MsgBox % FileGetInfo( comspec, "FileDescription" )
-FileGetInfo(FileName, InfoType := "") {
-	static InfoList := ["Comments","InternalName","ProductName","CompanyName","LegalCopyright","ProductVersion"
-		,"FileDescription","LegalTrademarks","PrivateBuild","FileVersion","OriginalFilename","SpecialBuild"]
-	;InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeExW", "UInt", 0x01, "Str", FileName, "Ptr", 0)
-	InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeW", "Str", FileName, "Ptr", 0)
-	, VarSetCapacity(InfoData, InfoSize * 2, 0)
-	;, DllCall("Version.dll\GetFileVersionInfoExW", "UInt", 0x01, "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
-	, DllCall("Version.dll\GetFileVersionInfoW", "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
-	, DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\VarFileInfo\Translation", "PtrP", aInfoData, "PtrP", InfoSize+1)
-	, Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort")
-	, Lang_CodePage := Format( "{:04X}{:04X}", Lang, CodePage)
-	if InfoType {
-		DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
-		return StrGet(aInfoData, InfoSize)
-	} FileInfo := {}
-	for Index, InfoType in InfoList
-		if DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
-			FileInfo[InfoType] := StrGet(aInfoData, InfoSize)
-	return FileInfo
-} FileGetInfo2(Filename, ValidatePath := 0) {
-	Filename := ValidatePath ? GetValidPathName(Filename) : Filename
-	if !IsFile( Filename )
-		return "", ErrorLevel := 1
-	Filename := StrReplace(Filename, "\", "\\"), i := {}
-	for a in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM CIM_Datafile WHERE Name = '" Filename "'")
-		i.AccessMask := a.AccessMask, i.Archive := a.Archive, i.Caption := a.Caption, i.Compressed := a.Compressed
-		, i.CompressionMethod := a.CompressionMethod, i.CreationClassName := a.CreationClassName, i.CreationDate := a.CreationDate
-		, i.CSCreationClassName := a.CSCreationClassName, i.CSName := a.CSName, i.Description := a.Description, i.Drive := a.Drive
-		, i.EightDotThreeFileName := a.EightDotThreeFileName, i.Encrypted := a.Encrypted, i.EncryptionMethod := a.EncryptionMethod
-		, i.Extension := a.Extension, i.FileName := a.FileName, i.FileSize := a.FileSize, i.FileType := a.FileType, i.Writeable := a.Writeable
-		, i.FSCreationClassName := a.FSCreationClassName, i.FSName := a.FSName, i.Hidden := a.Hidden, i.InstallDate := a.InstallDate
-		, i.InUseCount := a.InUseCount, i.LastAccessed := a.LastAccessed, i.LastModified := a.LastModified, i.ManuFacturer := a.Manufacturer
-		, i.Name := a.Name, i.Path := a.Path, i.Readable := a.Readable, i.Status := a.Status, i.System := a.System, i.Version := a.Version
-	return i, ErrorLevel := !i.Name
-}
+;esperar a que un archivo exista o no
+;Sintaxis: FileWait( [archivo], [segundos], [¿esperar a que no exista?] )
+FileWait(FileName, Seconds := 0, NotExist := false) {
+	if (Seconds=-1)
+		return 0
+	FileName := GetFullPathName(FileName)
+	, ElapsedTime := A_TickCount+(Seconds*1000)
+	Loop {
+		if (NotExist&&!IsFile(FileName))||(!NotExist&&IsFile(FileName))
+			return 1, ErrorLevel := 0
+		if (Seconds>0&&A_TickCount>=ElapsedTime)
+			return 0, ErrorLevel := 1
+		Sleep(500)
+}}
 
 ;abre un directorio y selecciona el/los archivo(s)
 ;Sintaxis : FileExplore( [Directorio/Archivo], [Archivos*] )
@@ -552,35 +602,46 @@ FileExplore(sPath, Files*) {
 	return Run( A_WinDir "\explorer.exe /n,/select," Chr(34) Filename Chr(34) )
 }
 
-;esperar a que un archivo exista o no
-;Sintaxis: FileWait( [archivo], [segundos], [¿esperar a que no exista?] )
-FileWait(FileName, Seconds := 0, NotExist := false) {
-	if (Seconds=-1)
-		return 0
-	FileName := GetFullPathName(FileName)
-	, ElapsedTime := A_TickCount+(Seconds*1000)
-	Loop {
-		if (NotExist&&!IsFile(FileName))||(!NotExist&&IsFile(FileName))
-			return 1, ErrorLevel := 0
-		if (Seconds>0&&A_TickCount>=ElapsedTime)
-			return 0, ErrorLevel := 1
-		Sleep(500)
-}}
-
-;establecer seguridad para el archivo/carpeta
-;Sintaxis: FileSetSecurity( [archivo/carpeta], [usuario], [acceso], [opcion] )
-;Usuario: https://msdn.microsoft.com/en-us/library/windows/desktop/aa379637%28v=vs.85%29.aspx
-;Accesos: 2032127 = FULL | 1179817 = READ | 1179958 = WRITE | 1245631 = CHANGE
-;Opcion: 0 = carpeta | 1 = carpeta+archivos | 2 = carpeta+subcarpetas | 3 = carpeta+subcarpetas+archivos
-FileSetSecurity(File, Trustee := "S-1-1-0", AccessMask := 2032127, Flags := 0) {
-	dacl := ComObjCreate("AccessControlList"), sd := ComObjCreate("SecurityDescriptor")
-	, newAce := ComObjCreate("AccessControlEntry"), sdutil := ComObjCreate("ADsSecurityUtility")
-	, sd := sdUtil.GetSecurityDescriptor(File, true, true), dacl := sd.DiscretionaryAcl, newAce.Trustee := Trustee
-	, newAce.AccessMask := AccessMask, newAce.AceFlags := Flags, newAce.AceType := false, dacl.AddAce(newAce)
-	return sdutil.SetSecurityDescriptor(File, true, sd, true)
+;leer/escribir/eliminar archivos .ini
+IniRead(Filename := "", Section := "", Key := "", OutputVar := " ") {
+	static _
+	if (Key!=""&&Section!="")
+		IniRead, OutputVar, % (_:=((Filename="")?_:Filename)), %Section%, %Key%, %OutputVar%
+	else if (Key=""&&Section!="")
+		IniRead, OutputVar, % (_:=((Filename="")?_:Filename)), %Section%
+	else IniRead, OutputVar, % (_:=((Filename="")?_:Filename))
+	return OutputVar
+} IniWrite(Value := "", Filename := "", Section := "", Key := "") {
+	static _
+	if (Key="")
+		IniWrite, %Value%, % (_:=((Filename="")?_:Filename)), %Section%
+	else IniWrite, %Value%, % (_:=((Filename="")?_:Filename)), %Section%, %Key%
+	return !ErrorLevel
+} IniDelete(Filename := "", Section := "", Key := "") {
+	static _
+	if (Key="")
+		IniDelete, % (_:=((Filename="")?_:Filename)), %Section%
+	else IniDelete, % (_:=((Filename="")?_:Filename)), %Section%, %Key%
+	return !ErrorLeveL
 }
 
-
+;crear acceso directo
+;Sintaxis: CreateShortcut( [archivo al que hace referencia], [acceso directo], [directorio de trabajo], [argumentos], [descripcion], [icono], [tecla], [inicio] )
+;Icono: espesificar el icono o un Array con el icono y el indice [Icono, Indice].
+;Tecla: tecla de método abreviado.
+;Inicio: modo de inicio. 1 = Normal (defecto). 3 = Maximizado. 7 = Minimizado.
+;Nota: si el acceso directo ya existe, lo sobreescribe.
+CreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Description := "", IconFile := -1, ShortcutKey := "", RunState := 1) {
+	try WshShell := ComObjCreate("WScript.Shell")
+	, oShellLink := WshShell.CreateShortcut(GetFullPathName(ShortcutFile))
+	, oShellLink.TargetPath := Target, oShellLink.Arguments := Args
+	, oShellLink.WorkingDirectory := WorkingDir, oShellLink.Description := Description
+	, oShellLink.IconLocation := (IsObject(IconFile)?(IconFile[1] ", " (IconFile[2]>0?IconFile[2]:0)):(((IconFile=-1)?Target:IconFile) ", 0"))
+	, oShellLink.Hotkey := ShortcutKey, oShellLink.WindowStyle := ((RunState=3)||(RunState=7))?RunState:1, oShellLink.Save
+	catch, OutputVar
+		return false, ErrorLevel := (OutputVar?OutputVar:true)
+	return true, ErrorLevel := false
+} ;https://msdn.microsoft.com/en-us/library/xk6kst2k%28v=vs.84%29.aspx
 
 
 
@@ -728,6 +789,13 @@ CMD(hWnd := "", CMD := "", Close := true) {
 	if (Close)
 		ProcessClose(hWnd)
 	return output, DllCall("Kernel32.dll\FreeConsole")
+} Exec(cmd, WaitClose := false) {
+	WshShell := ComObjCreate("WScript.Shell")
+	, r := (IsObject(oExec:=WshShell.Exec(cmd)))
+	Loop
+		Sleep, % WaitClose?100:0
+	until !(WaitClose) || (oExec.Status=1)
+	return WaitClose?r:oExec, ErrorLevel := !r
 }
 
 
@@ -782,11 +850,9 @@ CMD(hWnd := "", CMD := "", Close := true) {
 
 
 
-
-
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: CARPETAS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;eliminar directorio
 ;Sintaxis: DirDelete( [carpeta], [¿eliminar archivos y subcarpetas?] )
 DirDelete(DirName, Recurse := false) {
@@ -991,12 +1057,12 @@ DirGetSize(DirName, Units := "", Recurse := true) {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
-; ::::::::::::::::::::::::::::::::::::::::::::: NÚMEROS & OPERACIONES MATEMÁTICAS ::::::::::::::::::::::::::::::::::
+/*#############################################################################################################################################
+::::::::::::::::::::::::::::::::::::::::::::: NÚMEROS & OPERACIONES MATEMÁTICAS ::::::::::::::::::::::::::::::::::
 Links:
 	• http://ahkscript.org/boards/viewtopic.php?t=3925
 	• https://dl.dropboxusercontent.com/u/186419968/html/BaseConversion/index.html
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 */
 ;elevar un numero (potenciación)
 ;Sintaxis: Power( [base], [exponente] )
@@ -1248,6 +1314,13 @@ IsNumber(num, IfChars := "*,x") {
 	return ((Contains(num,IfChars)||((num+1)=""))?false:true)
 }
 
+IsPrime(N) {
+  Loop, % Floor(Sqrt(N))
+    If (A_Index > 1 && !Mod(N, A_Index))
+      Return false
+  return true
+}
+
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
 
@@ -1263,6 +1336,12 @@ Int(hex, Signed := false) {
 	return Format("{:" (Signed?"d":"u") "}", hex)
 } HexToInt(hex, Signed := false) {
 	return Format("{:" (Signed?"d":"u") "}", hex)
+}
+
+;convertir a Float
+;Sintaxis: Float( [valor], [max.decimales] )
+Float(num, Type := "0.2") {
+	return Format("{:" Type "f}", num)
 }
 
 ;convertir a RGB | extraer rojo, verde, azul
@@ -1456,9 +1535,9 @@ HexToRGB(Hex, ByRef R := "", ByRef G := "", ByRef B := "") {
 
 ;convertir RGB a hexadecimal
 ;Sintaxis 1: RGBToHex( [rojo], [verde], [azul], [prefijo] )
-;Sintaxis 2: RGBToHex( [RGB )
+;Sintaxis 2: RGBToHex( [RGB],,, [prefijo] )
 RGBToHex(R, G := "", B := "", Prefix := "0x") {
-	if (G="")||(B="")
+	if (G="") || (B="")
 		RGB(R, R, G, B)
     VarSetCapacity(Hex, 34, 0)
     , DllCall("Shlwapi.dll\wnsprintf", "Str", Hex, "Int", 17, "Str", "%016I64X", "UInt64", (R << 16) + (G << 8) + B, "Int")
@@ -1583,8 +1662,35 @@ Random(Min := -2147483648, Max := 2147483647, NewSeed := 0) {
 		return NewSeed
 	} Random, RandNum, %Min%, %Max%
 	return RandNum
+} RandomEx(Min, Max, Round := 0, Bits := 52) {
+    DllCall("Advapi32.dll\CryptAcquireContextW", "Ptr*", hProv:=0, "Ptr", 0, "Ptr", 0, "UInt", 1, "UInt", 0xF0000000|0x40)
+    , Bytes := Ceil(Bits/8), VarSetCapacity(Data, Bytes)
+    , DllCall("Advapi32.dll\CryptGenRandom", "Ptr", hProv, "UInt", Bytes, "Ptr", &Data)
+    , NumPut(((0xff >> (7-Mod(Bits-1, 8))) & NumGet(Data, Bytes-1, "UChar")), Data, Bytes-1, "UChar")
+    , DllCall("Advapi32.dll\CryptReleaseContext", "Ptr", hProv, "UInt", 0)
+	, r := (NumGet(Data, 0, "UInt64") / 0xfffffffffffff) * ((Max - Min) + Min)
+    return (Round>-1)?Round(r, Round):r
+} ;http://www.autohotkey.com/board/topic/70530-random-number-crypt-secure-rand-numberbuffer/
+
+;determinar el porcentaje
+;Sintaxis: Percent( [numero], [procentaje], [porcentaje (salida)], [decimales] )
+;Ejemplo: MsgBox % "100 menos su 10%: " Percent(100, 10, Percent) "`n10% de 100: " Percent
+;Return: devuelve la resta resultante de el numero espesificado y el porncentaje espesificado de ese valor.
+;3er Parámetro: devuelve el porcentaje espesificado del valor espesificado.
+Percent(num, Percent, ByRef OutputPercent := "", Places := 2) {
+	return Float(num-(i:=(num/100)*Percent), "0." Places), OutputPercent := IsByRef(OutputPercent)?Round(i, Places):""
 }
 
+ ;descomposición prima
+ Factor(n, Delimiter := "`n") {
+    if (n=1)
+        return
+    f := 2
+	while (f<=n) {
+        if (Mod(n, f)=0)
+            return f Delimiter Factor(n/f)
+        f++
+}} ;http://rosettacode.org/wiki/Prime_decomposition#AutoHotkey
 
 
 
@@ -1680,11 +1786,9 @@ Random(Min := -2147483648, Max := 2147483647, NewSeed := 0) {
 
 
 
-
-
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: FUENTES & COLORES & RECURSOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ResourceGetLanguage(hModule, ResourceType, ResourceName) {
 	lpEnumFunc := RegisterCallback("Callback_ResourceGetLanguage", "Fast", 5)
 	, Param := {ResourceLanguage: ""}
@@ -1918,9 +2022,9 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
-;------------------------------------------------------------------------------------------------------------------------------------------------------------- 
+;#############################################################################################################################################
 ;obtiene opciones representadas por carácter(es) y separadas por espacios.
 ;Sintaxis: SplitFlags( [texto], [opciones], [carácteres*] )
 ;Opciones: \d = incluir números | \w incluir letras | [\Q carácteres \E]
@@ -1934,7 +2038,7 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	;MsgBox % (i:=SplitFlags("c1,00 x35.0002 f+150",, "c", "x", "f")) i[1] "`n" i[2] "`n" i[3]
 SplitFlags(String, Options := "\d\Q,.+-^~\E\w", Chars*) {
 	Flags := []
-	if !Chars.MaxIndex()
+	if !(Chars.MaxIndex())
 		Chars := [Options], Options := "\d\Q,.+-^~\E\w"
 	Loop, % Chars.MaxIndex()
 		RegExMatch(String, "i)\Q" Chars[A_Index] "\E\K[" Options "]+", Flag), Flags[A_Index] := Flag
@@ -1970,7 +2074,7 @@ StrTrimLeft(String, Length := 1) {
 ;quitar caracteres de derecha a izquierda
 ;Sintaxis : StrTrimRight( [Var], [Limite] )
 StrTrimRight(String, Length := 1) {
-	return SubStr(String, 1, StrLen(String)-Length)
+	return SubStr(String, 1, -Length)
 }
 
 ;obtener caracteres de izquierda a derecha
@@ -1988,9 +2092,9 @@ StrRight(String, Length := 1) {
 ;If [var] in [ .. ]
 ;comprueba si el contenido de la variable coincide exactamente con los elementos espesificados
 ;Sintaxis: InVar( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
-InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
+InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := false) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
-		if (!CaseSensitive&&(Haystack=A_LoopField))||(CaseSensitive&&(Haystack==A_LoopField))
+		if (!(CaseSensitive) && (Haystack=A_LoopField)) || ((CaseSensitive) && (Haystack==A_LoopField))
 			return true
 	return false
 }
@@ -1998,9 +2102,9 @@ InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
 ;If [var] contains [ .. ]
 ;comprueba si el contenido de la variable coincide exactamente o parcialmente con los elementos espesificados
 ;Sintaxis: Contains( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
-Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := 0) {
+Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := false) {
 	Loop, Parse, % Needle, %Delimiter%, %OmitChars%
-		if InStr( Haystack, A_LoopField, CaseSensitive )
+		if (InStr(Haystack, A_LoopField, !!CaseSensitive))
 			return true
 	return false
 }
@@ -2033,7 +2137,7 @@ Sort(VarName, Options := "") {
 }
 
 ;convertir texto en minúscula 
-StrLower(String, T := 0) {
+StrLower(String, T := false) {
 	return Format(T?"{:T}":"{:L}", String)
 }
 
@@ -2044,8 +2148,8 @@ IsLower(String) {
 	return false
 }
 
-;convertir texto en mayuscula
-StrUpper(String, T := 0) {
+;convertir texto en mayúscula
+StrUpper(String, T := false) {
 	return Format(T?"{:T}":"{:U}", String)
 }
 
@@ -2054,12 +2158,6 @@ IsUpper(String) {
 	if String is UPPER
 		return true
 	return false
-}
-
-StrDownload(URL) {
-	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	, i.Open("GET", URL), i.Send()
-	return i.ResponseText
 }
 
 ;reemplaza variables literales.
@@ -2155,9 +2253,9 @@ ReplaceLiteralVar(String, FileName := false) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: CRIPTOGRAFÍA ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 Base32Encode(Decoded, UseHex := 0, Len := 0) { 
 	static CharsA := "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 	static CharsH := "0123456789ABCDEFGHIJKLMNOPQRSTUV"
@@ -2272,9 +2370,9 @@ Base64Decode(Text) {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*#############################################################################################################################################
   ::::::::::::::::::::::::::::::::::::::::::::: PROCESOS ::::::::::::::::::::::::::::::::::
----------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 NOTAS: las funciones aceptan el PID y Nombre del proceso (este último lo hace mas lento)
 	• espesificar -1 para referirse al proceso actual.
 	• espesificar -2 para referirse al Thread actual. (Thread: http://www.rastersoft.com/OS2/CURSO/THREAD.HTM)
@@ -2548,10 +2646,10 @@ ProcessGetSid(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
 	, DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 0x1, "PtrP", 0, "UInt", 0, "UIntP", Length)
 	, VarSetCapacity(TokenInformation, Length * 2, 0), DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
 	, r:=DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 0x1, "UInt", &TokenInformation, "UInt", Length, "UIntP", 0)
+	, Sid := NumGet(TokenInformation, 0, "UInt")
 	if (IsByRef(UserName)) || (IsByRef(UserDomain))
 		VarSetCapacity(UserName, 512), VarSetCapacity(UserDomain, 512)
-		, DllCall("Advapi32.dll\LookupAccountSidW", "Ptr", 0, "Ptr", Sid:=NumGet(TokenInformation, 0, "UInt")
-			, "Str", UserName, "UIntP", 512, "Str", UserDomain, "UIntP", 512, "UIntP", 0)
+		, DllCall("Advapi32.dll\LookupAccountSidW", "Ptr", 0, "Ptr", Sid, "Str", UserName, "UIntP", 512, "Str", UserDomain, "UIntP", 512, "UIntP", 0)
 	return Sid, DllCall("Kernel32.dll\CloseHandle", "Ptr", hToken), ErrorLevel := !r
 }
 
@@ -2644,9 +2742,9 @@ ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: INTERNET ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 
 ;descargar archivo
 ;Sintaxis: Download( [URL], [Archivo], [¿sobreescribir?], [¿recuperar de la memoria caché cuando sea posible?] )
@@ -2674,7 +2772,8 @@ InternetGetState(lpdwFlags := 0x40) {
 ;Sintaxis: InternetGetFileSize( [URL], [KB|MB|GB] )
 InternetGetFileSize(URL, Units := "") {
 	static _ := {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
-	!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Wininet.dll"))?(hModule:=LoadLibrary("Wininet.dll")):
+	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Wininet.dll"))
+		hModule := DllCall("Kernel32.dll\LoadLibraryW", "Str", "Wininet.dll")
 	hInternet := DllCall("Wininet.dll\InternetOpenW", "Str", "Microsoft Internet Explorer", "UInt", 4, "Ptr", 0, "Ptr", 0, "UInt", 0)
 	, hInternetUrl := DllCall("Wininet.dll\InternetOpenUrlW", "Ptr", hInternet, "Str", URL, "Ptr", 0, "UInt", 0, "UInt", 0x84000000, "UInt", 0)
 	if (StrLeft(URL, 4)="ftp:")
@@ -2682,14 +2781,13 @@ InternetGetFileSize(URL, Units := "") {
 	else DllCall("Wininet.dll\HttpQueryInfoW", "Ptr", hInternetUrl, "UInt", 0x20000005, "UIntP", FileSize, "UIntP", 4, "UIntP", 0)
 	DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternetUrl), DllCall("Wininet.dll\InternetCloseHandle", "Ptr", hInternet)
 	if (hModule)
-		FreeLibrary(hModule)
+		DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule)
 	return _[Units]?FileSize/_[Units]:FileSize, ErrorLevel := !FileSize
 }
 
 ;obtener texto
 InternetGetString(URL) {
-	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	, i.Open("GET", URL), i.Send()
+	i := ComObjCreate("WinHttp.WinHttpRequest.5.1"), i.Open("GET", URL), i.Send()
 	return i.ResponseText
 }
 
@@ -2718,11 +2816,10 @@ EmailSend(User, Pass, To, Body, Subject := "", CC := "", BCC := "", Attach := ""
 	for field, value in fields
 		pfld.Item(schema . field) := value
 	pfld.Update()
-	try {
-		pmsg.Send()
-	} catch { 
+	try pmsg.Send()
+	catch
 		return false
-	} return true
+	return true
 }
 
 
@@ -2792,9 +2889,9 @@ EmailSend(User, Pass, To, Body, Subject := "", CC := "", BCC := "", Attach := ""
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: BARRA DE TAREAS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;establecer porcentaje de progreso en la barra de tareas
 ;Sintaxis: TaskBarProgress( [ESTADO], [Ventana ID] )
 ;ESTADOS: 0~100, Normal, Paused, Indeterminate, Error
@@ -2918,9 +3015,9 @@ TaskBarRedraw(ByRef hTaskBar := "", ByRef hNotifArea := "", ByRef hOverFNotifAre
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: ESCRITORIO, EXPLORADOR, PAPELERA DE RECICLAJE & MENU INICIO ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;recupera el tamaño de la papelera de reciclaje (en bytes) y el número de elementos que contiene para una unidad especificada.
 ;Sintaxis: RecycleBinGetSize( [unidad], [unidades (KB|MB|GB)], [elementos (salida)] )
 RecycleBinGetSize(Path, Units := "", ByRef i64NumItems := "") {
@@ -3007,13 +3104,16 @@ DesktopIconList(ByRef hDesktop := "", ByRef ProcessId := "") {
 	;MsgBox % SaveScreenshot(A_Desktop "\Screenshot_3.jpg", "Window") ;ventana activa.
 	;MsgBox % SaveScreenshot(A_Desktop "\Screenshot_4.jpg", ["ID", GetTaskbar()]) ;ventana espesificada (barra de tareas).
 SaveScreenshot(Filename, Pos := "Screen") {
-	!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))?(pToken:=Gdip_Startup()):
+	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))
+		pToken := Gdip_Startup()
 	if (Pos="Window") || (Pos="A") || (Pos[1]="ID") 
 		WinGetPos(IsObject(Pos)?Pos[2]:-1, x, y, w, h)
 	else x := ((Pos="Screen")||(Pos[1]="")||!(Pos[1]>-1))?0:Pos[1], y := ((Pos="Screen")||(Pos[2]="")||!(Pos[2]>-1))?0:Pos[2]
 	, w := ((Pos="Screen")||(Pos[3]="")||!(Pos[3]>0))?A_ScreenWidth:Pos[3], h := ((Pos="Screen")||(Pos[4]="")||!(Pos[4]>0))?A_ScreenHeight:Pos[4]
 	pBitmap := Gdip_BitmapFromScreen(x "|" y "|" w "|" h, 0x40000000+0x00CC0020), Gdip_SaveBitmapToFile(pBitmap, Filename, 100), Gdip_DisposeImage(pBitmap)
-	return true, (pToken)?Gdip_Shutdown(pToken):
+	if (pToken)
+		Gdip_Shutdown(pToken)
+	return true
 }
 
 ;guarda la posición de los iconos del escritorio.
@@ -3143,9 +3243,9 @@ DesktopSelectItem(Name, State := true) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: NOTIFICACIONES ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;registra los clics o movimientos del mouse en el icono del área de notificacion
 ;Sintaxis: RegisterTrayIconClickNotification( [funcion a llamar al hacer clic] )
 ;Mensajes que recibe la funcion:
@@ -3259,9 +3359,9 @@ RegisterSessionNotification(Status, Session := 1, Func := "") { ;http://ahkscrip
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-; ::::::::::::::::::::::::::::::::::::::::::::: NOMBRES Y RUTAS DE ARCHIVOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: NOMBRES Y RUTAS DE ARCHIVOS/DIRECTORIOS ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
 ;recupera la ruta y el nombre completo del archivo/carpeta especificado.
 GetFullPathName(Filename) {
 	Size := DllCall("Kernel32.dll\GetFullPathNameW", "Str", Filename, "UInt", 0, "Ptr", 0, "PtrP", 0), VarSetCapacity(OutputVar, Size * 2, 0) 
@@ -3297,6 +3397,20 @@ GetValidPathName(Filename) {
 	} return Filename, ErrorLevel := true
 } 
 
+;recupera la ruta completa de un directorio
+;Sintaxis: GetKnownFolderPath( [GUID] )
+;GUID:
+	;Windows Vista+ = https://msdn.microsoft.com/en-us/library/windows/desktop/dd378457%28v=vs.85%29.aspx
+	;Windows XP = https://msdn.microsoft.com/en-us/library/windows/desktop/bb762494(v=vs.85).aspx
+GetKnownFolderPath(GUID) {
+	if (IsWindowsVistaOrGreater()) {
+		VarSetCapacity(CLSID, 16, 0), VarSetCapacity(Path, (260 + 1) * 2, 0)
+		, DllCall("Ole32.dll\CLSIDFromString", "Str", GUID, "Ptr", &CLSID)
+		, DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", Path)
+		return StrGet(Path, 261, "UTF-16"), DllCall("Ole32.dll\CoTaskMemFree", "Ptr", Path)
+	} VarSetCapacity(Path, (260 + 1) * 2, 0), DllCall("Shell32.dll\SHGetFolderPathW", "Ptr", 0, "Int", GUID, "Ptr", 0, "UInt", 0, "Str", Path)
+	return Path
+}
 
 
 
@@ -3364,10 +3478,9 @@ GetValidPathName(Filename) {
 
 
 
-
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;ejecuta el script como administrador, solo lo intenta una vez, si falla continua normal.
 ;establece la prioridad en Alta.
 ;modifica los privilegios para el correcto funcionamiento del script.
@@ -3548,9 +3661,11 @@ SetDesktopBackground(Image, Width := "", Height := "") {
     if !IsFile(Image)
         return false, ErrorLevel := 2
 	if (SplitPath(Image,,,, ImageName).Ext!="bmp") {
-		!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))?(pToken:=Gdip_Startup()):
+		if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))
+			pToken := Gdip_Startup()
 		ImageConvert(Image, (Image:=A_AppData "\AutoHotKey\Windows\desktopwallpaper\" ImageName ".bmp"), Width, Height)
-		(pToken)?Gdip_Shutdown(pToken):
+		if (pToken)
+			Gdip_Shutdown(pToken)
 	} return r:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0014, "UInt", 0, "Str", Image, "UInt", 0x0001|0x0002), ErrorLevel := !r
 }
 
@@ -3772,40 +3887,6 @@ FormatMessage(dwMessageId := "", dwFlags := 0x1000) {
 FormatTime(Time, Format := "yyyyMMddHmmss") {
 	FormatTime, hTime, %Time%, % Format=""?"dd/MM/yyyy (HH:mm:ss tt)":Format
 	return hTime
-}
-
-;comprueba si existe un archivo o carpeta y obtiene la ruta completa.
-Exist(ByRef Filename) {
-	return i := FileExist( Filename )
-		, Filename := RTrim(GetFullPathName( Filename ), "\")
-		, ErrorLevel := !i
-}
-
-;leer archivo ini
-;Sintaxis: IniRead( [archivo], [seccion], [clave] )
-IniRead(Filename := "", Section := "", Key := "", OutputVar := " ") {
-	static _
-	Filename := Filename=""?_:Filename
-	if (Key!=""&&Section!="")
-		IniRead, OutputVar, %Filename%, %Section%, %Key%, %OutputVar% ;OutputVar
-	else if (Key=""&&Section!="")
-		IniRead, OutputVar, %Filename%, %Section% ;OutputVarSection
-	else IniRead, OutputVar, %Filename% ;OutputVarSectionNames
-	return OutputVar, _ := Filename
-} IniWrite(Value := "", Filename := "", Section := "", Key := "") {
-	static _
-	Filename := Filename=""?_:Filename
-	if (Key="")
-		IniWrite, %Value%, %Filename%, %Section%
-	else IniWrite, %Value%, %Filename%, %Section%, %Key%
-	return !ErrorLevel, _ := Filename
-} IniDelete(Filename := "", Section := "", Key := "") {
-	static _
-	Filename := Filename=""?_:Filename
-	if (Key="")
-		IniDelete, %Filename%, %Section%
-	else IniDelete, %Filename%, %Section%, %Key%
-	return !ErrorLevel, _ := Filename
 }
 
 Edit(Filename := -1, OpenWith := 0) {
@@ -4047,9 +4128,9 @@ SplitTime(Time := "", ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef 
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: REGISTRO ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 SetRegView(RegView := "Default") {
 	SetRegView, %RegView%
 }
@@ -4330,12 +4411,12 @@ RegSetSecurity(RegKey, Trustee := "S-1-1-0", AccessMask := 2032127) {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*#############################################################################################################################################
 ::::::::::::::::::::::::::::::::::::::::::::: EDIT CONTROL ::::::::::::::::::::::::::::::::::
 NOTAS:
 	;para establecer o quitar un estilo, usar WinSetStyle(hWnd, Estilo)
 	;para obtener el estilo, usar WinGetStyle(hWnd)
--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 */
 ;obtiene el número de líneas
 ;Sintaxis: Edit_GetLineCount( [hWnd] )
@@ -4668,9 +4749,9 @@ Edit_SelectFont(hWnd, Quality := 2, Redraw := false) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: BUTTON CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;establece un icono a un boton
 ;Sintaxis: BC_SetIcon( [hWnd], [Icono], [Indice], [opciones] )
 ;Opciones: espesificar la letra seguida de un valor.
@@ -4770,9 +4851,9 @@ BC_Click(hWnd) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: LISTVIEW CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;obtiene la cantidad de items
 LV_GetItemCount(hWnd) {
 	return SendMessage(hWnd, 0x1000+4)
@@ -5023,9 +5104,9 @@ LV_SubItemHitTest(hWnd, x := -1, y := -1, ScreenToClient := false) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;::::::::::::::::::::::::::::::::::::::::::::: TREEVIEW CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;Obtener item
 ;Sintaxis: TV_GetNextItem( [ID], [Item], [Modo] )
 ;Modos: https://msdn.microsoft.com/en-us/library/windows/desktop/bb773622%28v=vs.85%29.aspx
@@ -5171,9 +5252,9 @@ TV_GetItemText(hWnd, Item := 0) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;::::::::::::::::::::::::::::::::::::::::::::: TAB CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;obtener cantidad de items
 ;Sintaxis: TC_GetItemCount( [ID] )
 TC_GetItemCount(hWnd) {
@@ -5289,9 +5370,9 @@ TC_HighlightItem(hWnd, Item := 0, State := 1) {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*#############################################################################################################################################
 ::::::::::::::::::::::::::::::::::::::::::::: COMBOBOX & DROPDOWNLIST CONTROL ::::::::::::::::::::::::::::::::::
--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 */
 ;renombrar item
 ;Sintaxis: SB_SetText( [hWnd], [texto], [posición], [¿seleccionar item?] )
@@ -5496,9 +5577,9 @@ CB_GetText(hWnd, Index := -1) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;::::::::::::::::::::::::::::::::::::::::::::: PROGRESS BAR CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;establece el valor mínimo y máximo.
 ;Sintaxis: PB_SetRange( [hWnd], [min], [max] )
 PB_SetRange(hWnd, Min := 0, Max := 100) {
@@ -5654,9 +5735,9 @@ PB_GetBKColor(hWnd) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;::::::::::::::::::::::::::::::::::::::::::::: SLIDER CONTROL ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 
 ;establecer posicion
 ;Sintaxis: TB_SetPos( [hWnd], [valor], [¿redibujar?] )
@@ -5735,9 +5816,9 @@ TB_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;MessageBox
 ;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
 ;NOTA: la variable global A_MsgBoxResult contiene el resultado.
@@ -5887,9 +5968,9 @@ SB_GetText(hWnd, PartN := 1) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: LISTA DE IMÁGENES (ImageList), IMÁGENES & ICONOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;elimina una lista de imágenes 
 ;Sintaxis: IL_Destroy( [ID] )
 IL_Destroy(ImageList) {
@@ -5946,17 +6027,21 @@ IL_GetSize(ImageList, ByRef Width := "", ByRef Height := "") {
 ;obtener ancho y alto de una imagen
 ;Sintaxis: ImageGetDimension( [imagen], [ancho (out)], [alto (out)] )
 ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
-	!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))?(pToken:=Gdip_Startup()):
+	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))
+		pToken := Gdip_Startup()
 	pBitmap := Gdip_CreateBitmapFromFile(Image), pGraphics := Gdip_GraphicsFromImage(pBitmap)
 	, x:=Gdip_GetImageDimensions(pBitmap, Width, Height), Gdip_DeleteGraphics(pGraphics)
 	, Gdip_DisposeImage(pBitmap), i := {}, i.w := i.Width := Width, i.h := i.Height := Height
-	return i, (pToken)?Gdip_Shutdown(pToken):, ErrorLevel := !x
+	if (pToken)
+		Gdip_Shutdown(pToken)
+	return i, ErrorLevel := !x
 }
 
 ;establecer dimenciones de la imagen y/o modificar extension a png, bmp, jpg, tiff o gif
 ;Sintaxis: ImageConvert( [imagen], [directorio\nombre.ext (png|bmp|jpg|tiff|gif)], [ancho], [alto], [¿preservar la relacion de aspecto?], [profundidad de bits 24/32 (solo .bmp)] )
 ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio := true, BitDepth := 32) {
-	!(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))?(pToken:=Gdip_Startup()):
+	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))
+		pToken := Gdip_Startup()
 	SplitPath(Output,, ImageDir, ImageExt), pBitmapFile := Gdip_CreateBitmapFromFile(Image)
 	, CurrentWidth := Gdip_GetImageWidth(pBitmapFile), CurrentHeight := Gdip_GetImageHeight(pBitmapFile)
 	, NewWidth := Width=""?CurrentWidth:Width, NewHeight := Height=""?CurrentHeight:Height
@@ -5969,7 +6054,9 @@ ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio
 	, pGraphics := Gdip_GraphicsFromImage(pBitmap), Gdip_SetSmoothingMode(pGraphics, 4), Gdip_SetInterpolationMode(pGraphics, 7)
 	, Gdip_DrawImage(pGraphics, pBitmapFile, false, false, NewWidth, NewHeight), Gdip_DisposeImage(pBitmapFile)
 	, Gdip_SaveBitmapToFile(pBitmap, Output), Gdip_DisposeImage(pBitmap), Gdip_DeleteGraphics(pGraphics) 
-	return true, (pToken)?Gdip_Shutdown(pToken):
+	if (pToken)
+		Gdip_Shutdown(pToken)
+	return true
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&p=49878&sid=8974c43be898318cea6b8dc509f2e6df#p49878
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -6038,15 +6125,15 @@ ExtractIcon(Icon, Index := 1) {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*#############################################################################################################################################
 ::::::::::::::::::::::::::::::::::::::::::::: CONTROL ::::::::::::::::::::::::::::::::::
 NOTAS:
 	• espesificar -1 en el 2do parametro para referirse al control que tiene el foco en la ventana espesificada.
 	• espesificar -2 en el 2do parametro para referirse al control bajo el cursor.
 	• espesificar -3 en el 2do parametro para referirse al último control espesificado.
-	• el 1er parametro solo es necesario si se epesifica el nombre del control (Ej. Static1)
+	• el 1er parametro solo es necesario si se epesifica la claseN del control (Ej. Static1)
 	
--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 */
 ;obtener posicion
 ;Sintaxis: ControlGetPos( [ID], [control], [x], [y], [ancho], [alto] )
@@ -6268,11 +6355,12 @@ ControlSetCursor(hWnd, Control, CursorType := -1) {
 		, "SizeEWE": 32644 ;redimencionar (este, oeste)
 		, "UpArrow": 32516 ;flecha hacia arriba.
 		, "Wait": 32514} ;cargando
+	_gethwnd(hWnd, Control)
 	if !(IsWindow(Control)) || !(CursorTypes[CursorType])
 		return false, ErrorLevel := true
 	if (CursorType=-1)
 		return List.Delete(Control), !(List.MaxIndex())?(OnMessage(0x200, "") OnMessage(0x2A1, "")):, Set(A_ThisFunc, List)
-	_gethwnd(hWnd, Control), Set(A_ThisFunc, List), List[Control] := DllCall("User32.dll\LoadCursorW", "Ptr", 0, "Int", CursorTypes[CursorType])
+	Set(A_ThisFunc, List), List[Control] := DllCall("User32.dll\LoadCursorW", "Ptr", 0, "Int", CursorTypes[CursorType])
 	return OnMessage(0x200, "ControlSetCursor_OnMouseMove"), OnMessage(0x2A1, "ControlSetCursor_OnMouseHover")
 } ControlSetCursor_OnMouseMove(wParam, lParam, Msg, hWnd) {
     static TrackWnd, TrackPos
@@ -6339,9 +6427,9 @@ ControlSetCursor(hWnd, Control, CursorType := -1) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: MOUSE/CURSOR Y TECLADO ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;desplazamiento acelerado, más rápido gire la rueda, más líneas se desplazará por tic
 ;Sintaxis: MouseAutoWheelSpeed( [TimeOut (ms)], [Boost], [Limit], [ToolTip] )
 ;DESCRIPCION - PARÁMETROS:
@@ -6352,7 +6440,7 @@ ControlSetCursor(hWnd, Control, CursorType := -1) {
 ;NOTA: devuelve la velocidad actual (la misma que se muestra con ToolTip activado)
 ;EJEMPLO: WheelUp::MouseAutoWheelSpeed(,,, 1)
 MouseAutoWheelSpeed(TimeOut := 500, Boost := 30, Limit := 60, ToolTip := 0) {
-	static d := 0, i := 0 ;http://www.autohotkey.com/board/topic/48426-accelerated-scrolling-script/
+	static d := 0, i := 0
 	t := A_TimeSincePriorHotkey, ToolTip := !(ToolTip>-1)?0:((ToolTip=1)?TimeOut:ToolTip)
 	, TimeOut := (TimeOut>0)?TimeOut:500, Boost := (Boost>-1)?Boost:30
 	if (A_PriorHotkey=A_ThisHotkey) && (t<TimeOut) && (Limit>0) {
@@ -6369,7 +6457,7 @@ MouseAutoWheelSpeed(TimeOut := 500, Boost := 30, Limit := 60, ToolTip := 0) {
 		if (ToolTip)
 			ToolTip("×" 1,,, -ToolTip)
 		return MouseClick(A_ThisHotkey)
-}}
+}} ;http://www.autohotkey.com/board/topic/48426-accelerated-scrolling-script/
 
 ;clics o mantiene pulsado un botón del ratón, o girar la rueda del ratón
 ;Sintaxis: MouseClick( [boton/rueda], [xpos], [ypos], [repeticiones], [velocidad de movimiento (x,y)] )
@@ -6401,6 +6489,15 @@ Send(Keys, Count := 1, Delay := -2) {
 	return ok, ErrorLevel := ok=Count?0:1
 }
 
+;envía una o más combinaciones de teclas a la ventana activa
+;Ejemplo: SendKeys("Hola{+}"), SendKeys("`r"), SendKeys("Hola{+}"), SendKeys("`r"), SendKeys("Hola{+}")
+SendKeys(Keys) {
+	static WshShell
+	if !(IsObject(WshShell))
+		WshShell := ComObjCreate("WScript.Shell")
+	return WshShell.SendKeys(Keys)
+} ;https://msdn.microsoft.com/en-us/library/8c6yea83%28v=vs.84%29.aspx
+
 ;espera por una tecla a ser precionada o liberada
 ;Sintaxis: KeyWait( [tecla], [opciones], [tiempo fuera, en segundos] )
 ;OPCIONES:
@@ -6414,38 +6511,28 @@ KeyWait(KeyName, Options := "", TimeOut := 0) {
 ;Activa o desactiva la función de rastros del mouse
 ;Sintáxis: MouseTrails( [Número o dejar vacio para recuperar el estado actual.] )
 ;Nota: especifique un número mayor a 1 para activar. para desactivar especifique 0 o 1
-;Ejemplos: Mouse.Trails( 10 ) | Mouse.Trails( 0 ) | Mouse.Trails(  )
-MouseTrails(N := "") {
+;Ejemplos: MouseTrails( 10 ) | MouseTrails( 0 ) | MouseTrails(  )
+MouseTrails(N := "", Save := true) {
 	if (N != "")
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005D, "UInt", N, "Str", 0, "UInt", 0x0001|0x0002)
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005D, "UInt", N, "Str", 0, "UInt", Save?(0x0001|0x0002):0)
 	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x005E, "UInt", 0, "UIntP", N, "UInt", 0)
 	return N
 }
 
-;cambiar el cursor. Sintáxis: MouseSetCursor( [Tipo / Opcion], [Tipo / Cursor] )
-MouseSetCursor(T := "R", C := "") { ;http://ahkscript.org/boards/viewtopic.php?f=5&t=6860
-	if (T = "R") AND (C = "") { ;restaurar los cursores del sistema. Cursor("R")
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x57, "UInt", 0, "UInt", 0, "UInt", 0) ;DllCall("User32.dll\DestroyCursor", "Ptr", hCursor)
-	} else if (T) AND (FileExist(C)) { ;cargar cursor desde archivo. Cursor(32512, "Mi Cursor.ani/.cur")
-		return DllCall("User32.dll\SetSystemCursor", "UInt", DllCall("User32.dll\LoadCursorFromFile", "Str", C), "Int", T) ;DllCall("GetCursorInfo", "Uint", &ci) || hCursor := NumGet(ci,8)
-	} else if (T) AND (C) ;cargar cursor del sistema. Cursor(32512, 32645)
-		return DllCall("User32.dll\SetSystemCursor", "UInt", DllCall("User32.dll\LoadCursor", "UInt", 0, "Int", T), "Int", C) ;DllCall("User32.dll\SetCursor", "Ptr", hCursor, "Ptr")
-	return 0
-}
-
 ;cambia o recupera la velocidad actual del mouse
-;Sintáxis: MouseSpeed( [establecer velocidad / dejar vacio] )
-MouseSpeed(Vel := "") {
-	if (Vel := RegExReplace(Vel, "[^0-9]"))
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x71, "UInt", 0, "UInt", Vel > 20 ? 20 : Vel < 1 ? 1 : Vel, "UInt", 0x0001|0x0002)
-	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x70, "UInt", 0, "UIntP", Vel, "UInt", 0)
-	return Vel
+;Sintáxis: MouseSpeed( [establecer velocidad / dejar vacio], [¿guardar cambios?] )
+MouseSpeed(Value := "", Save := true) {
+	if (Value!="")
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x71, "UInt", 0, "UInt", (Value>20)?20:(Value<1)?1:Value, "UInt", Save?(0x0001|0x0002):0)
+	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x70, "UInt", 0, "UIntP", Value, "UInt", 0)
+	return Value
 }
 
 ;recupera/cambia el número de líneas para desplazarse cuando se mueve la rueda ratón verticalmente
-MouseScrollLines(Lines := -1) {
+;Sintaxis: MouseScrollLines( [valor], [¿guardar cambios?] )
+MouseScrollLines(Lines := -1, Save := true) {
 	if (Lines >= 0)
-		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0069, "UInt", Lines, "UInt", 0, "UInt", 0x0001|0x0002)
+		return DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0069, "UInt", Lines, "UInt", 0, "UInt", Save?(0x0001|0x0002):0)
 	DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0068, "UInt", 0, "UIntP", Lines, "UInt", 0)
 	return Lines
 }
@@ -6461,7 +6548,16 @@ MouseDoubleClick(ms := -1) {
 ;Invierte o restaura los botones izquierdo y derecho del ratón
 ;Sintaxis: MouseSwap( 0|1 )
 MouseSwap(fSwap) {
-	return DllCall("User32.dll\SwapMouseButton", "Int", fSwap)
+	return DllCall("User32.dll\SwapMouseButton", "Int", !!fSwap)
+}
+
+;recupera/establece el número de caracteres para desplazarse cuando se mueve la rueda horizontal ratón
+;Sintaxis: MouseWheelScrollChars( [valor, defecto = 3] )
+MouseWheelScrollChars(Value := "", Save := true) {
+	if (Value!="")
+		return DllCall("User32.dll\SystemParametersInfo", "UInt", 0x006D, "UInt", Value, "UIntP", 0, "UInt", Save?(0x0001|0x0002):0)
+	DllCall("User32.dll\SystemParametersInfo", "UInt", 0x006C, "UInt", 0, "UIntP", Value, "UInt", 0)
+	return  Value
 }
 
 ;Mueve el cursor a las coordenadas de pantalla especificadas
@@ -6489,7 +6585,7 @@ MouseGetPos(ByRef x := "", ByRef y := "", ByRef  Win := "", ByRef Control := "",
 } 
 
 ;recupera la posicion xy del cursor.
-;Sintaxis: CursorGetPos( [x], [y], [ventana], [ID] )
+;Sintaxis: CursorGetPos( [x], [y], [ventana hWnd (salida)], [ID] )
 ;ID: espesificar ID para convertir a coordenadas de la ventana espesificada
 CursorGetPos(ByRef x := "", ByRef y := "", ByRef Win := "", ScreenToClient := 0) {
 	VarSetCapacity(lpPoint, 8 * 2, 0), i := {}
@@ -6653,9 +6749,9 @@ CursorReload() {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;modo de inicio del sistema
 ;Sintaxis: SystemBoot()
 ;Valor: 0(normal) | 1(a prueba de fallos) | 2(a prueba de fallos con acceso a la red)
@@ -6792,23 +6888,6 @@ SystemSetFontInfo(Name := "", Size := "", Weight := "", IsItalic := "") {
 		, ErrorLevel := !i
 }
 
-;recupera la ruta completa de una carpeta
-SHGetKnownFolderPath(GUID) { ;WIN_V+
-	if !Get(GUID, i)
-		VarSetCapacity(CLSID, 16, 0), VarSetCapacity(ppszPath, (260 + 1) * 2, 0)
-		, DllCall("Ole32.dll\CLSIDFromString", "Str", GUID, "Ptr", &CLSID)
-		, DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", &ppszPath)
-		, Path := ppszPath
-	if !(i)
-		return Set(GUID, RTrim(StrGet(&ppszPath), "\")), DllCall("Ole32.dll\CoTaskMemFree", "Ptr", &Path)
-	return i
-} SHGetFolderPath(CSIDL) { ;WIN_XP+
-	if !Get(CSIDL, i)
-		VarSetCapacity(pszPath, (260 + 1) * 2, 0)
-		, DllCall("Shell32.dll\SHGetFolderPathW", "Ptr", 0, "Int", CSIDL, "Ptr", 0, "UInt", 0, "Ptr", &pszPath)
-	return i?i:Set(CSIDL, RTrim(StrGet(&pszPath), "\"))
-}
-
 ;vuelve a cargar los iconos del sistema
 SystemIconsReload() {
 	return i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0058, "UInt", 0, "Ptr", 0, "UInt", 0), ErrorLevel := !i
@@ -6819,84 +6898,93 @@ SystemIconsReload() {
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;Recupera la ruta a la raíz del directorio del usuario actual
 A_UserProfile() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, EnvGet("USERPROFILE"))
+	static UserProfile
+	return UserProfile?UserProfile:(UserProfile:=EnvGet("USERPROFILE"))
 }
 
 ;Recupera la ruta a la raíz del directorio que contiene los datos del programa compartidos por todos los usuarios.
 A_AllUsersProfile() {
-	if !Get(A_ThisFunc, i)
+	static AllUsersProfile
+	if !(AllUsersProfile)
 		DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Str", lpBuffer, "UInt*", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(AllUsersProfile, uSize * 2, 0)
+		, DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Str", AllUsersProfile, "UInt*", uSize)
+	return AllUsersProfile
 }
 
 ;Recupera la ruta de acceso al directorio raíz donde se almacenan los perfiles de usuario.
 A_Profiles() {
-	if !Get(A_ThisFunc, i)
+	static Profiles
+	if !(Profiles)
 		DllCall("Userenv.dll\GetProfilesDirectoryW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("Userenv.dll\GetProfilesDirectoryW", "Str", lpBuffer, "UInt*", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(Profiles, uSize * 2, 0)
+		, DllCall("Userenv.dll\GetProfilesDirectoryW", "Str", Profiles, "UInt*", uSize)
+	return Profiles
 }
 
 ;Recupera la ruta de acceso a la raíz del perfil de usuario predeterminado.
 A_DefaultUserProfile() {
-	if !Get(A_ThisFunc, i)
+	static DefaultUserProfile
+	if !(DefaultUserProfile)
 		DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2)
-		, DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Str", lpBuffer, "UInt*", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(DefaultUserProfile, uSize * 2)
+		, DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Str", DefaultUserProfile, "UInt*", uSize)
+	return DefaultUserProfile
 }
 
 ;recupera el nombre del usuario actual
 A_UserName() {
-	if !Get(A_ThisFunc, i)
+	static UserName
+	if !(UserName)
 		DllCall("Advapi32.dll\GetUserNameW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("Advapi32.dll\GetUserNameW", "Str", lpBuffer, "UInt*", uSize + 1)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(UserName, (uSize * 2) + 1, 0)
+		, DllCall("Advapi32.dll\GetUserNameW", "Str", UserName, "UInt*", uSize + 1)
+	return UserName
 }
 
 ;recupera el dominio del usuario actual
-A_UserDomain() {
-	if !Get(A_ThisFunc, i)
+A_UserDomain(ByRef UserName := "") {
+	static UserDomain
+	if !(UserDomain)
 		DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", lpBuffer, "UInt*", uSize + 1)
-	return i?i:Set(A_ThisFunc, StrSplit(lpBuffer, "\")[1])
+		, VarSetCapacity(UserDomain, (uSize * 2) + 1, 0)
+		, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", UserDomain, "UInt*", uSize + 1)
+	return StrSplit(UserDomain, "\")[1], UserName := IsByRef(UserName)?StrSplit(UserDomain, "\")[2]:""
 }
 
 ;Recupera/Establece el nombre NetBIOS del equipo local.
 ;Este nombre se estableció al inicio del sistema, cuando el sistema lo lee desde el registro.
 A_ComputerName(lpComputerName*) {
-	if lpComputerName.MaxIndex()
+	static ComputerName
+	if (lpComputerName.MaxIndex())
 		return DllCall("Kernel32.dll\SetComputerNameW", "Str", lpComputerName[1])
-	if !Get(A_ThisFunc, i)
+	if !(ComputerName)
 		DllCall("kernel32.dll\GetComputerNameW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetComputerNameW", "Str", lpBuffer, "UInt*", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(ComputerName, uSize * 2, 0)
+		, DllCall("kernel32.dll\GetComputerNameW", "Str", ComputerName, "UInt*", uSize)
+	return ComputerName
 }
 
 ;recupera la ruta del directorio de sistema utilizado por WOW64.
 ;NOTA: Este directorio no está presente en Windows de 32 bits.
 A_SysDir64() {
-	if !Get(A_ThisFunc, i)
+	static SysDir64
+	if !(SysDir64)
 		uSize := DllCall("kernel32.dll\GetSystemWow64DirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetSystemWow64DirectoryW", "Str", lpBuffer, "UInt", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(SysDir64, uSize * 2, 0)
+		, DllCall("kernel32.dll\GetSystemWow64DirectoryW", "Str", SysDir64, "UInt", uSize)
+	return SysDir64
 }
 
 ;recupera la ruta del directorio de sistema.
 ;El directorio del sistema contiene los archivos del sistema, como las bibliotecas y los controladores de vínculos dinámicos.
 A_SysDir() {
-	if !Get(A_ThisFunc, i)
+	static SysDir
+	if !(SysDir)
 		uSize := DllCall("kernel32.dll\GetSystemDirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetSystemDirectoryW", "Str", lpBuffer, "UInt", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(SysDir, uSize * 2, 0)
+		, DllCall("kernel32.dll\GetSystemDirectoryW", "Str", SysDir, "UInt", uSize)
+	return SysDir
 }
 
 ;recupera la ruta del directorio compartido de Windows en un sistema multi-usuario.
@@ -6910,120 +6998,49 @@ A_SysWinDir() {
 
 ;recupera la ruta de acceso del directorio de Windows.
 A_WinDir() {
-	if !Get(A_ThisFunc, i)
+	static WinDir
+	if !(WinDir)
 		uSize := DllCall("kernel32.dll\GetWindowsDirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetWindowsDirectoryW", "Str", lpBuffer, "UInt", uSize)
-	return i?i:Set(A_ThisFunc, lpBuffer)
+		, VarSetCapacity(WinDir, uSize * 2, 0)
+		, DllCall("kernel32.dll\GetWindowsDirectoryW", "Str", WinDir, "UInt", uSize)
+	return WinDir
 }
 
 ;Archivos Temporales
 A_Temp() {
-	if !Get(A_ThisFunc, i)
+	static Temp
+	if !(Temp)
 		uSize := DllCall("kernel32.dll\GetTempPathW", "UInt", 0, "Ptr", 0)
-		, VarSetCapacity(lpBuffer, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetTempPathW", "UInt", uSize + 1, "Str", lpBuffer)
-	return i?i:Set(A_ThisFunc, GetLongPathName(lpBuffer))
+		, VarSetCapacity(Temp, (uSize * 2) + 1, 0)
+		, DllCall("kernel32.dll\GetTempPathW", "UInt", uSize + 1, "Str", Temp)
+	return Temp
 }
 
 ;recupera/establece el directorio de trabajo
 A_WorkingDir(WorkingDir*) {
-	return WorkingDir.MaxIndex()?SetWorkingDir(WorkingDir[1]):GetWorkingDir()
+	if (WorkingDir.MaxIndex())
+		return DllCall("kernel32.dll\SetCurrentDirectoryW", "Str", WorkingDir[1])
+	VarSetCapacity(WorkingDir, (260 * 2) + 1) / 2
+	, DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt*", 261, "Str", WorkingDir)
+	return WorkingDir
 }
 
 ;recupera la ruta a la consola de windows (cmd.exe)
 A_ComSpec() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, EnvGet("ComSpec"))
+	static _ComSpec
+	return _ComSpec?_ComSpec:(_ComSpec:=EnvGet("ComSpec"))
 }
 
 ;recupera el idioma por defecto del sistema
 A_Language() {
-	return Get(A_ThisFunc, i)?i
-		: Set(A_ThisFunc, Format("{:04X}", DllCall("GetSystemDefaultUILanguage", "UShort")))
-}
-
-;recupera el directorio de Archivos De Programa
-A_ProgramFiles() {
-	return SHGetFolderPath(0x0026) ;CSIDL_PROGRAM_FILES
-}
-
-;ruta completa y el nombre de la carpeta de programas en el menú Inicio del usuario actual 
-A_Programs() {
-	return SHGetFolderPath(0x0002) ;CSIDL_PROGRAMS
-}
-
-;ruta completa y el nombre de la carpeta de programas en el menú Inicio para todos los usuarios
-A_ProgramsCommon() {
-	return SHGetFolderPath(0X0017) ;CSIDL_COMMON_PROGRAMS
-}
-
-;directorio de sistema de archivos que contiene los datos de aplicación para el usuario actual
-A_AppData() {
-	return SHGetFolderPath(0x001a) ;CSIDL_APPDATA
+	static Language
+	return Language?Language:(Language:=Format("{:04X}", DllCall("Kernel32.dll\GetSystemDefaultUILanguage", "UShort")))
 }
 
 A_AppDataLocal() {
-	static A_AppDataLocal
-	return A_AppDataLocal?A_AppDataLocal:(A_AppDataLocal:=EnvGet("LOCALAPPDATA"))
+	static AppDataLocal
+	return AppDataLocal?AppDataLocal:(AppDataLocal:=EnvGet("LOCALAPPDATA"))
 } ;http://ahkscript.org/boards/viewtopic.php?f=13&p=52910#p52910
-
-;directorio de sistema de archivos que contiene los datos de aplicación para todos los usuarios
-A_AppDataCommon() {
-	return SHGetFolderPath(0x0023) ;CSIDL_COMMON_APPDATA
-}
-
-;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio del usuario actual
-A_Desktop() {
-	return SHGetFolderPath(0x0010) ;CSIDL_DESKTOPDIRECTORY
-}
-
-;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio para todos los usuarios
-A_DesktopCommon() {
-	return SHGetFolderPath(0x0019) ;CSIDL_COMMON_DESKTOPDIRECTORY
-}
-
-;ruta completa y el nombre de la carpeta del menú Inicio del usuario actua
-A_StartMenu() {
-	return SHGetFolderPath(0x000b) ;CSIDL_STARTMENU
-}
-
-;ruta completa y el nombre de la carpeta del menú Inicio para todos los usuarios
-A_StartMenuCommon() {
-	return SHGetFolderPath(0x0016) ;CSIDL_COMMON_STARTMENU
-}
-
-;ruta completa y el nombre de la carpeta Inicio en el menú Inicio del usuario actual
-A_Startup() {
-	return SHGetFolderPath(0x0007) ;CSIDL_STARTUP
-}
-
-;ruta completa y el nombre de la carpeta Inicio en el menú Inicio para todos los usuarios
-A_StartupCommon() {
-	return SHGetFolderPath(0x0018) ;CSIDL_COMMON_STARTUP
-}
-
-A_MyDocuments() {
-	return SHGetFolderPath(0x0005) ;CSIDL_PERSONAL
-}
-
-A_DocumentsCommon() {
-	return SHGetFolderPath(0x002e) ;CSIDL_COMMON_DOCUMENTS
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de música
-A_MyMusic() {
-	return SHGetFolderPath(0x000d) ;CSIDL_MYMUSIC
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de imagen
-A_MyPictures() {
-	return SHGetFolderPath(0x0027) ;CSIDL_MYPICTURES
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de vídeo
-A_MyVideo() {
-	return SHGetFolderPath(0x000e) ;CSIDL_MYVIDEO
-}
 
 ;ancho del monitor actual
 A_ScreenWidth() {
@@ -7049,52 +7066,36 @@ A_ScreenHeight() {
 
 ;ruta completa al script
 A_ScriptFullPath() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_ScriptFullPath
 }
 
 ;directorio del script
 A_ScriptDir() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_ScriptDir
 }
 
 ;nombre del script
 A_ScriptName() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_ScriptName
 }
 
 ;devuelve 1 si el script se está ejecutando como administrador
 A_IsAdmin() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_IsAdmin
 }
 
 A_IPAddress1() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_IPAddress1
 } A_IPAddress2() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_IPAddress2
 } A_IPAddress3() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_IPAddress3
 } A_IPAddress4() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
-}
-
-;directorio de sistema de archivos que contiene accesos directos a los documentos usados recientemente del usuario
-A_Recent() {
-	return SHGetFolderPath(0x0008) ;CSIDL_RECENT
-}
-
-;directorio de sistema de archivos que contiene Enviar a elementos de menú
-A_SendTo() {
-	return SHGetFolderPath(0x0009) ;CSIDL_SENDTO
-}
-
-A_Time(Delimiter := "") {
-	CurrentTime := SplitTime()
-	return CurrentTime[1] Delimiter CurrentTime[2] Delimiter CurrentTime[3] Delimiter
-		. CurrentTime[4] Delimiter CurrentTime[5] Delimiter CurrentTime[6]
+	return A_IPAddress4
 }
 
 A_Cursor() {
-	return Get(A_ThisFunc, i)?i:Set(A_ThisFunc, %A_ThisFunc%)
+	return A_Cursor
 }
 
 A_OSVersion() {
@@ -7116,9 +7117,176 @@ A_DetectHiddenWindows() {
 	return A_DetectHiddenWindows="On"
 }
 
-;##################################################
-;ESPECIALES
-;##################################################
+A_Year(Year := "") {
+	return Year=""?A_Year:SystemSetTime([Year])
+} A_Mon(Mon := "") {
+	return Mon=""?A_Mon:SystemSetTime([, Mon])
+} A_DD(Day := "") {
+	return Day=""?A_DD:SystemSetTime([,, Day])
+} A_Hour(Hour := "") {
+	return Hour=""?A_Hour:SystemSetTime([,,, Hour])
+} A_Min(Min := "") {
+	return Min=""?A_Min:SystemSetTime([,,,, Min])
+} A_Sec(Sec := "") {
+	return Sec=""?A_Sec:SystemSetTime([,,,,, Sec])
+} A_MSec(MSec := "") {
+	return MSec=""?A_MSec:SystemSetTime([,,,,,, MSec])
+} A_WDay(WDay := "") {
+	return WDay=""?A_WDay:SystemSetTime([,,,,,,, WDay])
+}
+
+A_Time(Delimiter := "") {
+	CurrentTime := SplitTime()
+	return CurrentTime[1] Delimiter CurrentTime[2] Delimiter CurrentTime[3] Delimiter
+		. CurrentTime[4] Delimiter CurrentTime[5] Delimiter CurrentTime[6]
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------
+
+;recupera el directorio de Archivos De Programa
+A_ProgramFiles() {
+	static _ProgramFiles
+	if !(_ProgramFiles)
+		_ProgramFiles := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{905e63b6-c1bf-494e-b29c-65b732d3d21a}":0x0026)
+	return _ProgramFiles
+}
+
+;ruta completa y el nombre de la carpeta de programas en el menú Inicio del usuario actual 
+A_Programs() {
+	static Programs
+	if !(Programs)
+		Programs := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}":0x0002)
+	return Programs
+}
+
+;ruta completa y el nombre de la carpeta de programas en el menú Inicio para todos los usuarios
+A_ProgramsCommon() {
+	static ProgramsCommon
+	if !(ProgramsCommon)
+		ProgramsCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}":0X0017)
+	return ProgramsCommon
+}
+
+;directorio de sistema de archivos que contiene los datos de aplicación para el usuario actual
+A_AppData() {
+	static AppData
+	if !(AppData)
+		AppData := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}":0x001a)
+	return AppData
+}
+
+;directorio de sistema de archivos que contiene los datos de aplicación para todos los usuarios
+A_AppDataCommon() {
+	static AppDataCommon
+	if !(AppDataCommon)
+		AppDataCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}":0x0023)
+	return AppDataCommon
+}
+
+;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio del usuario actual
+A_Desktop() {
+	static Desktop
+	if !(Desktop)
+		Desktop := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}":0x0010)
+	return Desktop
+}
+
+;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio para todos los usuarios
+A_DesktopCommon() {
+	static DesktopCommon
+	if !(DesktopCommon)
+		DesktopCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}":0x0019)
+	return DesktopCommon
+}
+
+;ruta completa y el nombre de la carpeta del menú Inicio del usuario actua
+A_StartMenu() {
+	static StartMenu
+	if !(StartMenu)
+		StartMenu := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}":0x000b)
+	return StartMenu
+}
+
+;ruta completa y el nombre de la carpeta del menú Inicio para todos los usuarios
+A_StartMenuCommon() {
+	static StartMenuCommon
+	if !(StartMenuCommon)
+		StartMenuCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A4115719-D62E-491D-AA7C-E74B8BE3B067}":0x0016)
+	return StartMenuCommon
+}
+
+;ruta completa y el nombre de la carpeta Inicio en el menú Inicio del usuario actual
+A_Startup() {
+	static Startup
+	if !(Startup)
+		Startup := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B97D20BB-F46A-4C97-BA10-5E3608430854}":0x0007)
+	return Startup
+}
+
+;ruta completa y el nombre de la carpeta Inicio en el menú Inicio para todos los usuarios
+A_StartupCommon() {
+	static StartupCommon
+	if !(StartupCommon)
+		StartupCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{82A5EA35-D9CD-47C5-9629-E15D2F714E6E}":0x0018)
+	return StartupCommon
+}
+
+A_MyDocuments() {
+	static MyDocuments
+	if !(MyDocuments)
+		MyDocuments := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{FDD39AD0-238F-46AF-ADB4-6C85480369C7}":0x0005)
+	return MyDocuments
+}
+
+A_DocumentsCommon() {
+	static DocumentsCommon
+	if !(DocumentsCommon)
+		DocumentsCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{ED4824AF-DCE4-45A8-81E2-FC7965083634}":0x002e)
+	return DocumentsCommon
+}
+
+;directorio del sistema de archivos que sirve de repositorio común para los archivos de música
+A_MyMusic() {
+	static MyMusic
+	if !(MyMusic)
+		MyMusic := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{4BD8D571-6D19-48D3-BE97-422220080E43}":0x000d)
+	return MyMusic
+}
+
+;directorio del sistema de archivos que sirve de repositorio común para los archivos de imagen
+A_MyPictures() {
+	static MyPictures
+	if !(MyPictures)
+		MyPictures := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{33E28130-4E1E-4676-835A-98395C3BC3BB}":0x0027)
+	return MyPictures
+}
+
+;directorio del sistema de archivos que sirve de repositorio común para los archivos de vídeo
+A_MyVideo() {
+	static MyVideo
+	if !(MyVideo)
+		MyVideo := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{18989B1D-99B5-455B-841C-AB7C74E4DDFC}":0x000e)
+	return MyVideo
+}
+
+;directorio de sistema de archivos que contiene accesos directos a los documentos usados recientemente del usuario
+A_Recent() {
+	static Recent
+	if !(Recent)
+		Recent := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{AE50C081-EBD2-438A-8655-8A092E34987A}":0x0008)
+	return Recent
+}
+
+;directorio de sistema de archivos que contiene Enviar a elementos de menú
+A_SendTo() {
+	static SendTo
+	if !(SendTo)
+		SendTo := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{8983036C-27C0-404B-8F08-102D10DCFD74}":0x0009)
+	return SendTo
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------
+
 ;espacio
 A_Space(Count := 1) {
 	Loop, %Count%
@@ -7153,25 +7321,8 @@ A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
 			, Args[A_Index - Skip] := StrGet( hArgs, "UTF-16" )
 	} return Args, Args[0] := nArgs-Skip, Set(A_ThisFunc, Args), DllCall("Kernel32.dll\LocalFree", "Ptr", pArgs)
 }
-;######################################
 
-A_Year(Year := "") {
-	return Year=""?A_Year:SystemSetTime([Year])
-} A_Mon(Mon := "") {
-	return Mon=""?A_Mon:SystemSetTime([, Mon])
-} A_DD(Day := "") {
-	return Day=""?A_DD:SystemSetTime([,, Day])
-} A_Hour(Hour := "") {
-	return Hour=""?A_Hour:SystemSetTime([,,, Hour])
-} A_Min(Min := "") {
-	return Min=""?A_Min:SystemSetTime([,,,, Min])
-} A_Sec(Sec := "") {
-	return Sec=""?A_Sec:SystemSetTime([,,,,, Sec])
-} A_MSec(MSec := "") {
-	return MSec=""?A_MSec:SystemSetTime([,,,,,, MSec])
-} A_WDay(WDay := "") {
-	return WDay=""?A_WDay:SystemSetTime([,,,,,,, WDay])
-}
+;------------------------------------------------------------------------------------------------------------------------------------------------
 
 /* -------------------------------------------------------------------------------------------------------------------------------------------------------------
  ::::::::::::::::::::::::::::::::::::::::::::: VERSION HELPER FUNCTIONS ::::::::::::::::::::::::::::::::::
@@ -7336,9 +7487,9 @@ WindowsVersion(ByRef ServicePackMajor := "") {
 
 
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*#############################################################################################################################################
   ::::::::::::::::::::::::::::::::::::::::::::: VENTANAS ::::::::::::::::::::::::::::::::::
----------------------------------------------------------------------------------------------------------------------------------------------------------------
+#############################################################################################################################################
 NOTAS:
 	• las funciones solo aceptan el ID de la ventana, excepto algunas como IsWindow(), IsWinActive(), WinWait(), etc.
 	• para el titulo o ahk_xxx usar WinExist( .. ) o IsWindow(, [clase], [proceso/pid], [titulo]).
@@ -7369,8 +7520,7 @@ WinEnabled(hWnd) {
 ;EJEMPLO: MsgBox % IsWindow(,, "notepad.exe" )
 IsWindow(hWnd*) { 
 	if !hWnd.MaxIndex()
-		return i := Set("LastWindowId", DllCall("User32.dll\GetForegroundWindow"))
-			, ErrorLevel := !i
+		return i := Set("LastWindowId", DllCall("User32.dll\GetForegroundWindow")), ErrorLevel := !i
 	if !hWnd[1]&&(hWnd[2]||hWnd[3]||hWnd[4]) {
 		Loop, Parse, % WinEnum(), `n
 		{ if hWnd[2]&&(WinGetClass(A_LoopField)!=hWnd[2])
@@ -7543,7 +7693,11 @@ WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 	;Center = centrar ventana.
 	;Top | Bottom = posicionar arriba. posicionar abajo.
 	;Left | Right = posicionar a la izquierda. posicionar a la derecha.
-;Nota: al alto de la pantalla se le resta el alto de la barra de tareas.
+;Notas:
+	;• al alto de la pantalla se le resta el alto de la barra de tareas.
+	;• si la ventana está maximizada, se modifica el ancho o el alto dependiendo la posicion.
+		;--> si se posiciona arriba o abajo, se modifica el alto (A_ScreenHeight/2-10%).
+		;--> si se posiciona a la izquierda o a la derecha, se modifica el ancho (A_ScreenWidth/2-10%).
 ;Ejemplo: abra Notepad para el ejemplo.
  	;MsgBox % "Centrar ventana: " ((!!WinActivate(WinExist("ahk_class Notepad"), 3)+WinMove(-3,,, 543, 403)+!!WinCenter(-3))-2)
 	;MsgBox % "Posicionar arriba a la izquierda: " WinCenter(-3, "Top Left")
@@ -7556,15 +7710,15 @@ WinMenuSelectItem(hWnd, Menu, Submenu*) { ;AHKv1 --> WinMenuSelectItem()
 	;MsgBox % "Posicionar a la derecha y centrarla: " WinCenter(-3, "Right Center")
 WinCenter(hWnd, Pos := "") {
 	_gethwnd(hWnd)
-	if (WinMax(hWnd))
-		return false, ErrorLevel := 2
 	WinGetPos(hWnd, x, y, w, h), w2 := A_ScreenWidth, h2 := (A_ScreenHeight - TaskbarGetPos().h)
 	, T := InStr(Pos, "Top"), B := InStr(Pos, "Bottom"), L := InStr(Pos, "Left"), R := InStr(Pos, "Right"), C := InStr(Pos, "Center")
+	if (WinMax(hWnd))
+		w := (L||R)?Percent(w2/2, 10):w2, h := (T||B)?Percent(h2/2, 10):h2
 	if (T) || (B) || (L) || (R)
-		return WinMove(hWnd, L?0:R?(w2-w):C?((w2/2)-(w/2)):x, T?0:B?(h2-h):C?((h2/2)-(h/2)):y)
-	return WinMove(hWnd, (w2/2) - (w/2), (h2/2) - (h/2))
+		return WinMove(hWnd, L?0:R?(w2-w):C?((w2/2)-(w/2)):x, T?0:B?(h2-h):C?((h2/2)-(h/2)):y, w, h)
+	return WinMove(hWnd, (w2/2) - (w/2), (h2/2) - (h/2), w, h)
 }
- 
+
 ;parpadea la ventana especificada. no cambia el estado activo de la ventana.
 ;Sintaxis: WinFlash( [ID], [opciones], [veces que parpadea la ventana], [velocidad de parpadeo en milisegundos] )
 ;Opciones (se pueden sumar para combinar):
@@ -8115,9 +8269,9 @@ WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: MENÚS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;obtener una lista con todos los elementos de los menús de la ventana
 ;Sintaxis: MenuGetItemList( [ID] )
 ;NOTA: sólo funciona con aplicaciones que utilizan menús estándar de Windows
@@ -8352,12 +8506,292 @@ MenuCheck(MenuName, MenuItemName, Check := 1) {
 
 
 
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: TAREAS PROGRAMADAS ::::::::::::::::::::::::::::::::::
+;Nota: requiere WIN_V+
+;#############################################################################################################################################
+;recupera todas las tareas programadas
+;Sintaxis: SchTasksEnum( [¿buscar tareas en subcarpetas?] )
+;Return: for [Index], [v.Name, v.Path] in SchTasksEnum()
+;Ejemplo:
+	;for k, v in SchTasksEnum(true)
+	;	List .= v.path "`n"
+	;MsgBox % List
+SchTasksEnum(All := false) {
+	if !(schservice:=SchTasksInit())
+		return false
+	RootFolder := schservice.GetFolder("\"), List := []
+	, TaskCollection := RootFolder.GetTasks(0)
+	for RegisteredTask in TaskCollection
+			Task := {}, Task.Path := RegisteredTask.Path, Task.Name := RegisteredTask.Name, List.Push(Task)
+	if (All)
+		Loop, Parse, % SchTasksFoldersEnum(), `n
+		{ 	TaskFolder := schservice.GetFolder(A_LoopField)
+			, TaskCollection := TaskFolder.GetTasks(0)
+			for RegisteredTask in TaskCollection
+					Task := {}, Task.Path := RegisteredTask.Path, Task.Name := RegisteredTask.Name, List.Push(Task)
+		} return List
+} SchTasksInit(ByRef TaskPath := "", ByRef TaskName := "") {
+	static schservice
+	if !(IsObject(schservice)) {
+		try schservice := ComObjCreate("Schedule.Service")
+		catch, OutputVar
+			return false, ErrorLevel := OutputVar
+		schservice.Connect()
+	} if (IsByRef(TaskName)) {
+		SplitPath, TaskPath, TaskName, TaskPath
+		TaskPath := "\" LTrim(TaskPath, "\")
+	} return schservice
+}
+
+;enumera todas las subcarpetas en el directorio espesificado
+;Sintaxis: SchTasksFoldersEnum( [ruta], [¿enumerar todas las carpetas y subcarpetas del directorio espesificado?] )
+;Nota: si no espesifica un ruta (defecto), recupera todas las carpetas y subcarpetas en el directorio raiz.
+;Ejemplos:
+	;MsgBox % SchTasksFoldersEnum("\") ;recupera todas las carpetas en el directorio raiz.
+	;MsgBox % SchTasksFoldersEnum() ;recupera todas las carpetas y subcarpetas en el directorio raiz.
+SchTasksFoldersEnum(TaskPath := "", All := false, Prefix := "") {
+	if !(schservice:=SchTasksInit())
+		return false
+	try TaskFolder := schservice.GetFolder("\" LTrim(TaskPath, "\"))
+	, FolderCollection := TaskFolder.GetFolders(0)
+	catch, OutputVar
+		return "", ErrorLevel := OutputVar
+	for RegisteredFolder in FolderCollection {
+		if (TaskPath="") || (All) {
+			TaskFolder2 := schservice.GetFolder(RegisteredFolder.Path)
+			if (TaskFolder2.GetFolders(0).Count>0) {
+				List .= SchTasksFoldersEnum(RegisteredFolder.Path, true, RegisteredFolder.Path "`n") "`n"
+			} else List .= Prefix RegisteredFolder.Path "`n"
+		} else List .= (A_Index=1?"":"`n") RegisteredFolder.Name
+	} Sort, List, U D`n
+	return List
+}
+
+;habilitar tarea
+;Sintaxis: SchTasksEnable( [ruta\nombre] )
+SchTasksEnable(TaskPath) {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	, RegisteredTask.Enabled := true
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;deshabilitar tarea
+;Sintaxis: SchTasksDisable( [ruta\nombre] )
+SchTasksDisable(TaskPath) {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	SplitPath, TaskPath, TaskName, TaskPath
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	, RegisteredTask.Enabled := false
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;crear carpeta\subcarpeta(s...)
+;Sintaxis: SchTasksDeleteFolder( [carpeta\sub1\sub2\etc...] )
+SchTasksCreateFolder(TaskPath) {
+	if !(schservice:=SchTasksInit())
+		return false
+	try TaskFolder := schservice.GetFolder("\"), TaskFolder.CreateFolder(TaskPath)
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;detener tarea
+;Sintaxis: SchTasksStop( [ruta\nombre] )
+SchTasksStop(TaskPath) {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	, RegisteredTask.Stop(0)
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;ejecutar tarea
+;Sintaxis: SchTasksRun( [ruta\nombre], [parámetros] )
+SchTasksRun(TaskPath, Params := "") {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	, RegisteredTask.Run(Params, RunningTask)
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+
+;obtener información de la tarea.
+;Sintaxis: SchTasksGetInfo( [ruta\nombre], [estado], [info] )
+;Estado: Unknown | Disabled | Queued | Ready | Running
+;Otro: devuelve la informacion en formato .XML. usar SchTasksSplitInfo() para leer los valores.
+;Ejemplo:
+	;SchTasksGetInfo("CCleanerSkipUAC", State, RegistrationInfo)
+	;MsgBox % State
+	;MsgBox % RegistrationInfo
+	;Info := SchTasksSplitInfo(RegistrationInfo)
+	;MsgBox % "Autor: " Info.Author "`nDominio\Usuario: " Info.UserId "`nLogonType: " Info.LogonType "`nPrioridad: " Info.Priority
+	;	. "`nHabilitado: " Info.Enabled "`nOculto: " Info.Hidden "`nComando: " Info.Command "`nArgumentos: " Info.Arguments
+SchTasksGetInfo(TaskPath, ByRef State := "", ByRef RegistrationInfo := "") {
+	static States := {0: "Unknown", 1: "Disabled", 2: "Queued", 3: "Ready", 4: "Running"}
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	if (IsByRef(State))
+		State := States[RegisteredTask.State]
+	if (IsByRef(RegistrationInfo))
+		RegistrationInfo := RegisteredTask.XML
+	return true, ErrorLevel := false
+} SchTasksSplitInfo(RegistrationInfo) {
+	RegInfo := {}
+	Loop, Parse, % "Author,UserId,LogonType,Priority,Enabled,Hidden,Command,Arguments", `,
+		RegExMatch(RegistrationInfo, "<" A_LoopField ">(.+)</" A_LoopField ">", TypeID)
+		, RegInfo[A_LoopField] := (A_LoopField="Enabled"||A_LoopField="Hidden")?(TypeID1="true"):TypeID1
+	return RegInfo
+}
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+
+;establecer prioridad
+;Sintaxis: SchTasksSetPriority( [ruta\nombre], [prioridad 0~10 (defecto=7)] )
+SchTasksSetPriority(TaskPath, Priority := 7) {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, RegisteredTask := TaskFolder.GetTask(TaskName)
+	, TaskDefinition := RegisteredTask.Definition
+	, TaskSettings := TaskDefinition.Settings
+	, TaskSettings.Priority := ((Priority>-1)&&(Priority<11))?Priority:7
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+
+;eliminar tarea
+;Sintaxis: SchTasksDelete( [ruta\nombre] )
+SchTasksDelete(TaskPath) {
+	if !(schservice:=SchTasksInit(TaskPath, TaskName))
+		return false
+	try TaskFolder := schservice.GetFolder(TaskPath)
+	, TaskFolder.DeleteTask(TaskName, 0)
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	return true, ErrorLevel := false
+}
+
+;eliminar carpeta junto con todas sus subcarpetas
+;Sintaxis: SchTasksDeleteFolder( [ruta], [¿eliminar si la carpeta tiene subcarpetas?] )
+SchTasksDeleteFolder(TaskPath, Recurse := true) {
+	if !(schservice:=SchTasksInit())
+		return false
+	try TaskFolder := schservice.GetFolder("\")
+	catch, OutputVar
+		return false, ErrorLevel := OutputVar
+	if (Recurse) && (TaskFolder.GetFolders(0).Count>0) {
+		Loop, Parse, % SchTasksFoldersEnum("\" LTrim(TaskPath, "\"), true), `n
+		{ SplitPath, A_LoopField, TaskName2, TaskPath2
+			try TaskFolder2 := schservice.GetFolder("\" LTrim(TaskPath2, "\"))
+			, TaskFolder2.DeleteFolder(TaskName2, 0)
+	}} try TaskFolder.DeleteFolder(TaskPath, 0)
+	return true, ErrorLevel := false
+}
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: SONIDO ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;Silenciar
 ;Sintáxis: SoundMute( [Opcion] )
 ;OPCIONES:
@@ -8441,9 +8875,9 @@ SoundPlay(Filename, Wait := false) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: SERVICIOS ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;cambiar modo de inicio del servicio.
 ;Sintaxis: ServiceSet( [servicio], [boot | system | auto | manual | disabled] )
 ServiceSet(IpName, StartMode := "") {
@@ -8687,9 +9121,99 @@ ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF,
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: UNIDADES ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
+;cambiar etiqueta de la unidad
+DriveSetLabel(Drive, VolumeLabel := "") {
+	return DllCall("Kernel32.dll\SetVolumeLabelW", "Str", SubStr(Drive, 1, 1) ":", "Str", VolumeLabel)
+}
+
+;establece un nombre + icono para la unidad en el registro
+;Sintaxis: DriveRegSet( [unidad], [nombre], [icono] )
+;NOTAS: 
+	;los cambios solo se ven afectados por el SO actual
+	;para quitar el icono/nombre poner -1
+DriveRegSet(Drive, Label := "", Icon := "") {
+	Drive := SubStr(Drive, 1, 1)
+	if !(ok:=0) && (Icon = -1)
+		ok += RegDelete( "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" Drive "\DefaultIcon" )
+	else if (Icon != "")
+		ok += RegWrite(, "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" Drive "\DefaultIcon",, Icon )
+	if (Label = -1)
+		ok += RegDelete( "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" Drive "\DefaultLabel" )
+	else if (Label != "")
+		ok += RegWrite(, "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" Drive "\DefaultLabel",, Label)
+	return ok
+}
+
+ ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+ ;obtener tipo de unidad: Unknown, Removable, Fixed, Network, CDROM, RAMDisk
+;Sintaxis: DriveGetType( [Unidad] )
+;Tipos: Unknown | Removable | Fixed | Network | CDROM | RAMDisk
+;Ejemplo: MsgBox % DriveGetType(A_WinDir)
+DriveGetType(Drive) {
+	static Types := {0: "Unknown", 1: "", 2: "Removable", 3: "Fixed", 4: "Network", 5: "CDROM", 6: "RAMDisk"}
+	Type := DllCall("Kernel32.dll\GetDriveTypeW", "Str", SubStr(Drive, 1, 1) ":")
+	return Types[Type], ErrorLevel := !Types[Type]
+}
+
+;obtener informacion de la unidad
+;Sintaxis: DriveGetInfo( [unidad], [nombre], [sistema de archivos], [serial], [MaximumComponentLength], [FileSystemFlags] )
+;Ejemplo:
+	;DriveGetInfo(A_WinDir, VolumeName, FileSystem, SerialNumber, MCLength, FileSystemFlags)
+	;MsgBox % "VolumeName: " VolumeName "`nFileSystem: " FileSystem "`nSerialNumber: " SerialNumber "`nMCLength: " MCLength "`nFileSystemFlags: " FileSystemFlags
+DriveGetInfo(Drive, ByRef VolumeName := "", ByRef FileSystem := "", ByRef SerialNumber := "", ByRef MCLength := "", ByRef FileSystemFlags := "") {
+	SplitPath, Drive,,,,, Drive 
+	VarSetCapacity(VolumeName, (260 + 1) * 2), VarSetCapacity(FileSystem, (260 + 1) * 2), Drive := SubStr(Drive, 1, 1)
+	r := DllCall("Kernel32.dll\GetVolumeInformationW", "Str", Drive ":", "Str", VolumeName, "UInt", 261, "UIntP"
+	, SerialNumber, "UIntP", MCLength, "UIntP", FileSystemFlags, "Str", FileSystem, "UInt", 261)
+	if (r) && (VolumeName="")
+		RegRead, VolumeName, % "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" Drive "\DefaultLabel"
+	return r, ErrorLevel := !r
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa364993%28v=vs.85%29.aspx
+
+;obtener informacion de la unidad
+;Sintaxis: DriveGetInfoEx( [unidad], [nombre], [sistema de archivos], [tipo], [serial], [espacio], [nombre compartido en red] )
+;Sistema de archivos: FAT | FAT32 | NTFS | CDFS.
+;Tipos: Unknown | Removable | Fixed | Network | CDROM | RAMDisk.
+;Espacio (array): [total, disponible, en uso]. en bytes.
+;Ejemplo:
+	;DriveGetInfoEx(A_WinDir, VolumeName, FileSystem, Type, SerialNumber, Size, ShareName)
+	;MsgBox % "VolumeName: " VolumeName "`nFileSystem: " FileSystem "`nType: " Type "`nSerialNumber: " SerialNumber
+	;	. "`nTotal: " Round(Size[1]/(1024**3), 2) " GB | Disponible: " Round(Size[2]/(1024**3), 2) " GB | En Uso: " Round(Size[3]/(1024**3), 2) " GB`nShareName: " ShareName
+DriveGetInfoEx(Drive, ByRef VolumeName := "", ByRef FileSystem := "", ByRef Type := "", ByRef SerialNumber := "", ByRef Size := "", ByRef ShareName := "") {
+	static Types := {0: "Unknown", 1: "Removable", 2: "Fixed", 3: "Network", 4: "CDROM", 5: "RAMDisk"}
+	try fso := ComObjCreate("Scripting.FileSystemObject"), d := fso.GetDrive(fso.GetDriveName(Drive))
+	catch
+		return false, ErrorLevel := true
+	if (IsByRef(VolumeName))
+		VolumeName := d.VolumeName
+	if (IsByRef(FileSystem))
+		FileSystem := d.FileSystem
+	if (IsByRef(Type))
+		Type := Types[d.DriveType]
+	if (IsByRef(SerialNumber))
+		SerialNumber := d.SerialNumber
+	if (IsByRef(Size))
+		Size := [t:=d.TotalSize, f:=(d.FreeSpace?d.FreeSpace:d.AvailableSpace), t-f]
+	if (IsByRef(ShareName))
+		ShareName := d.ShareName
+	return true, ErrorLevel := false
+} ;https://msdn.microsoft.com/en-us/library/ts2t8ybh(v=vs.84).aspx
+
+ ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+;recupera la cantidad de espacio libre en Bytes
+;Sintaxis: DriveSpaceFree( [unidad], [KB|MB|GB] )
+DriveSpaceFree(Drive, Units := 0) {
+	static Size := {KB: 1024, MB: 1024**2, GB: 1024**3}
+	VarSetCapacity(FreeSpace, 8 * 2, 0), Drive := SubStr(Drive, 1, 1) ":"
+	, r := DllCall("Kernel32.dll\GetDiskFreeSpaceExW", "Str", Drive, "UInt64", &FreeSpace, "UInt64", 0, "UInt64", 0)
+	return Size[Units]?NumGet(FreeSpace, 0, "UInt64")/Size[Units]:NumGet(FreeSpace, 0, "UInt64"), ErrorLevel := !r
+}
+
 ;listar unidades
 ;Sintaxis: DriveEnum( [CDROM|REMOVABLE|FIXED|NETWORK|RAMDISK|UNKNOWN separados por coma] )
 DriveEnum(Type := "") {
@@ -8702,95 +9226,33 @@ DriveEnum(Type := "") {
 }
 
 ;expulsar/retraer unidad de CD/DVD/USB
-;Sintaxis: DriveEject( [unidad], [¿cerrar?] )
+;Sintaxis: DriveEject( [unidad], [0|1] )
 ;NOTA: el script no avanza hasta que la unidad se cierre
-DriveEject(IpDrive, Close := 0) { 
-	IpDrive := StrLeft(Trim(IpDrive)) ":", IpType := DriveGetType(IpDrive)
-	if (IpType = "CDROM") {
-		Drive, Eject, %IpDrive%, %Close%
+DriveEject(Drive, Close := false) {
+	Drive := SubStr(Drive, 1, 1)
+	if ((IpType:=DriveGetType(Drive))="CDROM") || !(IpType) {
+		if !(IpType)
+			return false, ErrorLevel := true
+		Drive, Eject, %Drive%:, % !!Close
 		return !ErrorLevel
-	} hDrive := DllCall("Kernel32.dll\CreateFileW", "Str", "\\?\" IpDrive, "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 3, "UInt", 0, "Ptr", 0)
-	, nOutBufferSize := VarSetcapacity( STORAGE_DEVICE_NUMBER, 8 + A_PtrSize, 0 )
-	, IpR := DllCall("Kernel32.dll\DeviceIoControl", "Ptr", hDrive, "UInt", 0x2D1080, "Ptr", 0, "UInt", 0, "Ptr", &STORAGE_DEVICE_NUMBER, "UInt", nOutBufferSize, "UIntP", 0, "Ptr", 0 )  
+	} hDrive := DllCall("Kernel32.dll\CreateFileW", "Str", "\\.\" Drive ":", "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 3, "UInt", 0, "Ptr", 0)
+	, Size := VarSetcapacity(STORAGE_DEVICE_NUMBER, 8 + A_PtrSize, 0), nVT := true
+	, IpR := DllCall("Kernel32.dll\DeviceIoControl", "Ptr", hDrive, "UInt", 0x2D1080, "Ptr", 0, "UInt", 0, "Ptr", &STORAGE_DEVICE_NUMBER, "UInt", Size, "UIntP", 0, "Ptr", 0)
 	, DllCall("Kernel32.dll\CloseHandle", "Ptr", hDrive), IpType := NumGet(STORAGE_DEVICE_NUMBER, "UInt")
-	If (IpType = 0x00000007||IpType = 7)
-		sPHDRV := "\\\\.\\PHYSICALDRIVE" NumGet(STORAGE_DEVICE_NUMBER, 4, "UInt")
-	queryEnum := ComObjGet("winmgmts:").ExecQuery("Select * from Win32_DiskDrive WHERE DeviceID='" sPHDRV "' AND InterfaceType='USB'" )._NewEnum()
-	If !queryEnum[ DRV ]
-		return 0, ErrorLevel := 1
-	nDID := 0, nVT := 1, DllCall("CfgMgr32.dll\CM_Locate_DevNodeW", "PtrP", nDID, "Str", DRV.PNPDeviceID, "UInt", 0)
-	, DllCall("CfgMgr32.dll\CM_Get_Parent", "PtrP", nDID, "UInt", nDID, "UInt", 0), ulNameLength := VarSetCapacity( VAR, 520, 0 ) / 2
-	while % (nDID&&nVT&&A_Index<4) 
-		DllCall("CfgMgr32.dll\CM_Request_Device_EjectW", "UInt", nDID, "PtrP", nVT, "Str", VAR, "UInt", ulNameLength, "UInt", 0 )
-	return nVT?(ErrorLevel:=1)-1:(ErrorLevel:=0)+1
+	, sPHDRV := (IpType=0x00000007)?"\\\\.\\PHYSICALDRIVE" NumGet(STORAGE_DEVICE_NUMBER, 4, "UInt"):""
+	, queryEnum := ComObjGet("winmgmts:").ExecQuery("Select * from Win32_DiskDrive WHERE DeviceID='" sPHDRV "' AND InterfaceType='USB'")._NewEnum()
+	If !(queryEnum[Drive])
+		return false, ErrorLevel := true
+	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "SetupAPI.dll"))
+		hModule := DllCall("Kernel32.dll\LoadLibraryW", "Str", "SetupAPI.dll")
+	DllCall("SetupAPI.dll\CM_Locate_DevNode", "PtrP", nDID, "Str", Drive.PNPDeviceID, "UInt", 0), DllCall("SetupAPI.dll\CM_Get_Parent", "PtrP", nDID, "UInt", nDID, "UInt", 0)
+	while % (nDID && nVT && (A_Index<4)) 
+		DllCall("SetupAPI.dll\CM_Request_Device_Eject", "UInt", nDID, "PtrP", nVT,  "Ptr", 0, "UInt", 0, "UInt", 0)
+	if (hModule)
+		DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule) 
+	return !nVT, ErrorLevel := nVT
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&t=4491
 
-;obtener tipo de unidad: ERROR, Unknown, Removable, Fixed, Network, CDROM, RAMDisk
-;Sintaxis: DriveGetType( [Unidad] )
-;ErrorLevel: 0(sin errores) | 1(error) | 2(la unidad no existe)
-DriveGetType(IpDrive) {
-	static T0 := "Unknown", T1 := "ERROR", T2 := "Removable", T3 := "Fixed", T4 := "Network", T5 := "CDROM", T6 := "RAMDisk"
-	IpDrive := StrLeft(Trim(IpDrive)) ":", IpType := DllCall("Kernel32.dll\GetDriveTypeW", "Str", IpDrive)
-	return T%IpType% ? T%IpType% : IpType, ErrorLevel := T%IpType% = "ERROR" ? 2 : T%IpType% ? 0 : 1
-}
-
-;cambiar etiqueta de la unidad
-DriveSetLabel(IpDrive, lpVolumeName := "") {
-	IpDrive := StrLeft(Trim(IpDrive)) ":\"
-	return DllCall("Kernel32.dll\SetVolumeLabelW", "Str", IpDrive, "Str", lpVolumeName)
-}
-
-;establece un nombre + icono para la unidad en el registro
-;Sintaxis: DriveRegSet( [unidad], [nombre], [icono] )
-;NOTAS: 
-	;los cambios solo se ven afectados por el SO actual
-	;para quitar el icono/nombre poner -1
-DriveRegSet(IpDrive, Label := "", Icon := "") {
-	IpDrive := StrLeft( Trim(IpDrive) ), ok := 0
-	if (Icon = -1) ;quitar icono: -1
-		ok += RegDelete( "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" IpDrive "\DefaultIcon" )
-	else if (Icon != "") ;establecer icono si no es [vacio]
-		ok += RegWrite(, "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" IpDrive "\DefaultIcon",, Icon )
-	if (Label = -1) ;quitar nombre: -1
-		ok += RegDelete( "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" IpDrive "\DefaultLabel" )
-	else if (Label != "") ;establecer nombre si no es [vacio]
-		ok += RegWrite(, "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" IpDrive "\DefaultLabel",, Label)
-	return ok
-}
-
-;obtener informacion de la unidad: Nombre, Sistema de archivos y Número de serie
-;Sintaxis: DriveGetInfo( [Unidad], [Nombre (out)], [sistema de archivos (out)], [número de serie (out)] )
-;Ejemplo: MsgBox % DriveGetInfo( "C:\" ).Label
-;NOTAS: 
-	;el número de serie es el signado por el sistema cuando se le dá formato a la unidad; no por el fabricante.
-	;si el nombre es [vacio], se intenta obtener desde el registro 'DriveIcons\[unidad]\DefaultLabel'
-DriveGetInfo(IpDrive, ByRef lpVolumeNameBuffer := "", ByRef lpFileSystemNameBuffer := "", ByRef lpVolumeSerialNumber := "") {
-	IpDrive := StrLeft( Trim(IpDrive) ) ":\", i := {}
-	, nVolumeNameSize := VarSetCapacity( lpVolumeNameBuffer, 261 * 2, 0 ) / 2 ;label
-	, nFileSystemNameSize := (VarSetCapacity( lpFileSystemNameBuffer, 60 * 2, 0 ) + 200 + 1) / 2 ;filesystem
-	, lpMaximumComponentLength := (VarSetCapacity( lpVolumeSerialNumber, 60 * 2, 0 ) - 60) / 2 ;serial
-	, DriveIcons := "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\" StrLeft( IpDrive ) "\DefaultLabel"
-	, hR := DllCall("Kernel32.dll\GetVolumeInformationW", "Str", IpDrive, "Str", lpVolumeNameBuffer, "UInt", nVolumeNameSize ;Label
-		, "Ptr", &lpVolumeSerialNumber, "Ptr", lpMaximumComponentLength ;SerialNumber
-		, "Ptr", 0, "Str", lpFileSystemNameBuffer, "UInt", nFileSystemNameSize) ;FileSystem
-	, i.Label := i.L := lpVolumeNameBuffer != "" ? lpVolumeNameBuffer : RegRead( DriveIcons ) ;nombre de la unidad
-	, i.FileSystem := i.FS := lpFileSystemNameBuffer ;tipo del sistema de archivos
-	, i.SerialNumber := i.SN := NumGet( lpVolumeSerialNumber, 0, "UIntP" ) ;número de serie
-	return i
-		, lpVolumeSerialNumber := i.SerialNumber ;serial
-		, lpVolumeNameBuffer := i.Label ;label
-		, ErrorLevel := !hR
-}
-
-;recupera la cantidad de espacio libre en Bytes
-;Sintaxis: DriveSpaceFree( [unidad], [KB|MB|GB] )
-DriveSpaceFree(IpDrive, Units := 0) {
-	static uKB := uK := 1024, uMB := uM := 1024**2, uGB := uG := 1024**3
-	IpDrive := StrLeft( Trim(IpDrive) ) ":\", VarSetCapacity( lpFreeBytesAvailable, 8 * 2, 0)
-	, hR := DllCall("Kernel32.dll\GetDiskFreeSpaceExW", "Str", IpDrive, "UInt64", &lpFreeBytesAvailable, "UInt64", 0, "UInt64", 0)
-	, lpFreeBytesAvailable := u%Units%?NumGet(lpFreeBytesAvailable, 0, "UInt64")/u%Units%:NumGet(lpFreeBytesAvailable, 0, "UInt64")
-	return lpFreeBytesAvailable, ErrorLevel := !hR
-}
 
 
 
@@ -8839,9 +9301,15 @@ DriveSpaceFree(IpDrive, Units := 0) {
 
 
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: MONITOR ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
 	if (x="")||(y="")
 		MouseGetPos(x_, y_)
@@ -8958,7 +9426,7 @@ MonitorSetBrightness(R := "", G := "", B := "") {
 	return i, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
 }
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: INCLUDE :::::::::::::::::::::::::::::::::: *i
 ;Notas:
 	;• poner las clases y funciones en la carpeta Lib.
@@ -8967,7 +9435,7 @@ MonitorSetBrightness(R := "", G := "", B := "") {
 		;--> %AHK_INSTALL_PATH%\Lib
 	;• las funciones y clases con *i son opcionales (omite si no existe).
 return
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
+;#############################################################################################################################################
 ;clases
 #Include <Class_ImageButton> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1103
 #Include <Class_CtlColors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=4026
@@ -8979,7 +9447,7 @@ return
 #Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
 #Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 #Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
-#Include *i <ToolTipEx>
+#Include *i <ToolTipEx> ;https://github.com/flipeador/AutoHotKey/blob/master/ToolTipEx
 #Include *i <LinearGradient> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3593
 
 ;constantes
