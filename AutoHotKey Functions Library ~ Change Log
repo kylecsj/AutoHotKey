@@ -29,6 +29,7 @@ Mejoras:
 	• WinCenter()
 	
 Correcciones:
+	• DesktopSelectItem()
 	• DriveEject()
 	• StrTrimRight()
 	• ControlSetCursor()
@@ -38,10 +39,8 @@ Notas:
 	• Añadido: TAREAS PROGRAMADAS funciones.
 	• Actualizado: SISTEMA - VARIABLES ~ A_MyMusic(), A_MyPictures(), etc.
 	
-Funciones Renombradas:
-	•
-
 Funciones Eliminadas:
+	• TrayIconAnimate()
 	• Exist()
 	• SHGetFolderPath() & SHGetKnownFolderPath(). usar GetKnownFolderPath()
 	• StrDownload(). usar InternetGetString()
