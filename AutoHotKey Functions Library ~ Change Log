@@ -1,4 +1,96 @@
 ###############################################################
+ACTUALIZACION 09/10/2015 - AHK1.1.22.07
+###############################################################
+Funciones Agregadas:
+	• DriveGetInfoEx()
+	• SchTasksSetPriority()
+	• SchTasksRun()
+	• SchTasksStop()
+	• SchTasksFoldersEnum()
+	• SchTasksCreateFolder()
+	• SchTasksDeleteFolder()
+	• SchTasksSplitInfo()
+	• SchTasksGetInfo()
+	• SchTasksDelete()
+	• SchTasksDisable()
+	• SchTasksEnable()
+	• SchTasksEnum()
+	• SendKeys()
+	• CreateShortcut()
+	• GetKnownFolderPath()
+	• MouseWheelScrollChars()
+	• Factor()
+	• IsPrime()
+	• Float()
+	• Percent()
+	• RandomEx()
+	
+Mejoras:
+	• WinCenter()
+	
+Correcciones:
+	• DriveEject()
+	• StrTrimRight()
+	• ControlSetCursor()
+	• ProcessGetSid()
+	
+Notas:
+	• Añadido: TAREAS PROGRAMADAS funciones.
+	• Actualizado: SISTEMA - VARIABLES ~ A_MyMusic(), A_MyPictures(), etc.
+	
+Funciones Renombradas:
+	•
+
+Funciones Eliminadas:
+	• Exist()
+	• SHGetFolderPath() & SHGetKnownFolderPath(). usar GetKnownFolderPath()
+	• StrDownload(). usar InternetGetString()
+	• MouseSetCursor()
+	
+Otros (cambios menores):
+	• DriveSpaceFree()
+	• DriveSetLabel()
+	• DriveGetType()
+	• MouseSpeed()
+	• MouseScrollLines()
+	• MouseTrails()
+	
+Cambios (reescrito. cambio de sintaxis):
+	• DriveGetInfo()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 29/09/2015 / 03/10 - AHK1.1.22.07
 ###############################################################
 Funciones Agregadas:
