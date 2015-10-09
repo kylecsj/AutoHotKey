@@ -12,7 +12,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
 Actualizado: AHK1.1.22.07 U32 & U64 || Viernes, 09 de octubre de 2015
-Historial De Cambios: https://raw.githubusercontent.com/flipeador/AutoHotKey/master/AutoHotKey Functions Library ~ Change Log
+Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
 	• ver INCLUDE al final para links a funciones y clases necesarias.
@@ -8586,7 +8586,6 @@ SchTasksEnable(TaskPath) {
 SchTasksDisable(TaskPath) {
 	if !(schservice:=SchTasksInit(TaskPath, TaskName))
 		return false
-	SplitPath, TaskPath, TaskName, TaskPath
 	try TaskFolder := schservice.GetFolder(TaskPath)
 	, RegisteredTask := TaskFolder.GetTask(TaskName)
 	, RegisteredTask.Enabled := false
@@ -8902,8 +8901,7 @@ ServiceGetDescription(IpName, Mode := "Fast") {
 		, i := DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION, "UInt", cbBufSize, "UIntP", 0)
 		return StrGet(NumGet(SERVICE_DESCRIPTION, 0, "Ptr"), cbBufSize, "UTF-16")
 			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-	}
-	return 0, ErrorLevel := 1
+	} return 0, ErrorLevel := 1
 }
 
 ;establece la informacion del servicio
@@ -8918,8 +8916,7 @@ ServiceSetDescription(IpName, Description := "", Mode := "Slow") {
 		, NumPut(&Description, SERVICE_DESCRIPTION, 0, "Ptr")
 		return i := DllCall("Advapi32.dll\ChangeServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION)
 			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-	}
-	return 0, ErrorLevel := 1
+	} return 0, ErrorLevel := 1
 }
 
 ;pausar
@@ -9124,9 +9121,10 @@ ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF,
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: UNIDADES ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
-;cambiar etiqueta de la unidad
+;cambiar nombre de la unidad
+;Sintaxis: DriveSetLabel( [unidad], [nombre] )
 DriveSetLabel(Drive, VolumeLabel := "") {
-	return DllCall("Kernel32.dll\SetVolumeLabelW", "Str", SubStr(Drive, 1, 1) ":", "Str", VolumeLabel)
+	return r:=DllCall("Kernel32.dll\SetVolumeLabelW", "Str", SubStr(Drive, 1, 1) ":", "Str", VolumeLabel), ErrorLevel := !r
 }
 
 ;establece un nombre + icono para la unidad en el registro
@@ -9165,7 +9163,6 @@ DriveGetType(Drive) {
 	;DriveGetInfo(A_WinDir, VolumeName, FileSystem, SerialNumber, MCLength, FileSystemFlags)
 	;MsgBox % "VolumeName: " VolumeName "`nFileSystem: " FileSystem "`nSerialNumber: " SerialNumber "`nMCLength: " MCLength "`nFileSystemFlags: " FileSystemFlags
 DriveGetInfo(Drive, ByRef VolumeName := "", ByRef FileSystem := "", ByRef SerialNumber := "", ByRef MCLength := "", ByRef FileSystemFlags := "") {
-	SplitPath, Drive,,,,, Drive 
 	VarSetCapacity(VolumeName, (260 + 1) * 2), VarSetCapacity(FileSystem, (260 + 1) * 2), Drive := SubStr(Drive, 1, 1)
 	r := DllCall("Kernel32.dll\GetVolumeInformationW", "Str", Drive ":", "Str", VolumeName, "UInt", 261, "UIntP"
 	, SerialNumber, "UIntP", MCLength, "UIntP", FileSystemFlags, "Str", FileSystem, "UInt", 261)
@@ -9225,9 +9222,9 @@ DriveEnum(Type := "") {
 	return Type?List:OutputVar
 }
 
-;expulsar/retraer unidad de CD/DVD/USB
+;expulsar/retraer unidad de CD/DVD. expulsar USB.
 ;Sintaxis: DriveEject( [unidad], [0|1] )
-;NOTA: el script no avanza hasta que la unidad se cierre
+;NOTA: el script no avanza hasta que la unidad se cierre/expulse.
 DriveEject(Drive, Close := false) {
 	Drive := SubStr(Drive, 1, 1)
 	if ((IpType:=DriveGetType(Drive))="CDROM") || !(IpType) {
