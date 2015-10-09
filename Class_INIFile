@@ -154,7 +154,7 @@ INIFile(Filename, SaveOnExit := false, LoadFromText := false, LockFile := false)
 	;Sintaxis: SetText( [texto] )
 	;--------------------------------------------------------------------------------------------------------
 	SetText(NewText) {
-		this.Text := NewText
+		this.Text := NewText, this.Modified := true
 	}
 
 	;--------------------------------------------------------------------------------------------------------
@@ -198,7 +198,7 @@ INIFile(Filename, SaveOnExit := false, LoadFromText := false, LockFile := false)
 	;Seccion: dejar vacio para recuperar todas las secciones.
 	;Clave: dejar vacío para recuperar todas las claves en la seccion espesificada.
 	;Defecto: valor que devuelve si la clave no existe en la seccion espesificada.
-	;Error: 0 si hubo algun error. 1|2 si no hubo errores.
+	;Error: 1|2 si hubo algun error. 0 si no hubo errores.
 		;--> [Vacío] = 0 si la seccion  existe y se encontraron claves. 1 si no se encontraron claves. 2 si la seccion no existe.
 		;--> Seccion + Clave = 0 si la clave existe. 1 si la clave no existe.
 		;--> Seccion = 0 si se encontraron secciones. 1 si no se encontraron secciones.
