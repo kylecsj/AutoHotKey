@@ -51,11 +51,12 @@ Otros (cambios menores):
 	• DriveSetLabel()
 	• DriveGetType()
 	• MouseSpeed()
-	• MouseScrollLines()
+	• MouseScrollLines()
 	• MouseTrails()
 	
 Cambios (reescrito. cambio de sintaxis):
-	• DriveGetInfo()
+	• TaskBarProgress
+	• DriveGetInfo()
 ###############################################################
 
 
