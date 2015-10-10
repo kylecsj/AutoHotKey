@@ -2745,7 +2745,6 @@ ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: INTERNET ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
-
 ;descargar archivo
 ;Sintaxis: Download( [URL], [Archivo], [¿sobreescribir?], [¿recuperar de la memoria caché cuando sea posible?] )
 ;Nota: omitir el 2do parámetro para obtener el texto sin crear el archivo.
@@ -2895,14 +2894,15 @@ EmailSend(User, Pass, To, Body, Subject := "", CC := "", BCC := "", Attach := ""
 ;establecer porcentaje de progreso en la barra de tareas
 ;Sintaxis: TaskBarProgress( [ESTADO], [Ventana ID] )
 ;ESTADOS: 0~100, Normal, Paused, Indeterminate, Error
-TaskBarProgress(State, hWnd := "") { ;http://ahkscript.org/boards/viewtopic.php?p=48329#p48329
+TaskBarProgress(hWnd, State := 0) { ;http://ahkscript.org/boards/viewtopic.php?p=48329#p48329
+	_gethwnd(hWnd)
 	static ppv
-	if !ppv
+	if !(ppv)
 		ppv := ComObjCreate("{56FDF344-FD6D-11d0-958A-006097C9A090}", "{ea1afb91-9e28-4b86-90e9-9e9f8a5eefaf}")
 	static s0 := 0, sI := sIndeterminate := 1, sN := sNormal := 2, sE := sError := 4, sP := sPaused := 8
-	if InVar( State, "0,N,P,E,I,Normal,Paused,Error,Indeterminate" )
-		return DllCall(NumGet(NumGet(ppv+0)+10*A_PtrSize), "Ptr", ppv, "Ptr", hWnd?hWnd:IsWindow(), "UInt", s%State%)
-	return DllCall(NumGet(NumGet(ppv+0)+9*A_PtrSize), "Ptr", ppv, "Ptr", hWnd?hWnd:IsWindow(), "Int64", State * 10, "Int64", 1000)
+	if InVar(State, "0,N,P,E,I,Normal,Paused,Error,Indeterminate")
+		return DllCall(NumGet(NumGet(ppv+0)+10*A_PtrSize), "Ptr", ppv, "Ptr", hWnd, "UInt", s%State%)
+	return DllCall(NumGet(NumGet(ppv+0)+9*A_PtrSize), "Ptr", ppv, "Ptr", hWnd, "Int64", State * 10, "Int64", 1000)
 } ;https://msdn.microsoft.com/en-us/library/dd391698(v=vs.85).aspx
 
 ;quitar ventana de la barra de tareas
@@ -3091,7 +3091,7 @@ DesktopIconList(ByRef hDesktop := "", ByRef ProcessId := "") {
 }
 
 ;guardar captura de pantalla
-;Sintaxis: SaveScreen( [archivo destino], [coordenadas] )
+;Sintaxis: SaveScreenshot( [archivo destino], [coordenadas] )
 ;Archivo destino:  .bmp, .jpg, .png, .tif, .gif
 ;Coordenadas:
 	;--> Array con las coordenadas: [x, y, ancho, alto].
