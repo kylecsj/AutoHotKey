@@ -1,7 +1,20 @@
 ###############################################################
-ACTUALIZACION 09/10/2015 - AHK1.1.22.07
+ACTUALIZACION 09/10/2015, 20/10 - AHK1.1.22.07
 ###############################################################
 Funciones Agregadas:
+	• SB_GetBKColor() ~ 20/10
+	• SB_SetBKColor() ~ 20/10
+	• SB_GetParts() ~ 20/10
+	• TaskBarTrayIconHide() ~ 20/10
+	• TaskBarTrayIconEnable() ~ 20/10
+	• TaskBarTrayIconsEnum() ~ 20/10
+	• LV_SearchEx() & LV_SearchExFind() ~ 20/10
+	• LV_GetExStyle() ~ 20/10
+	• ControlSetRedraw() ~ 20/10
+	• WinSetRedraw() ~ 20/10
+	• UriDecode() ~ 20/10
+	• UriEncode() ~ 20/10
+	• RunAsAdminInit() ~ 20/10
 	• DriveGetInfoEx()
 	• SchTasksSetPriority()
 	• SchTasksRun()
@@ -26,9 +39,13 @@ Funciones Agregadas:
 	• RandomEx()
 	
 Mejoras:
+	• WinGet() ~ 20/10
 	• WinCenter()
 	
 Correcciones:
+	• DirSelect() ~ 20/10
+	• FileSelect() ~ 20/10
+	• FileSave() ~ 20/10
 	• DesktopSelectItem()
 	• DriveEject()
 	• StrTrimRight()
@@ -36,10 +53,16 @@ Correcciones:
 	• ProcessGetSid()
 	
 Notas:
+	• Añadido STATUS BAR CONTROL funciones. ~ 20/10
+	• Ahora RunAsAdmin() no se ejecuta automáticamente. pero si RunAsAdminInit() ~ 20/10
 	• Añadido: TAREAS PROGRAMADAS funciones.
 	• Actualizado: SISTEMA - VARIABLES ~ A_MyMusic(), A_MyPictures(), etc.
 	
 Funciones Eliminadas:
+	• LV_AutoSelect(). usar LV_Search() ~ 20/10
+	• LV_Set() ~ 20/10
+	• DriveRegSet() ~ 20/10
+	• IsWinEnabled(). usar WinEnabled() ~ 20/10
 	• TrayIconAnimate()
 	• Exist()
 	• SHGetFolderPath() & SHGetKnownFolderPath(). usar GetKnownFolderPath()
@@ -47,6 +70,9 @@ Funciones Eliminadas:
 	• MouseSetCursor()
 	
 Otros (cambios menores):
+	• SB_GetText() ~ 20/10
+	• DirCreate() ~ 20/10
+	• FileGetInfo() ~ 20/10
 	• DriveSpaceFree()
 	• DriveSetLabel()
 	• DriveGetType()
@@ -55,6 +81,9 @@ Otros (cambios menores):
 	• MouseTrails()
 	
 Cambios (reescrito. cambio de sintaxis):
+	• LV_Search() ~ 20/10
+	• LV_SetExStyle() ~ 20/10
+	• RunAsAdmin() ~ 20/10
 	• TaskBarProgress
 	• DriveGetInfo()
 ###############################################################
