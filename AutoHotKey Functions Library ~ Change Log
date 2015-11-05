@@ -1,32 +1,42 @@
 ###############################################################
-ACTUALIZACION 09/10/2015, 20/10 - AHK1.1.22.07
+ACTUALIZACION 09/10/2015, 20/10, 04/11 - AHK1.1.22.07
 ###############################################################
 Funciones Agregadas:
-	• SB_GetBKColor() ~ 20/10
+	• DegreeToRadian() ~04/11
+	• RadianToDegree() ~ 04/11
+	• GetCurrencyFormatEx() ~ 04/11
+	• GetCurrencyFormat() ~ 04/11
+	• FontGetStringSize() ~ 04/11
+	• RNum() ~ 04/11
+	• RNumEx() ~ 04/11
+	• SetSystemCursor() ~ 04/11
+	• ToolTipFont() ~ 04/11
+	• ToolTipColor() ~ 04/11
+	• SB_GetBKColor() ~ 20/10
 	• SB_SetBKColor() ~ 20/10
 	• SB_GetParts() ~ 20/10
 	• TaskBarTrayIconHide() ~ 20/10
-	• TaskBarTrayIconEnable() ~ 20/10
+	• TaskBarTrayIconEnable() ~ 20/10
 	• TaskBarTrayIconsEnum() ~ 20/10
-	• LV_SearchEx() & LV_SearchExFind() ~ 20/10
+	• LV_SearchEx() & LV_SearchExFind() ~ 20/10
 	• LV_GetExStyle() ~ 20/10
 	• ControlSetRedraw() ~ 20/10
 	• WinSetRedraw() ~ 20/10
 	• UriDecode() ~ 20/10
 	• UriEncode() ~ 20/10
 	• RunAsAdminInit() ~ 20/10
-	• DriveGetInfoEx()
+	• DriveGetInfoEx()
 	• SchTasksSetPriority()
 	• SchTasksRun()
 	• SchTasksStop()
 	• SchTasksFoldersEnum()
 	• SchTasksCreateFolder()
-	• SchTasksDeleteFolder()
+	• SchTasksDeleteFolder()
 	• SchTasksSplitInfo()
 	• SchTasksGetInfo()
 	• SchTasksDelete()
 	• SchTasksDisable()
-	• SchTasksEnable()
+	• SchTasksEnable()
 	• SchTasksEnum()
 	• SendKeys()
 	• CreateShortcut()
@@ -40,9 +50,11 @@ Funciones Agregadas:
 	
 Mejoras:
 	• WinGet() ~ 20/10
-	• WinCenter()
+	• WinCenter()
 	
 Correcciones:
+	• FormatNumComma() / GetNumberFormat() ~ 04/11
+	• WindowsVersion() ~ 04/11
 	• DirSelect() ~ 20/10
 	• FileSelect() ~ 20/10
 	• FileSave() ~ 20/10
@@ -51,6 +63,14 @@ Correcciones:
 	• StrTrimRight()
 	• ControlSetCursor()
 	• ProcessGetSid()
+
+Funciones Renombradas:
+	• FormatNumComma() --> GetNumberFormat() ~ 04/11
+	
+Otras Funciones:
+	• ToolTipHook() ~ 04/11
+	• ToolTipWndProc() ~ 04/11
+	• _TTG() ~ 04/11
 	
 Notas:
 	• Añadido STATUS BAR CONTROL funciones. ~ 20/10
