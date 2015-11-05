@@ -11,7 +11,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					tareas programadas, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.07 U32 & U64 || Martes, 20 de octubre de 2015
+Actualizado: AHK1.1.22.07 U32 & U64 || Miercoles, 04 de noviembre de 2015
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
@@ -1069,7 +1069,7 @@ Links:
 */
 ;elevar un numero (potenciación)
 ;Sintaxis: Power( [base], [exponente] )
-;Ejemplo: MsgBox % Power(99, 999)
+;Ejemplo: MsgBox % Power(99, 999) ;99^999
 ;Nota: números >999 puede ser muy lento.
 Power(Base, Exponent) {
 	SLB := StrLen(Base), VarSetCapacity(B, SLB, 0)
@@ -1133,12 +1133,9 @@ RoundEx(num, places := 0) {
 ;Sintaxis: Multiply( [(-)valor 1], [(-)valor2] )
 ;NOTA: aceptar números muy grandes. (los números de mas de 18 cifras deben estar en comillas)
 Multiply(num1, num2) {
-	ps := (mnum2:=InStr(num2, "-"))?0:1
-	, ps := (mnum1:=InStr(num1, "-"))?!ps:ps
-	, num1 := SubStr(num1, mnum1?2:1)
-	, num2 := Substr(num2, mnum2?2:1)
-	, dec := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0
-	, dec := (dot2:=InStr(num2, "."))?dec+StrLen(num2)-dot2:dec
+	ps := (mnum2:=InStr(num2, "-"))?0:1, ps := (mnum1:=InStr(num1, "-"))?!ps:ps
+	, num1 := SubStr(num1, mnum1?2:1), num2 := Substr(num2, mnum2?2:1)
+	, dec := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0, dec := (dot2:=InStr(num2, "."))?dec+StrLen(num2)-dot2:dec
 	, num1 := StrReplace(num1, "."), num2 := StrReplace(num2, ".")
 	Loop, % StrLen(num2)
 		tnum2 .= SubStr(num2, 1-A_Index, 1)
@@ -1168,10 +1165,8 @@ IsGreater(num1, num2, teq := false) {
 		return true
 	if neg1&&!neg2
 		return false
-	num1 := Prefect(num1), num2 := Prefect(num2)
-	, dot1 := InStr(num1, "."), dot2 := InStr(num2, ".")
-	, dec1 := dot1?StrLen(num1)-dot1:0
-	, dec2 := dot2?StrLen(num2)-dot2:0
+	num1 := Prefect(num1), num2 := Prefect(num2), dot1 := InStr(num1, "."), dot2 := InStr(num2, ".")
+	, dec1 := dot1?StrLen(num1)-dot1:0, dec2 := dot2?StrLen(num2)-dot2:0
 	if (dec1>dec2)
 		Loop, % (dec1-dec2)
 			num2 .= "0"
@@ -1196,12 +1191,9 @@ IsGreater(num1, num2, teq := false) {
 ;Sintaxis: Add( [(-)valor 1], [(-)valor2] )
 ;Ejemplo: Add("99999999999999999999999999999999999999", "9999999999999")
 Add(num1, num2, Prefect := false) {
-	count := (dneg2:=InStr(num2, "--"))?2:InStr(num2, "-")?1:0
-	, count := count+((neg1:=InStr(num1, "-"))?1:0)
-	, cnum1 := num1, cnum2 := num2
-	, num1 := StrReplace(num1, "-"), num2 := StrReplace(num2, "-")
-	, dec1 := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0
-	, dec2 := (dot2:=InStr(num2, "."))?StrLen(num2)-dot2:0
+	count := (dneg2:=InStr(num2, "--"))?2:InStr(num2, "-")?1:0, count := count+((neg1:=InStr(num1, "-"))?1:0)
+	, cnum1 := num1, cnum2 := num2, num1 := StrReplace(num1, "-"), num2 := StrReplace(num2, "-")
+	, dec1 := (dot1:=InStr(num1, "."))?StrLen(num1)-dot1:0, dec2 := (dot2:=InStr(num2, "."))?StrLen(num2)-dot2:0
 	if (dec1>dec2) {
 		dec := dec1
 		Loop, % (dec1-dec2)
@@ -1210,8 +1202,7 @@ Add(num1, num2, Prefect := false) {
 		dec := dec2
 		Loop, % (dec2-dec1)
 			num1 .= "0"
-	} else
-		dec := dec1
+	} else dec := dec1
 	num1 := StrReplace(num1, "."), num2 := StrReplace(num2, ".")
 	if ((len1:=StrLen(num1))>=(len2:=StrLen(num2)))
 		Loop, % (len1-len2)
@@ -1226,8 +1217,7 @@ Add(num1, num2, Prefect := false) {
 				break
 			} else if (digit>9)
 				cr := true, digit := SubStr(digit, 0, 1)
-			else
-				cr := false
+			else cr := false
 			sm := digit sm
 		} if neg1&&InStr(cnum2, "-")
 			sm := "-" sm
@@ -1245,8 +1235,7 @@ Add(num1, num2, Prefect := false) {
 			sm := digit sm
 		} if ((dneg2||InStr(cnum1, "-"))&&nc)||(InStr(cnum2, "-")&&!nc)
 			sm := "-" sm
-	}
-	if (sm = "-")
+	} if (sm = "-")
 		sm := 0
 	sm := dec&&sm?SubStr(sm, 1, StrLen(sm)-dec) "." SubStr(sm, 1-dec):sm
 	return Prefect?Prefect(sm):sm
@@ -1262,6 +1251,7 @@ BitShiftLeft(Value, Bit, BitwiseAnd := "") { ;MsgBox % (54992<<0xC) "," BitShift
 ;----------------------------------------------------------------------------------------------------------------
 
 ;obtiene el mayor numero
+;Sintaxis: Max( [números separados por coma] )
 ;Ejemplo: MsgBox % Max( 7, 9, 0, -11, 6, 3, 5, 8 ) "`n" Max("5,2,8,-44,7")
 Max(n*) {
 	n := ((n.MaxIndex()=1)?StrSplit(n[1], ",", A_Space A_Tab):n), _ := n[1]
@@ -1271,6 +1261,7 @@ Max(n*) {
 }
 
 ;obtiene el menor numero
+;Sintaxis: Min( [números separados por coma] )
 ;Ejemplo: MsgBox % Min( 7, 9, 0, 222, -0.2 ) "`n" Min("5,2,8,-44,7")
 Min(n*) {
 	n := ((n.MaxIndex()=1)?StrSplit(n[1], ",", A_Space A_Tab):n), _ := n[1]
@@ -1289,13 +1280,32 @@ LOWORD(l) {
     return (Extract?((w >> 8) & 0xff):((w << 8) & 0xff))
 }
 
+;Ejemplo de uso:
+;MsgBox % RNum(0) "," RNum(10) "," RNum(5) ;0-5
+;MsgBox % RNum(1) "," RNum(4) ;1~4
+;MsgBox % RNum(6) "," RNum(9) ;6~9
+;MsgBox % RNumEx(0) "," RNumEx(10) "," RNumEx(5) ;0-5
+;MsgBox % RNumEx(1) "," RNumEx(3) ;1~3
+;MsgBox % RNumEx(4) "," RNumEx(6) ;4~6
+;MsgBox % RNumEx(7) "," RNumEx(9) ;7~9
+RNum(Num, Min := 1, Max := 9, ms := 5) {
+	return between(ln:=StrRight(Num), Min, Max)?(ms=""||ln!=ms?(StrLen(Num)=1?(ln<ms?0:Num+(10-ln)):(ms=""?StrTrimRight(Num) 0:(ln<ms?StrTrimRight(Num) 0:Num+(10-ln)))):Num):Num
+} RNumEx(n) {
+	if (StrLen(n)=1) && (n!=0) && (n!=5) {
+		n := n=1||n=2||n=3?0:n=4||n=5||n=6?5:n+(10-n)
+	} else {
+		if ((l:=StrRight(n))!=0) && (l!=5) {
+			n := (l=1||l=2||l=3?StrTrimRight(n) 0:l=4||l=5||l=6?StrTrimRight(n) 5:n+(10-l))
+	}} return n
+}
+
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
 
 ;if [value] between [low] [high]
 ;comprueba si un número esta contenido entre otros dos valores (inclusive)
 ;Sintaxis: Between( [número], [valor menor], [valor mayor], [valores a excluir*] ) 
-;Valores a excluir: valores separados por coma
+;Valores a excluir: valores separados por coma (si es alguno de estos valores devuelve 0)
 Between(value, low, high, nval*) {
 	nval := ((nval.MaxIndex()=1)?StrSplit(nval[1], ",", A_Space A_Tab):nval)
 	Loop, % (nval.MaxIndex())
@@ -1635,18 +1645,41 @@ ConvertTime(time, from, to, Places := 2) {
 }
 
 ;añadir marca decimal a un numero (coma o punto, por defecto: automatico dependiendo del idioma del sistema)
-;Sintaxis: FormatNumComma( [número], [codigo de idioma, punto o coma] )
+;Sintaxis 1: GetNumberFormat( [número], [codigo de idioma, punto o coma] )
+;Sintaxis 2 (WIN_V+): GetNumberFormatEx( [número], [cadena de idioma] )
 ;Códigos de idioma: https://msdn.microsoft.com/en-us/library/dd318693.aspx
-;EJEMPLO: MsgBox % FormatNumComma(1000000, ".") ;1.000.000
-FormatNumComma(lpValue, Locale := 0x0400) {
+;Cadenas de idioma: https://msdn.microsoft.com/en-us/goglobal/bb896001.aspx
+;EJEMPLO: MsgBox % GetNumberFormat(1000000.99, ".") "`n" GetNumberFormatEx(1024.75, "en-US")
+GetNumberFormat(Number, Locale := 0x0400) {
 	Locale := Locale="."?0x0456:Locale=","?0x0409:!Locale?0x0400:Locale
-	if !(cchNumber := DllCall("kernel32.dll\GetNumberFormatEx", "UInt", Locale, "UInt", 0, "Str", lpValue, "Ptr", 0, "Ptr", 0, "Int", 0))
-		cchNumber := DllCall("kernel32.dll\GetNumberFormatW", "UInt", Locale, "UInt", 0, "Str", lpValue, "Ptr", 0, "Ptr", 0, "Int", 0)
-    VarSetCapacity(lpNumberStr, cchNumber * 2)
-    if !DllCall("kernel32.dll\GetNumberFormatEx", "UInt", Locale, "UInt", 0, "Str", lpValue, "Ptr", 0, "Str", lpNumberStr, "Int", cchNumber)
-		DllCall("kernel32.dll\GetNumberFormatW", "UInt", Locale, "UInt", 0, "Str", lpValue, "Ptr", 0, "Str", lpNumberStr, "Int", cchNumber)
-    return SubStr(lpNumberStr, 1, StrLen(lpNumberStr) - 3)
-}
+	, Size := DllCall("Kernel32.dll\GetNumberFormatW", "UInt", Locale, "UInt", 0, "Str", Number, "Ptr", 0, "Ptr", 0, "Int", 0)
+    , VarSetCapacity(OutputVar, Size * 2)
+	, r := DllCall("Kernel32.dll\GetNumberFormatW", "UInt", Locale, "UInt", 0, "Str", Number, "Ptr", 0, "Str", OutputVar, "Int", Size)
+    return OutputVar
+} GetNumberFormatEx(Number, Locale := "!x-sys-default-locale") { ;WIN_V+ (recomendado)
+	Size := DllCall("Kernel32.dll\GetNumberFormatEx", "Ptr", &Locale, "UInt", 0, "Str", Number, "Ptr", 0, "Ptr", 0, "Int", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, r := DllCall("Kernel32.dll\GetNumberFormatEx", "Ptr", &Locale, "UInt", 0, "Str", Number, "Ptr", 0, "Str", OutputVar, "Int", Size)
+	return OutputVar
+} ;http://ahkscript.org/boards/viewtopic.php?p=56005#p56005
+
+;Formatea una serie de números como una cadena de moneda para un entorno local especificado
+;Sintaxis 1: GetCurrencyFormat( [cadena], [código de idioma] )
+;Sintaxis 2 (WIN_V+): GetCurrencyFormatEx( [cadena], [cadena de idioma] )
+;Códigos de idioma: https://msdn.microsoft.com/en-us/library/dd318693.aspx
+;Cadenas de idioma: https://msdn.microsoft.com/en-us/goglobal/bb896001.aspx
+;EJEMPLO: MsgBox % GetCurrencyFormat(0.99) "`n" GetCurrencyFormatEx(2.75, "en-US")
+GetCurrencyFormat(String, Locale := 0x0400) {
+	Size := DllCall("Kernel32.dll\GetCurrencyFormatW" , "UInt", Locale, "UInt" , 0, "Ptr", &String, "Ptr" , 0, "Ptr", 0, "Int", 0) 
+	, VarSetCapacity(OutputVar, Size * 2,  0)
+	, r := DllCall("Kernel32.dll\GetCurrencyFormatW" , "UInt", Locale, "UInt" , 0, "Ptr", &String, "Ptr" , 0, "Str", OutputVar, "Int", Size)
+    return OutputVar, ErrorLevel := !r
+} GetCurrencyFormatEx(String, Locale := "!x-sys-default-locale") { ;WIN_V+ (recomendado)
+	Size := DllCall("Kernel32.dll\GetCurrencyFormatEx" , "Ptr", &Locale, "UInt" , 0, "Ptr", &String, "Ptr" , 0, "Ptr", 0, "Int", 0) 
+	, VarSetCapacity(OutputVar, Size * 2,  0)
+	, r := DllCall("Kernel32.dll\GetCurrencyFormatEx" , "Ptr", &Locale, "UInt" , 0, "Ptr", &String, "Ptr" , 0, "Str", OutputVar, "Int", Size)
+    return OutputVar, ErrorLevel := !r
+} ;http://ahkscript.org/boards/viewtopic.php?p=56005#p56005
 
 ;saca el promedio
 NumAverage(num*) {
@@ -1657,7 +1690,8 @@ NumAverage(num*) {
 }
 
 ;genera un número pseudo-aleatorio
-;Sintaxis: Random( [min (-2147483648)], [max (2147483647)], [1~4294967295] )
+;Sintaxis 1: Random( [min (-2147483648)], [max (2147483647)], [1~4294967295] )
+;Sintaxis 2: RandomEx( [min], [max], [decimales] )
 Random(Min := -2147483648, Max := 2147483647, NewSeed := 0) {
 	if (NewSeed) {
 		Random,, %NewSeed%
@@ -1677,7 +1711,7 @@ Random(Min := -2147483648, Max := 2147483647, NewSeed := 0) {
 ;determinar el porcentaje
 ;Sintaxis: Percent( [numero], [procentaje], [porcentaje (salida)], [decimales] )
 ;Ejemplo: MsgBox % "100 menos su 10%: " Percent(100, 10, Percent) "`n10% de 100: " Percent
-;Return: devuelve la resta resultante de el numero espesificado y el porncentaje espesificado de ese valor.
+;Return: devuelve la resta resultante del numero espesificado y el porncentaje espesificado de ese valor.
 ;3er Parámetro: devuelve el porcentaje espesificado para el valor espesificado.
 Percent(num, Percent, ByRef OutputPercent := "", Places := 2) {
 	return Float(num-(i:=(num/100)*Percent), "0." Places), OutputPercent := IsByRef(OutputPercent)?Round(i, Places):""
@@ -1694,8 +1728,23 @@ Factor(n, Delimiter := "`n") {
         f++
 }} ;http://rosettacode.org/wiki/Prime_decomposition#AutoHotkey
 
+;convertir radian a grado sexagesimal/centesimal
+;Sintaxis: RadianToDegree( [radianes], [¿centesimal?] )
+;Ejemplo: MsgBox % RadianToDegree(120) "`n" RadianToDegree(120, true) ;6875.493542 | 7639.437268
+RadianToDegree(Radians, Centesimal := false) {
+	if (Centesimal)
+		return Radians*63.6619772368 ;200/pi | 200/3.14159265359 = 63.6619772368
+	return Radians*57.2957795131 ;180/pi | 180/3.14159265359 = 57.2957795131
+}
 
-
+;convertir grado sexagesimal/centesimal a radian
+;Sintaxis: RadianToDegree( [grados], [¿centesimal?] )
+;MsgBox % DegreeToRadian(6875.493542) "`n" DegreeToRadian(7639.437268, true) ;120 | 120
+DegreeToRadian(Degrees, Centesimal := false) {
+	if (Centesimal)
+		return Degrees*0.01570796326 ;pi/200 | 3.14159265359/200 = 0.01570796326
+	return Degrees*0.01745329251 ;pi/180 | 3.14159265359/180 = 0.01745329251
+}
 
 
 
@@ -1894,10 +1943,10 @@ FontCreate(FontName := "", Size := 0, Bold := 400, Italic := false, Underline :=
 	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
 	return FontName
 } FontGetMetrics(hFont := 0, ByRef FontSize := "") {
+	static TEXTMETRIC
 	hFont := hFont?hFont:DllCall("Gdi32.dll\GetStockObject", "Int", 17)
-    , hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
+    , hDC := DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(TEXTMETRIC, 60, 0)
     , hFont2 := DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont)
-	, VarSetCapacity(TEXTMETRIC, 60, 0)
 	, DllCall("Gdi32.dll\GetTextMetrics", "Ptr", hDC, "Ptr", &TEXTMETRIC)
 	, DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont2)
 	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), hp := &TEXTMETRIC
@@ -1963,8 +2012,21 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	return OutPutVar, ErrorLevel := !r
 }
 
-
-
+;obtener tamaño
+;Sintaxis: FontGetStringSize( [fuente], [texto], [ancho (out)], [alto (out)], [ajustar ancho y alto] )
+FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "", Convert := true) {
+	static Size
+	hFont := hFont?hFont:DllCall("Gdi32.dll\GetStockObject", "Int", 17)
+	, hDC := DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(Size, 8, 0)
+	, hFont2 := DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont)
+    , RC := DllCall("Gdi32.dll\GetTextExtentPoint32W", "Ptr", hDC, "Str", String, "Int", StrLen(String), "Ptr", &Size)
+	, DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont2), DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
+	, Width := NumGet(&Size+0, 0, "Int"), Height := NumGet(&Size+0, 4, "Int")
+	if (Convert)
+		Width :=Width + (NumGet(FontGetMetrics(hFont), 20, "Int")*3)
+		, Height := Floor((NumGet(FontGetMetrics(hFont), 0, "Int")*Convert)+(NumGet(FontGetMetrics(hFont),16, "Int")*(Floor(Convert+0.5)-1))+0.5)+8
+	return &Size, ErrorLevel := !(RC)
+}
 
 
 
@@ -5957,6 +6019,57 @@ ToolTip(Text := "", xpos := "", ypos := "", TimeOut := 0) {
 			SetTimer(ToolTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
 }}
 
+;cambiar fuente y color de los ToolTips.
+;Sintaxis 1: ToolTipFont( [opciones], [fuente] )
+;Sintaxis 2: ToolTipColor( [color de fondo], [color del texto] )
+ToolTipFont(Options := "", FontName := "", hWnd := "") {
+    static hFont := 0
+	if (hWnd)
+		SendMessage, 0x30, hfont, 0,, ahk_id %hwnd%
+	else  hfont := Options="Default"?0:ToolTipChange("Font", Options, FontName), ToolTipHook()
+} ToolTipColor(Background := "", Text := "", hWnd := "") {
+    static bc := "", tc := ""
+    if !(hWnd)
+		bc := ((Background="")||(Background="Default"))?"":ToolTipChange("Color", Background)
+		, tc := ((Text="")||(Text="Default"))?"":ToolTipChange("Color", Text), ToolTipHook()
+    else {
+        VarSetCapacity(empty, 2, 0)
+        , DllCall("UxTheme.dll\SetWindowTheme", "Ptr", hWnd, "Ptr", 0, "Ptr", ((bc!="")||(tc!=""))?&empty:0)
+        if (bc!="")
+            SendMessage, 1043, %bc%,,, ahk_id %hWnd%
+        if (tc!="")
+            SendMessage, 1044, %tc%,,, ahk_id %hWnd%
+}} ToolTipHook() {
+    static hook := 0
+    if !(hook)
+        hook := DllCall("User32.dll\SetWindowsHookExW", "Int", 4
+            , "Ptr", RegisterCallback("ToolTipWndProc", "Fast", 3), "Ptr", 0
+            , "UInt", DllCall("Kernel32.dll\GetCurrentThreadId"), "Ptr")
+} ToolTipWndProc(nCode, _wp, _lp) {
+    Critical, 999 ;lParam  := NumGet(_lp+0*A_PtrSize) | wParam  := NumGet(_lp+1*A_PtrSize)
+    uMsg    := NumGet(_lp+2*A_PtrSize), hWnd    := NumGet(_lp+3*A_PtrSize)
+    if ((nCode>=0) && ((uMsg=1081) || (uMsg=1036)) && WinExist("ahk_class tooltips_class32 ahk_id " hWnd))
+        ToolTipColor(,, hwnd), ToolTipFont(,, hwnd)
+    return DllCall("User32.dll\CallNextHookEx", "Ptr", 0, "Int", nCode, "Ptr", _wp, "Ptr", _lp, "Ptr")
+} ToolTipChange(Cmd, Arg1, Arg2 := "") {
+    static htext := 0, hgui := 0, hWnd := 0
+    if !htext {
+		Gui, New:+HWNDhWnd
+        Gui, %hWnd%: Add, Text, +hwndhtext
+        Gui, %hWnd%: +hwndhgui +0x40000000
+    } Gui %hWnd%: %Cmd%, %Arg1%, %Arg2%
+    if (Cmd = "Font") {
+        GuiControl, %hWnd%: Font, %htext%
+        SendMessage, 0x31, 0, 0,, ahk_id %htext%
+        return ErrorLevel
+    } if (Cmd = "Color") {
+        hdc := DllCall("User32.dll\GetDC", "ptr", htext, "ptr")
+        SendMessage, 0x138, hdc, htext,, ahk_id %hgui%
+        clr := DllCall("Gdi32.dll\GetBkColor", "ptr", hdc, "uint")
+        , DllCall("User32.dll\ReleaseDC", "ptr", htext, "ptr", hdc)
+        return clr
+}} ;http://ahkscript.org/boards/viewtopic.php?p=55014#p55014
+
 ;muestra un mensaje cerca del icono del área de notificacion.
 ;Sintaxis: TrayTip( [titulo], [texto], [tiempo fuera, en segundos], [opciones] )
 ;OPCIONES:
@@ -6132,20 +6245,23 @@ ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
 	return i, ErrorLevel := !x
 }
 
-;establecer dimenciones de la imagen y/o modificar extension a png, bmp, jpg, tiff o gif
-;Sintaxis: ImageConvert( [imagen], [directorio\nombre.ext (png|bmp|jpg|tiff|gif)], [ancho], [alto], [¿preservar la relacion de aspecto?], [profundidad de bits 24/32 (solo .bmp)] )
+;convertir imágenes
+;Sintaxis: ImageConvert( [imagen], [directorio\nombre.ext], [ancho], [alto], [¿preservar la relacion de aspecto?], [profundidad de bits 24/32 (solo .bmp)] )
+;Extensiones soportadas: png, bmp, jpg, tiff, gif
 ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio := true, BitDepth := 32) {
 	if !(DllCall("Kernel32.dll\GetModuleHandleW", "Str", "Gdiplus"))
 		pToken := Gdip_Startup()
-	SplitPath(Output,, ImageDir, ImageExt), pBitmapFile := Gdip_CreateBitmapFromFile(Image)
+	SplitPath, Output, NewImgDir, NewImgExt
+	pBitmapFile := Gdip_CreateBitmapFromFile(Image)
 	, CurrentWidth := Gdip_GetImageWidth(pBitmapFile), CurrentHeight := Gdip_GetImageHeight(pBitmapFile)
 	, NewWidth := Width=""?CurrentWidth:Width, NewHeight := Height=""?CurrentHeight:Height
 	if (PreserveAspectRatio) && ((r1:=CurrentWidth/NewWidth)>(r2:=CurrentHeight/NewHeight))
 		NewHeight := CurrentHeight/r1
-	else if PreserveAspectRatio
+	else if (PreserveAspectRatio)
 		NewWidth := CurrentWidth/r2
-	!(IsDir(ImageDir))?DirCreate(ImageDir):
-	pBitmap := Gdip_CreateBitmap(NewWidth, NewHeight, ImageExt="bmp"&&BitDepth=24?0x00021808:0x26200A)
+	if !(FileExist(NewImgDir))
+		FileCreateDir, %NewImgDir%
+	pBitmap := Gdip_CreateBitmap(NewWidth, NewHeight, NewImgExt="bmp"&&BitDepth=24?0x00021808:0x26200A)
 	, pGraphics := Gdip_GraphicsFromImage(pBitmap), Gdip_SetSmoothingMode(pGraphics, 4), Gdip_SetInterpolationMode(pGraphics, 7)
 	, Gdip_DrawImage(pGraphics, pBitmapFile, false, false, NewWidth, NewHeight), Gdip_DisposeImage(pBitmapFile)
 	, Gdip_SaveBitmapToFile(pBitmap, Output), Gdip_DisposeImage(pBitmap), Gdip_DeleteGraphics(pGraphics) 
@@ -6449,7 +6565,7 @@ ControlSetCursor(hWnd, Control, CursorType := -1) {
 		, "SizeAll": 32646 ;redimencionar (norte, sur, este, oeste)
 		, "SizeNESW": 32643 ;redimencionar (noreste, sodoeste)
 		, "SizeNS": 32645 ;redimencionar (norte, sur)
-		, "SizeNWSE": 32642 ;redimencionar (noreste, sudoeste) <---
+		, "SizeNWSE": 32642 ;redimencionar (sodoeste, noreste) <---
 		, "SizeEWE": 32644 ;redimencionar (este, oeste)
 		, "UpArrow": 32516 ;flecha hacia arriba.
 		, "Wait": 32514} ;cargando
@@ -6795,6 +6911,22 @@ CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 ;vuelve a cargar los cursores del sistema
 CursorReload() {
 	return i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0057, "UInt", 0, "Ptr", 0, "UInt", 0), ErrorLevel := !i
+}
+
+;cambiar cursor
+;Sintaxis: SetSystemCursor( [cursor type] )
+;Cursor Type: ARROW|IBEAM|WAIT|CROSS|UPARROW|SIZENWSE|SIZENESW|SIZEWE|SIZENS|SIZEALL|NO|HAND|APPSTARTING|HELP
+;Nota: para restaurar dejar vacío
+SetSystemCursor(Cursor := "") {
+	static SystemCursors := "32512IDC_ARROW|32513IDC_IBEAM|32514IDC_WAIT|32515IDC_CROSS|32516IDC_UPARROW|32642IDC_SIZENWSE|32643IDC_SIZENESW|32644IDC_SIZEWE|32645IDC_SIZENS|32646IDC_SIZEALL|32648IDC_NO|32649IDC_HAND|32650IDC_APPSTARTING|32651IDC_HELP"
+	If !(Cursor)
+		return DllCall("User32.dll\SystemParametersInfo", "UInt", 0x0057, "UInt", 0, "Ptr", 0, "UInt", 0)
+	If (StrLen(SystemCursors) = 221)
+		Loop, Parse, % SystemCursors, |
+			SystemCursors := StrReplace(SystemCursors, A_LoopField, DllCall("LoadCursor", "UInt", 0, "Int", SubStr(A_LoopField, 1, 5)) A_LoopField)
+	Cursor := SubStr(SystemCursors, InStr(SystemCursors "|", "IDC_" Cursor "|") - 5 - (p:=(StrLen(SystemCursors) - 221)) / 14, 5)
+	Loop, Parse, % SystemCursors, |
+		DllCall("User32.dll\SetSystemCursor", "Ptr", DllCall("User32.dll\CopyIcon", "UInt", Cursor), "UInt",  SubStr(A_LoopField, 6, p))
 }
 
 
@@ -7516,7 +7648,7 @@ WindowsVersion(ByRef ServicePackMajor := "") {
 	if (WindowsVersion!="")
 		return WindowsVersion, ServicePackMajor := ServicePackMajor2
 	VersionInfo := SysGetVersion()
-	return (WindowsVersion:=(((VersionInfo.MajorVersion=5)&&(VersionInfo.MinorVersion=2)(VersionInfo.SuiteMask&0x00008000))?"WIN_HOMESERVER"
+	return (WindowsVersion:=(((VersionInfo.MajorVersion=5)&&(VersionInfo.MinorVersion=2)&&(VersionInfo.SuiteMask&0x00008000))?"WIN_HOMESERVER"
 	: ((DllCall("User32.dll\GetSystemMetrics", "Int", 89))&&!(ErrorLevel))?"WIN_SERVER2003R2" ;SM_SERVERR2
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=0)&&(VersionInfo.ProductType!=0x0000001))?"WIN_SERVER2008"
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=1)&&(VersionInfo.ProductType!=0x0000001))?"WIN_SERVER2008R2"
