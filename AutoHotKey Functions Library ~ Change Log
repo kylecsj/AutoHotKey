@@ -1,4 +1,69 @@
 ###############################################################
+ACTUALIZACION 17/11/2015 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• BinToStr()
+	• StrToBin()
+	• ControlDestroy()
+	• ExtractIconEx()
+	• TC_HighlightStyle()
+	• ChooseIcon()
+	• ChoosePicture()
+	• GetModuleHandle()
+	• GetProcAddress()
+
+Mejoras:
+	• HexToStr() 
+	
+Correcciones:
+	• RandomEx()
+
+Otros (cambios menores):
+	• StrToHex()
+	• WinDestroy()
+	• MouseGetText() (usar Push en vez de Insert)
+	• WinMinimize()
+	• WinGetIcon()
+	• LoadLibrary()
+	• StrToInt() 
+	• StrToInt64()
+
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• BC_SetIcon()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 09/10/2015, 20/10, 04/11 - AHK1.1.22.07
 ###############################################################
 Funciones Agregadas:
