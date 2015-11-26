@@ -4781,15 +4781,17 @@ Edit_SetMargins(hWnd, Left := "", Right := "") {
 ;Icono: espesificar el icono o un Array con el [icono, indice]
 ;Color: espesificar un Array. [color de fondo del Gui, color de fondo del control]
 ;Return: devuelve un Array. [hWnd de la ventana, hWnd del Picture control] 
+;Nota: destruir la ventana cuando se deje de usar. Usar WinDestroy(hWnd de la ventana)  o GuiDestroy
 ;Ejemplo:
 	;Gui, Add, Edit, w300 h21 HWNDhEdit, This is an Edit Control!
 	;Gui, Show
-	;Edit_SetIcon(hEdit, ["shell32", 32],, "MyLabel")
+	;Info := Edit_SetIcon(hEdit, ["shell32", 32],, "MyLabel")
 	;return
 	;MyLabel:
 	;MsgBox
 	;return
 	;GuiClose:
+	;WinDestroy(Info[1]) ;destruir ventana
 	;ExitApp
 Edit_SetIcon(hWnd, Icon, Color := "", Label := "", Right := false) {
 	Index := IsObject(Icon)?(Icon[2]>1?Icon[2]:1):1, Icon := IsObject(Icon)?Icon[1]:Icon
