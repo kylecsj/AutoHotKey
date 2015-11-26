@@ -1,7 +1,22 @@
 ###############################################################
-ACTUALIZACION 17/11/2015 - AHK1.1.22.09
+ACTUALIZACION 17/11/2015, 26/11 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
+	• RegCloseKey() ~ 26/11
+	• RegisterActiveObject() (manejar script desde otro proceso/script) ~ 26/11
+	• Edit_SetIcon() ~ 26/11
+	• Edit_GetMargins() ~ 26/11
+	• Edit_SetMargins() ~ 26/11
+	• MenuIsChecked() ~ 26/11
+	• MenuGetSubMenu() ~ 26/11
+	• MenuGetItemCount() ~ 26/11
+	• GetMenuByName() ~ 26/11
+	• MenuCheckRadioItem() ~ 26/11
+	• WinGetMenu() ~ 26/11
+	• UD_GetRange() ~ 26/11
+	• UD_GetBuddy() ~ 26/11
+	• UD_SetBuddy() ~ 26/11
+	• ControlColor() ~ 26/11
 	• BinToStr()
 	• StrToBin()
 	• ControlDestroy()
@@ -12,13 +27,32 @@ Funciones Agregadas:
 	• GetModuleHandle()
 	• GetProcAddress()
 
+Otras Funciones (para uso interno de otras funciones o funciones sin terminar) :
+	• LV_SetItemState() ~ 26/11
+	
 Mejoras:
 	• HexToStr() 
 	
 Correcciones:
+	• GetValidPathName() ~ 26/11
 	• RandomEx()
 
+Funciones Renombradas:
+	• RegExist() --> RegExistKey() (+correcciones y mejoras) ~ 26/11
+	• RegRename() --> RegRenameKey() (+correcciones y mejoras) ~ 26/11
+	• RegCopy() --> RegCopyKey() (+correcciones y mejoras) ~ 26/11
+	• RegMove() --> RegMoveKey() (+correcciones y mejoras) ~ 26/11
+	
+Funciones Eliminadas:
+	• Varias funciones de MENU ~ 26/11
+	
 Otros (cambios menores):
+	• RegOpenKey() (que pasó a ser RegOpen(). ver notas) ~ 26/11
+	• SplitKey() ~ 26/11
+	• FileSetAttrib() ~ 26/11
+	• _mnum() (reemplazar valor si no se espesifica '+', '-' o '^' => 3er param = true) ~ 26/11
+		--> WinSetStyle() (reemplazar estilo si no se espesifica '+', '-' o '^')
+		--> WinSetExStyle() (reemplazar estilo extendido si no se espesifica '+', '-' o '^')
 	• StrToHex()
 	• WinDestroy()
 	• MouseGetText() (usar Push en vez de Insert)
@@ -28,6 +62,10 @@ Otros (cambios menores):
 	• StrToInt() 
 	• StrToInt64()
 
+Notas:
+	• Añadido Funciones para UpDown Controles ~ 26/11
+	• RegOpenKey() pasa a ser RegOpen() y viceverza ~ 26/11
+	
 Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
 	• BC_SetIcon()
 ###############################################################
