@@ -8,20 +8,20 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					operaciones matemáticas, menús, ejecutar, barra de tareas,
 					escritorio & explorador & menu inicio & papelera de reciclaje,
 					notificaciones, fuentes & colores & recursos, nombres y rutas de archivos,
-					tareas programadas, otros.
+					tareas programadas, objetos, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.09 U32 & U64 || Martes, 17 de noviembre de 2015
+Actualizado: AHK1.1.22.09 U32 & U64 || Jueves, 26 de noviembre de 2015
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
-	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup() para aumentar el rendimiento.
+	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando Gdip_Startup().
 	• ver INCLUDE al final para links a funciones y clases necesarias.
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ; ::::::::::::::::::::::::::::::::::::::::::::: FUNCIONES APARTE (para uso interno) ::::::::::::::::::::::::::::::::::																							   #
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
-_mnum(f,s){
-	return i:=(_:=StrLeft(s:=Trim(s)))!="-"&&_!="+"&&_!="^"?(f&s?f:f+s)
+_mnum(f,s,r:=true){
+	return i:=(_:=StrLeft(s:=Trim(s)))!="-"&&_!="+"&&_!="^"?(r?s:(f&s?f:f+s))
 	: ((s:=StrTrimLeft(s))?(_="-"?(f&s?f-s:f):_="^"?(f&s?f-s:f+s):(f&s?f:f+s)):f)
 	, ErrorLevel := i=f||!f||!s
 }_cstr(a,z,m,i){
@@ -228,7 +228,7 @@ FileRename(FileName, NewName, OverWrite := false) {
 ;Diálogos
 ;--------------------------------------------------------------------------------------------------------------------------------------------------
 ;dialogo para seleccionar archivos
-;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones/VentanaID], [Título de la ventana] )
+;Sintaxis: FileSelect( [Archivo/Directorio], [Filtro], [Opciones], [Título de la ventana] )
 FileSelect(RootDirFilename := "", Filter := "", Options := 3, Prompt := "") {
 	try FileSelectFile, OutputVar, %Options%, %RootDirFilename%, %Prompt%, %Filter%
 	catch
@@ -317,8 +317,7 @@ FileGetInfo(FileName, InfoType := "") {
 	if (ErrorLevel)
 		DllCall("Version.dll\GetFileVersionInfoExW", "UInt", 0x01, "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
 	DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\VarFileInfo\Translation", "PtrP", aInfoData, "PtrP", InfoSize+1)
-	, Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort")
-	, Lang_CodePage := Format( "{:04X}{:04X}", Lang, CodePage)
+	, Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort"), Lang_CodePage := Format("{:04X}{:04X}", Lang, CodePage)
 	if InfoType {
 		DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
 		return StrGet(aInfoData, InfoSize)
@@ -331,7 +330,7 @@ FileGetInfo(FileName, InfoType := "") {
 	Filename := ValidatePath ? GetValidPathName(Filename) : Filename
 	if !IsFile( Filename )
 		return "", ErrorLevel := 1
-	Filename := StrReplace(Filename, "\", "\\"), i := {}
+	Filename := RegExReplace(Filename, "\\+", "\\"), i := {}
 	for a in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM CIM_Datafile WHERE Name = '" Filename "'")
 		i.AccessMask := a.AccessMask, i.Archive := a.Archive, i.Caption := a.Caption, i.Compressed := a.Compressed
 		, i.CompressionMethod := a.CompressionMethod, i.CreationClassName := a.CreationClassName, i.CreationDate := a.CreationDate
@@ -356,7 +355,7 @@ FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders
 
 ;cambiar atributo(s) a carpetas y archivos.
 ;Sintaxis: FileSetAttrib( [+/- atributos], [archivo], [modo] )
-;Modo: F = incluir archivos | D = incluir directorios | R = incluir archivos y/o carpetas en subdirectorios.
+;Modo: F = incluir archivos | D = incluir directorios | R = incluir subdirectorios.
 ;Nota: devuelve el número de archivos/carpetas modificadas
 ;Atributos (ejemplo: R-SH+A): 
 	;R = solo lectura (modificable)
@@ -370,17 +369,20 @@ FileSetTime(Time := "", FilePattern := "", WhichTimeMCA := "M", OperateOnFolders
 	;T = temporal (modificable)
 	;E = encriptado
 	;V = virtual
-FileSetAttrib(Attributes, FilePattern, Mode := 0, Recurse := 0) {
-	static R := 0x1, A := 0x20, S := 0x4, H := 0x2, N := 0x80, O := 0x1000, T := 0x100
-	if !(_wildc(FilePattern, Recurse)) && (Mode:="+") {
+;Ejemplo:
+	;MsgBox % FileSetAttrib("+RS", A_Desktop "\file.txt")
+	;MsgBox % FileSetAttrib("-R+H", A_Desktop "\file.txt")
+	;MsgBox % FileSetAttrib("-HS", A_Desktop "\file.txt")
+FileSetAttrib(Attributes, FilePattern, Mode := "FD") {
+	static l := {R: 0x1, A: 0x20, S: 0x4, H: 0x2, N: 0x80, O: 0x1000, T: 0x100}
+	if !(ok:=0) && !(_wildc(FilePattern, Recurse)) {
 		FileGetAttrib(FilePattern, hAttrib, lpFileName)
-		Loop, Parse, % Attributes
-			if !(InVar(A_LoopField, "R,A,S,H,N,O,T")) {
-				Mode := (((A_LoopField="+")||(A_LoopField="-")||(A_LoopField="^"))?A_LoopField:"+")
-				continue
-			} else hAttrib := _mnum(hAttrib, Mode %A_LoopField%)
+		Loop, Parse, % Attributes,, %A_Space%%A_Tab%
+			if (l[A_LoopField])
+				hAttrib := _mnum(hAttrib, Mode l[A_LoopField], false)
+			else Mode := A_LoopField="-"||A_LoopField="^"?A_LoopField:""
 		return i := DllCall("Kernel32.dll\SetFileAttributesW", "Str",  "\\?\" lpFileName, "UInt", hAttrib), ErrorLevel := !i
-	} Loop, Files, %FilePattern%, % _clfm(FilePattern, Mode, Recurse, ok)
+	} Loop, Files, %FilePattern%, %Mode%
 		ok += FileSetAttrib(Attributes, A_LoopFileLongPath), i := A_Index
 	return ok, ErrorLevel := (ok!=i)
 }
@@ -603,7 +605,7 @@ FileExplore(sPath, Files*) {
 	return Run( A_WinDir "\explorer.exe /n,/select," Chr(34) Filename Chr(34) )
 }
 
-;leer/escribir/eliminar archivos .ini
+;leer/escribir/eliminar en archivos .ini
 IniRead(Filename := "", Section := "", Key := "", OutputVar := " ") {
 	static _
 	if (Key!=""&&Section!="")
@@ -3533,7 +3535,7 @@ GetShortPathName(Filename) {
 
 ;obtiene una ruta valida (solo archivos) removiendo caracteres no permitidos, espacios, parámetros y comillas.
 GetValidPathName(Filename) {
-	Filename := Trim(RegExReplace(Filename, "[Q*/?" Chr(34) "<>|`n\E]"))
+	Filename := Trim(RegExReplace(Filename, "[\Q*/?" Chr(34) "<>|`n\E]"))
 	if (IsFile(Filename))
 		return Filename, ErrorLevel := false
 	if IsFile(i:=StrLeft(Filename, InStr(Filename, A_Space)-1))
@@ -3626,12 +3628,176 @@ GetKnownFolderPath(GUID) {
 
 
 
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: OBJECTOS ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
+;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
+;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
+GetActiveObjects(Prefix := "", CaseSensitive := false) {
+    DllCall("ole32.dll\CoGetMalloc", "UInt", 1, "Ptr*", malloc), objects := {}
+    , DllCall("ole32.dll\CreateBindCtx", "UInt", 0, "Ptr*", bindCtx)
+    , DllCall(NumGet(NumGet(bindCtx+0)+8*A_PtrSize), "Ptr", bindCtx, "Ptr*", rot)
+    , DllCall(NumGet(NumGet(rot+0)+9*A_PtrSize), "Ptr", rot, "Ptr*", enum)
+    while DllCall(NumGet(NumGet(enum+0)+3*A_PtrSize), "Ptr", enum, "UInt", 1, "Ptr*", mon, "Ptr", 0) = 0
+    {	DllCall(NumGet(NumGet(mon+0)+20*A_PtrSize), "Ptr", mon, "Ptr", bindCtx, "Ptr", 0, "Ptr*", pname) 
+        , name := StrGet(pname, "UTF-16"), DllCall(NumGet(NumGet(malloc+0)+5*A_PtrSize), "Ptr", malloc, "Ptr", pname)
+        if InStr(name, Prefix, CaseSensitive) = 1 {
+            DllCall(NumGet(NumGet(rot+0)+6*A_PtrSize), "Ptr", rot, "Ptr", mon, "Ptr*", punk)
+            if (pdsp := ComObjQuery(punk, "{00020400-0000-0000-C000-000000000046}"))
+                obj := ComObject(9, pdsp, 1), ObjRelease(punk)
+            else obj := ComObject(13, punk, 1)
+            objects[SubStr(name, StrLen(Prefix) + 1)] := obj
+        } ObjRelease(mon)
+    } ObjRelease(enum), ObjRelease(rot), ObjRelease(bindCtx), ObjRelease(malloc)
+    return objects
+} ;http://ahkscript.org/boards/viewtopic.php?f=6&t=6494
+
+;registra un objeto como el objeto activo para su clase (permite manejar un script desde otro proceso)
+;Sintaxis: RegisterActiveObject( [obj], [CLSID], [opciones], [nombre] )
+;CLISD: CLSID del objeto activo o dejar vacio para poner fin a un objeto activo
+;Nombre: espesificar un nombre para agregar el CLSID al registro
+;Ejemplo:
+	;obj := new MyClass("{436cf066-cf70-4ca9-990f-c7083fea8367}", "AHK") ;crear objeto [CLSID, Nombre]
+	;x := ComObjActive("{436cf066-cf70-4ca9-990f-c7083fea8367}") ;obtener objeto (usado desde otro proceso/script) -->
+	;x.MyFunc("Test!") ;llama a la funcion MyFunc() dentro de la clase MyClass, igual que obj.MyFunc("Test!") <--
+	;ExitApp
+	;class MyClass {
+	;	__New(CLSID, Name) {
+	;		RegisterActiveObject(this, CLSID,, Name) ;«this» es el objeto (MyClass)
+	;	} MyFunc(String) {
+	;		MsgBox %String%
+	;	}
+	;}
+RegisterActiveObject(Object, CLSID := "", Flags := 0, AppId := "") {
+	static l := {}
+	if !(CLSID) && !((r:=l.Remove(Object))="") ;eliminar objeto activo
+		return !(r:=DllCall("OleAut32.dll\RevokeActiveObject", "UInt", r, "Ptr", 0)), ErrorLevel := r
+	if !(CLSID) || (I[Object]) || !(VarSetCapacity(c, 16, 0)) 
+		return false, ErrorLevel := I[Object]?2:true ;ErrorLevel 2 = el objeto ya se encuentra registrado
+	if ((h:=DllCall("Ole32.dll\CLSIDFromString", "WStr", CLSID, "Ptr", &c))<0)
+		return false, ErrorLevel := 3 ;ErrorLevel 3 = CLSID inválido
+	if ((h:=DllCall("OleAut32.dll\RegisterActiveObject", "Ptr", &Object, "Ptr", &c, "UInt", Flags, "UInt*", r, "UInt"))<0)
+		return false, ErrorLevel := Format("0x{:x}", h) ;ErrorLevel X = RegisterActiveObject ERROR
+	if !(AppId="") ;agregar al registro con el nombre espesificado (usuario actual)
+		RegWrite(, "HKCU\Software\Classes\" AppId,, AppId)
+		, RegWrite(, "HKCU\Software\Classes\" AppId "\CLSID",, CLSID)
+		, RegWrite(, "HKCU\Software\Classes\CLSID\" CLSID,, AppId)
+	return r, ErrorLevel := !r, l[Object] := r
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221551(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
 ;ejecuta el script como administrador
 RunAsAdmin() {
-	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (A_OSVersion!="WIN_XP") {
+	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (IsWindowsVistaOrGreater()) {
 		_ := A_IsCompiled?A_ScriptFullPath:A_AhkPath
 		Run, *RunAs "%_%" "%A_ScriptFullPath%" "%A_ScriptFullPath%",, UseErrorLevel
 		if !(ErrorLevel)
@@ -3640,7 +3806,7 @@ RunAsAdmin() {
 	} return true
 } RunAsAdminInit() { ;} ;<-- //RunAsAdmin
 	static RunAsAdminInit := RunAsAdminInit()
-	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "SeDebugPrivilege,SeShutdownPrivilege", true)
+	ProcessSetPrivilege := ProcessSetPrivilege(ProcessExist(), "SeDebugPrivilege,SeShutdownPrivilege,SeTakeOwnershipPrivilege", true)
 	ComObjError(false) ;desactivar las notificaciones de errores COM (Component Object Model).
 	SetWorkingDir, %A_ScriptDir% ;establece el directorio de trabajo.
 	SetBatchLines, -1 ;hace que el script trabaje a la máxima velocidad posible (afecta y es afectada por al uso de CPU).
@@ -3694,27 +3860,6 @@ BlockInput(OnOff, Delay := 500, DisableTaskManager := true, Suspend := true) {
 			, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
 		return DllCall("User32.dll\BlockInput", "Int", true)
 }}
-
-;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
-;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
-GetActiveObjects(Prefix := "", CaseSensitive := false) {
-    DllCall("ole32.dll\CoGetMalloc", "UInt", 1, "Ptr*", malloc), objects := {}
-    , DllCall("ole32.dll\CreateBindCtx", "UInt", 0, "Ptr*", bindCtx)
-    , DllCall(NumGet(NumGet(bindCtx+0)+8*A_PtrSize), "Ptr", bindCtx, "Ptr*", rot)
-    , DllCall(NumGet(NumGet(rot+0)+9*A_PtrSize), "Ptr", rot, "Ptr*", enum)
-    while DllCall(NumGet(NumGet(enum+0)+3*A_PtrSize), "Ptr", enum, "UInt", 1, "Ptr*", mon, "Ptr", 0) = 0
-    {	DllCall(NumGet(NumGet(mon+0)+20*A_PtrSize), "Ptr", mon, "Ptr", bindCtx, "Ptr", 0, "Ptr*", pname) 
-        , name := StrGet(pname, "UTF-16"), DllCall(NumGet(NumGet(malloc+0)+5*A_PtrSize), "Ptr", malloc, "Ptr", pname)
-        if InStr(name, Prefix, CaseSensitive) = 1 {
-            DllCall(NumGet(NumGet(rot+0)+6*A_PtrSize), "Ptr", rot, "Ptr", mon, "Ptr*", punk)
-            if (pdsp := ComObjQuery(punk, "{00020400-0000-0000-C000-000000000046}"))
-                obj := ComObject(9, pdsp, 1), ObjRelease(punk)
-            else obj := ComObject(13, punk, 1)
-            objects[SubStr(name, StrLen(Prefix) + 1)] := obj
-        } ObjRelease(mon)
-    } ObjRelease(enum), ObjRelease(rot), ObjRelease(bindCtx), ObjRelease(malloc)
-    return objects
-} ;http://ahkscript.org/boards/viewtopic.php?f=6&t=6494
 
 ;Define el contenido de la variable de entorno especificada para el proceso actual.
 ;Sintaxis: EnvAdd( [nombre], [valor], [user|system] )
@@ -4193,12 +4338,12 @@ RegRead(Key, ValueName*) {
 ;elimina en el registro
 ;Sintáxis: RegDelete( [Clave\SubClave], [Valores*] )
 ;NOTAS: para eliminar el valor por defecto, espesificar un valor vacio
-	;para eliminar la clave entera, no espesificar el 2do parametro.
+	;para eliminar la clave entera, no espesificar el 2do parámetro.
 RegDelete(Key, ValueName*) {
 	if !(Key)
 		return false, ErrorLevel := true
 	if (ValueName.MaxIndex()) {
-		hRegKey := RegOpen(Key, 0x0002)
+		hRegKey := RegOpenKey(Key, 0x0002)
 		for k, v in ValueName
 			Result := DllCall("Advapi32.dll\RegDeleteValueW", "Ptr", hRegKey, "Str", v)
 		DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey), ErrorLevel := Result?true:false
@@ -4253,75 +4398,61 @@ RegExport(Key, FileName, Wait := false, OverWrite := true) {
 	return !ErrorLevel
 }
 
-;renombrar un valor/clave
-;Sintaxis: RegRename( [clave], [valor], [nuevo nombre] )
-;NOTA: para renombrar una clave, dejar vacio el 2do parametro.
-;Ejemplo 1: RegRename("HKLM\Software\AutoHotKey",, "AutoHotKey_Rename")
-;Ejemplo 2: RegRename("HKLM\Software\AutoHotKey\Ahk2Exe", "LastBinFile", "LastBinFile_Rename")
-RegRename(Key, ValueName := "", NewName := "") {
-	if ((NewName:=StrReplace(StrReplace(NewName, "["), "]")) = "")
-		return false, ErrorLevel := true
-	if (ValueName!="") {
-		Loop, Reg, %Key%, V
-			if (A_LoopRegName=ValueName) {
-				if RegWrite(A_LoopRegType, Key, NewName, RegRead(Key, ValueName))
-					return RegDelete(Key, ValueName)
-				break
-	}} else {
-		if RegCopy(Key, SplitPath(Key).Dir "\" NewName)
-			return RegDelete(Key)
-	} return false, ErrorLevel := true
+;renombrar una clave
+;Sintaxis: RegRenameKey( [clave\subclave], [nuevo nombre], [¿sobreescribir si ya existe una clave con el mismo nombre?] )
+;ErrorLevel: 2 = ya existe una clave con el mismo nombre | 3 = el nuevo nombre espesificao no es válido | 4 = la clave a renombrar no es válida
+;Ejemplo: RegRenameKey("HKLM\Software\AutoHotKey", "AutoHotKey_Rename")
+RegRenameKey(Key, NewName, OverWrite := false) {
+	NewName := StrReplace(NewName, "\")
+	if (NewName="") || !(InStr(Key, "\"))
+		return false, ErrorLevel := NewName=""?3:4
+	SplitPath, Key,, BKey
+	return RegMoveKey(Key, BKey "\" NewName, OverWrite)
 }
 
-;mover valor/clave
-;Sintaxis: RegMove( [clave], [valor], [destino], [¿forzar?] )
-;NOTA: para mover una clave, dejar vacio el 2do parametro
-;Ejemplo 1: RegMove("HKLM\Software\AutoHotKey",, "HKCU\AutoHotKey")
-;Ejemplo 2: RegMove("HKLM\Software\AutoHotKey\Ahk2Exe", "LastBinFile", "HKLM\Software\AutoHotKey")
-RegMove(Key, ValueName := "", KeyDest := "") {
-	if (KeyDest&&ValueName="") {
-		if RegCopy(Key, KeyDest)
-			return RegDelete(Key)
-	} else if KeyDest {
-		Loop, Reg, %Key%, V
-			if (A_LoopRegName=ValueName) {
-				if RegWrite(A_LoopRegType, KeyDest, ValueName, RegRead(Key, ValueName))
-					return RegDelete(Key, ValueName)
-				break
-	}} return false, ErrorLevel := true
+;mover clave junto con todos los valores y subclaves
+;Sintaxis: RegMoveKey( [clave\subclave], [clave\subclave destino], [¿sobreescribir?] )
+;ErrorLevel: 2 = ya existe la clave destino
+;Ejemplo: 
+	;MsgBox % RegMoveKey("HKLM\Software\AutoHotKey", "HKCU\AutoHotKey") "," ErrorLevel
+	;MsgBox % RegMoveKey("HKCU\AutoHotKey", "HKLM\Software\AutoHotKey") "," ErrorLevel
+RegMoveKey(Key, KeyDest := "", OverWrite := false) {
+	if (RegExistKey(KeyDest)) {
+		if !(OverWrite)
+			return false, ErrorLevel := 2
+		RegDelete(KeyDest)
+	} Result := RegCopyKey(Key, KeyDest)
+	if (Result)
+		return Result, RegDelete(Key), ErrorLevel := !Result
+	return false
 }
 
-;copiar clave junto con todas las subclaves y valores 
-;Sintaxis: RegCopy( [clave\subclave], [clave\subclave (destino)] )
+;copiar clave junto con todos los valores, opcional incluir subclaves
+;Sintaxis: RegCopyKey( [clave\subclave], [clave\subclave destino], [¿copiar subclaves?=true] )
 ;Nota: si la clave destino no existe, la crea.
-;Ejemplo: RegCopy("HKLM\Software\AutoHotKey", "HKCU\AutoHotKey")
-RegCopy(Key, KeyDest) {
-	hRegKey := RegOpen(Key, 0x20019)
-	, hRegKeyDest := RegOpen(KeyDest, 0x0004, true)
-	, Result := DllCall("Shlwapi.dll\SHCopyKeyW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest, "UInt", 0) ;WIN_2000+
-	if (ErrorLevel=-4) ;comprueba si SHCopyKeyW() no existe en Shlwapi.dll
-		Result := DllCall("Advapi32.dll\RegCopyTreeW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest) ;WIN_V+
-	if !(ErrorLevel) {
+;Ejemplo: RegCopyKey("HKLM\Software\AutoHotKey", "HKCU\AutoHotKey")
+RegCopyKey(Key, KeyDest, Recurse := true) { ;KEY_READ = 0x20019 | KEY_ALL_ACCESS = 0xF003F
+	hRegKey := RegOpenKey(Key, 0x20019, Result:=false), hRegKeyDest := RegOpenKey(KeyDest,, true)
+	if (Recurse) {
+		if (IsWindowsVistaOrGreater()) ;if OS Version >= Win V | ERROR_SUCCESS = 0
+			Result := DllCall("Advapi32.dll\RegCopyTreeW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest) ;WIN_V+
+		Result := DllCall("Shlwapi.dll\SHCopyKeyW", "Ptr", hRegKey, "Ptr", 0, "Ptr", hRegKeyDest, "UInt", 0) ;WIN_2000+
+	} else {
 		Loop, Reg, %Key%, V
 			RegWrite(A_LoopRegType, KeyDest, A_LoopRegName, RegRead(Key, A_LoopRegName))
-		RegWrite(, KeyDest,, RegRead(Key))
-		return true, DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKeyDest)
-			, DllCall("Advapi32.dll\RegCloseKey", "Ptr", hRegKey), ErrorLevel := false
-	} return false
-}
+		if (Value:=RegRead(Key))
+			RegWrite(, KeyDest,, Value)
+	} return !Result, RegCloseKey(hRegKeyDest, hRegKey), ErrorLevel := Result
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379768(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/bb773482(v=vs.85).aspx
 
-;comprueba si existe una clave o un valor
-;Sintaxis: RegExist( [clave], [valor], [¿buscar en subclaves?] )
-RegExist(Key, ValueName := "", Recurse := false) {
-	if (ValueName!="") {
-		Loop, Reg, %Key%, % Recurse?"VKR":"V"
-			if (A_LoopRegName=ValueName)
-				return true
-	} else {
-		Loop, Reg, % SplitPath(Key, KeyName).Dir, K
-			if (A_LoopRegName=KeyName)
-				return true
-	} return false, ErrorLevel := true
+;comprueba si existe una clave 
+;Sintaxis: RegExistKey( [clave], [¿buscar en subclaves?] )
+RegExistKey(Key, Recurse := false) {
+	SplitPath, Key, KeyName, BKey
+	Loop, Reg, %BKey%, % Recurse?"KR":"K"
+		if (A_LoopRegName=KeyName)
+			return true, ErrorLevel := false
+	return false, ErrorLevel := true
 }
 
 ;transforma una clave en su forma larga/corta
@@ -4338,8 +4469,9 @@ RegFormatKey(Key, Mode := 0) {
 ;separa una clave en clave, subclave
 ;Sintaxis: SplitKey( [clave], [clave (salida)], [subclave (salida)] )
 SplitKey(_Key, ByRef Key := "", ByRef SubKey := "") {
-	return (Key := (KeyPos:=InStr(_Key, "\"))?SubStr(_Key, 1, KeyPos-1):_Key)
-		. "\" (SubKey := KeyPos?SubStr(_Key, (KeyPos+1)):"")
+	_Key := Trim(_Key)
+	return (Key:=(KeyPos:=InStr(_Key, "\"))?SubStr(_Key, 1, KeyPos-1):_Key)
+		. (SubKey:=Trim(KeyPos?"\" SubStr(_Key, (KeyPos+1)):"", "\"))
 }
 
 ;devuelve una clave o valor que no exista
@@ -4350,50 +4482,67 @@ SplitKey(_Key, ByRef Key := "", ByRef SubKey := "") {
 RegFNKey(Key, Value := "", Start := "(", End := ")") {
 	if (Value="") {
 		Loop {
-			if RegExist(tmpkey?tmpkey:Key)
+			if RegExistKey(tmpkey?tmpkey:Key)
 				tmpkey := tmpkey?StrReplace(tmpkey, Start (A_Index-1) End, Start A_Index End):Key Start 1 End
 			else return tmpkey?tmpkey:Key
 	}} else {
 		Loop {
-			if RegExist(Key, tmpkey?tmpkey:Value)
+			if RegExistKey(Key, tmpkey?tmpkey:Value)
 				tmpkey := tmpkey?StrReplace(tmpkey, Start (A_Index-1) End, Start A_Index End):Value Start 1 End
 			else return tmpkey?tmpkey:Value
 }}}
 
 ;abrir clave en regedit
-;Sintaxis: RegOpenKey( [clave\subclave], [¿comprobar si existe?] )
-RegOpenKey(Key, CheckExist := false) {
-	Key := Trim(Key)
-	if (CheckExist) && !(RegExist(Key))
+;Sintaxis: RegOpen( [clave\subclave] )
+;Ejemplo: MsgBox % RegOpen("HKLM\SOFTWARE\Classes\*") "," ErrorLevel
+RegOpen(Key) {
+	if !(RegExistKey(Key:=Trim(Key)))
 		return false, ErrorLevel := true
-	Key := RegFormatKey(Key, true), ProcessClose("regedit.exe")
+	Key := RegFormatKey(Key, true), ProcessClose("regedit.exe*")
 	, RegWrite(, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", Key)
-	return Run(A_WinDir "\regedit.exe")
+	Run, %A_WinDir%\regedit.exe
+	return !ErrorLevel
+	;if !(PID:=ProcessWait("regedit.exe", 5)) ;seleccionar valores --->
+	;	return false, ErrorLevel := true
+	;Loop, 30 ;3s
+	;	Sleep, 100
+	;until (ID:=WinExist("ahk_pid " PID))
+	;if !(IsWindow(hWnd:=ControlExist(ID, "SysListView321")))
+	;	return false, ErrorLevel := true
+	;Loop, 50 ;5s
+	;	Sleep, 100
+	;until ((Count:=LV_GetItemCount(hWnd))>0)
+	;if !(Count>1) ;valor defecto + otro(s)
+	;	return true, ErrorLevel := false
+	;MsgBox % Count ;cantidad de valores en la clave actual {...} <--
 }
 
 ;abre una clave
-;Sintaxis: RegOpen( [clave\subclave], [acceso], [¿crear la clave si no existe?] )
+;Sintaxis: RegOpenKey( [clave\subclave], [acceso], [¿crear la clave si no existe?] )
 ;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878%28v=vs.85%29.aspx
 ;Claves: HKCR|HKCU|HKLM|HKU|HKPD|HKCC
-RegOpen(Key, DesiredAccess := 0xF003F, CreateIfNotExist := false) {
+RegOpenKey(Key, DesiredAccess := 0xF003F, CreateIfNotExist := false) {
 	static Keys := {"HKEY_CLASSES_ROOT": 0x80000000, "HKCR": 0x80000000
 		, "HKEY_CURRENT_USER": 0x80000001, "HKCU": 0x80000001
 		, "HKEY_LOCAL_MACHINE": 0x80000002, "HKLM": 0x80000002
 		, "HKEY_USERS": 0x80000003, "HKU": 0x80000003
 		, "HKEY_PERFORMANCE_DATA": 0x80000004, "HKPD": 0x80000004
 		, "HKEY_CURRENT_CONFIG": 0x80000005, "HKCC": 0x80000005}
-	RegView := A_RegView="32"?0x0200:A_RegView="64"?0x0100:0, SplitKey(Key, Key, SubKey)
+	RegView := A_RegView="32"?0x0200:A_RegView="64"?0x0100:0x0000, SplitKey(Key, Key, SubKey)
 	if !(Keys[Key]) ;KEY_WOW64_32KEY = 0x0200 | KEY_WOW64_64KEY = 0x0100 | Default = 0x0
 		return false, ErrorLevel := true
-	if (CreateIfNotExist) ;ERROR_SUCCESS = 0 (RegCreateKeyExW devuelve 0 si no hubo errores)
-		Result := DllCall("Advapi32.dll\RegCreateKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "Ptr", 0, "UInt", 0
-			, "UInt", DesiredAccess|RegView, "Ptr", 0, "PtrP", hRegKey, "Ptr", 0)
-	else ;ERROR_SUCCESS = 0 (RegOpenKeyExW devuelve 0 si no hubo errores)
-		Result := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "PtrP", hRegKey)
+	if (CreateIfNotExist) ;ERROR_SUCCESS = 0 (RegCreateKeyExW y RegOpenKeyExW devuelven 0 si no hubo errores)
+		Result := DllCall("Advapi32.dll\RegCreateKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "Ptr", 0, "UInt", 0, "UInt", DesiredAccess|RegView, "Ptr", 0, "PtrP", hRegKey, "Ptr", 0)
+	else Result := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "PtrP", hRegKey)
 	return hRegKey, ErrorLevel := Result 
+} RegCloseKey(Key*) {
+	l := 0
+	Loop, % (Key.MaxIndex())
+	l += !DllCall("Advapi32.dll\RegCloseKey", "Ptr", Key[A_Index]) ;ERROR_SUCCESS = 0
+	return l=Key.MaxIndex(), ErrorLevel := l!=Key.MaxIndex()
 }
 
- ;establecer seguridad para la clave
+;establecer seguridad para la clave
 ;Sintaxis: RegSetSecurity( [clave\subclave], [usuario], [acceso] )
 ;Usuario: https://msdn.microsoft.com/en-us/library/windows/desktop/aa379637%28v=vs.85%29.aspx
 ;Accesos: 2032127 = FULL | 1179817 = READ | 1179958 = WRITE | 1245631 = CHANGE
@@ -4567,6 +4716,13 @@ Edit_GetPos(hWnd, ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height 
 	return i, ErrorLevel := !r
 }
 
+;obtener ancho de los margenes izquierdo y derecho
+;Sintaxis: Edit_GetMargins( [hWnd], [margen izquierdo (out)], [margen derecho (out] )
+Edit_GetMargins(hWnd, ByRef Left := "", ByRef Right := "") {
+	OutputVar := SendMessage(hWnd, 0x00D4)
+	return [Left := OutputVar & 0xffff, Right := OutputVar >> 16]
+}
+
 ;--------------------------------------------------------------------------------------------------------------------------
 
 ;establece el límite de texto
@@ -4610,6 +4766,43 @@ Edit_SetPasswordChar(hWnd, PassChar := true) {
 ;Nota: puede usar Edit_ReplaceSelText() como alternativa.
 Edit_SetText(hWnd, Text := "") {
 	return SendMessage(hWnd, 0x000C,,,, &Text)
+}
+
+;establecer ancho de los margenes derecho y/o izquierdo
+;Sintaxis: Edit_SetMargins( [hWnd], [margen izquierdo], [margen derecho] )
+Edit_SetMargins(hWnd, Left := "", Right := "") {
+	if (Left="") || (Right="")
+		Edit_GetMargins(hWnd, L, R), Left := Left=""?L:Left, Right := Right=""?R:Right
+	return true, SendMessage(hWnd, 0x00D3, "UInt", 0x0001|0x0002, "Ptr", (Left & 0xffff) + (Right << 16))
+}
+
+;establecer icono en el lado izquierdo o derecho
+;Sintaxis: Edit_SetIcon( [hWnd], [Icono], [color], [etiqueta al hacer clic en la imagen], [¿lado derecho?] )
+;Icono: espesificar el icono o un Array con el [icono, indice]
+;Color: espesificar un Array. [color de fondo del Gui, color de fondo del control]
+;Return: devuelve un Array. [hWnd de la ventana, hWnd del Picture control] 
+;Ejemplo:
+	;Gui, Add, Edit, w300 h21 HWNDhEdit, This is an Edit Control!
+	;Gui, Show
+	;Edit_SetIcon(hEdit, ["shell32", 32],, "MyLabel")
+	;return
+	;MyLabel:
+	;MsgBox
+	;return
+	;GuiClose:
+	;ExitApp
+Edit_SetIcon(hWnd, Icon, Color := "", Label := "", Right := false) {
+	Index := IsObject(Icon)?(Icon[2]>1?Icon[2]:1):1, Icon := IsObject(Icon)?Icon[1]:Icon
+	, WinGetPos(hWnd,,, w, h, 1), h := h-5, Color := IsObject(Color)?Color:["", "White"]
+	try {
+		Gui, New, +HWNDID -Caption +Parent%hWnd%
+		Gui, %ID%:Color, % Color[1], % Color[2]
+		Gui, %ID%:Margin, 0, 0
+		Gui, %ID%:Add, Picture, % "HWNDhPic h" h " w" h " Icon" Index (IsLabel(Label)?" g" Label:""), %Icon%
+		Gui, %ID%:Show, % "x" (Right?w-h-2:2) " y2 h" h " w" h
+	} catch
+		return false, WinDestroy(ID), ErrorLevel := true
+	return [ID, hPic], WinSetStyle(hWnd, "+" 0x02000000), Edit_SetMargins(hWnd, Right?"":h+4, Right?h+4:""), ErrorLevel := !(ID)
 }
 
 ;--------------------------------------------------------------------------------------------------------------------------
@@ -4658,11 +4851,10 @@ Edit_ShowBalloonTip(hWnd, Info*) {
 }
 
 ;habilita/deshabilita las barras de desplazamiento.
-;Sintaxis: Edit_EnableScrollBar( [hWnd], [barra], [modo] )
+;Sintaxis: Edit_EnableScrollBar( [hWnd], [barra], [modo], [otras opciones, ver nota] )
 ;Barra: 0 = horizontal | 1 = vertical | 3 = ambas
 ;Modo: 0 = deshabilitar | 1 = habilitar (defecto)
 ;Nota: para mas opciones ver: https://msdn.microsoft.com/en-us/library/windows/desktop/bb787579%28v=vs.85%29.aspx
-	;usar el 3er parametro en vez del 2do.
 Edit_EnableScrollBar(hWnd, wSBflags, Enable := true, wArrow := -1) {
 	return DllCall("User32.dll\EnableScrollBar", "Ptr", hWnd, "UInt", wSBflags
 		, "UInt", wArrow=-1?(Enable?0x0:0x3):wArrow)
@@ -4673,7 +4865,7 @@ Edit_EnableScrollBar(hWnd, wSBflags, Enable := true, wArrow := -1) {
 ;Barra: 0 = horizontal | 1 = vertical | 3 = ambas
 ;Modo: 0 = ocultar | 1 = mostrar (defecto)
 Edit_ShowScrollBar(hWnd, ScrollBar, Show := true) {
-	return DllCall("User32.dll\ShowScrollBar", "Ptr", hWnd, "UInt", ScrollBar, "Int", Show)
+	return DllCall("User32.dll\ShowScrollBar", "Ptr", hWnd, "UInt", ScrollBar, "Int", !!Show)
 }
 
 ;sustituye el texto seleccionado
@@ -5008,8 +5200,29 @@ SB_SetBKColor(hWnd, Color) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: LISTVIEW CONTROL ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;hWnd = hwnd del control
+	;Item = Indice. 0 = todos
 ;#############################################################################################################################################
 ;obtiene la cantidad de items
 LV_GetItemCount(hWnd) {
@@ -5243,10 +5456,11 @@ LV_Search(Text, Col := -1) {
 	}} return false
 }
 
-
-
-
-
+LV_SetItemState(hWnd, Item, State, Set := "*") {
+	VarSetCapacity(LVITEM, A_PtrSize=4?60:72, 0), NumPut(0x00000008, LVITEM, 0, "UInt")
+	, NumPut(Item-1, LVITEM, 4, "Int"), NumPut(Set="*"?State:Set, LVITEM, 12, "UInt"), NumPut(State, LVITEM, 16, "UInt")
+	return SendMessage(hWnd, 0x102B, "Int", Item-1,, &LVITEM)
+}
 
 
 
@@ -5465,8 +5679,8 @@ TC_GetItemCount(hWnd) {
 }
 
 ;obtener posicion del item que tiene el foco o el item seleccionado.
-;Sintaxis: TC_GetItemFocus( [ID], [¿seleccionado?] )
-TC_GetItemFocus(hWnd, Selected := 1) {
+;Sintaxis: TC_GetItemFocus( [ID], [¿seleccionado=true?] )
+TC_GetItemFocus(hWnd, Selected := true) {
 	return SendMessage(hWnd, Selected?0x130B:0x132F)+1
 }
 
@@ -5838,7 +6052,7 @@ PB_SetBKColor(hWnd, Color) {
 ;establece la barra de progreso para el modo de marquesina. esto hace que la barra de progreso para moverse como una marquesina.
 ;Sintaxis: PB_SetMarquee( [hWnd], [0|1], [retraso, en milisegundos] )
 PB_SetMarquee(hWnd, State := true, Delay := 0) {
-	WinSetStyle(hWnd, (State?"":"-") 0x08)
+	WinSetStyle(hWnd, (State?"+":"-") 0x08)
 	return SendMessage(hWnd, 0x040A, "Int", !!State, "UInt", (Delay>-1)?Delay:0)
 }
 
@@ -5846,7 +6060,7 @@ PB_SetMarquee(hWnd, State := true, Delay := 0) {
 ;Sintaxis: PB_SetSmooth( [hWnd], [0|1], [¿reverse?] )
 ;Reverse: el comportamiento de animación que la barra de progresa lo utiliza cuando se mueve hacia atrás
 PB_SetSmooth(hWnd, State := true, Reverse := false) {
-	Pos := PB_GetPos(hWnd), r:=WinSetStyle(hWnd, (State?"":"-") (Reverse?0x10:0x01))
+	Pos := PB_GetPos(hWnd), r:=WinSetStyle(hWnd, (State?"+":"-") (Reverse?0x10:0x01))
 	return r, PB_SetPos(hWnd, Pos), ErrorLevel := !r
 }
 
@@ -5971,6 +6185,113 @@ TB_GetPos(hWnd) {
 TB_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
 	return [Min:=SendMessage(hWnd, 0x0401), Max:=SendMessage(hWnd, 0x0402)]
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: UPDOWN CONTROL ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
+;establece el control "compañero"
+;Sintaxis: UD_SetBuddy( [hWnd], [hWnd compañero] )
+;Nota: devuelve el hWnd del compañero anterior
+UD_SetBuddy(hWnd, Buddy) {
+	return SendMessage(hWnd, 0x0469,, Buddy)
+}
+
+;establece el rango minimo y maximo
+;Sintaxis: UD_SetRange( [hWnd], [min -2147483648], [max 2147483647] )
+;Nota: dejar vacío para no modificar
+UD_SetRange(hWnd, Min := "", Max := "") {
+	if (Min="") || (Max="")
+		UD_GetRange(hWnd, mi, ma)
+	SendMessage(hWnd, 0x046F, "Int", Min=""?mi:Min, "Int", Max=""?ma:Max)
+	return !ErrorLevel
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------
+
+;obtiene el hWnd del control "compañero"
+;Sintaxis: UD_GetBuddy( [hWnd] )
+UD_GetBuddy(hWnd) {
+	return SendMessage(hWnd, 0x046A)
+}
+
+;recupera el rango minimo y maximo
+;Sintaxis: UD_GetRange( [hWnd], [min (out)], [max (out)] )
+UD_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
+	VarSetCapacity(Min, 16, 0), VarSetCapacity(Max, 16, 0)
+	, SendMessage(hWnd, 0x0470,, &Min,, &Max)
+	return [Min:=NumGet(Min, 0, "Int"), Max:=NumGet(Max, 0, "Int")]
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6673,6 +6994,28 @@ ControlSetRedraw(hWnd, Control, Redraw := true) {
 	return WinSetRedraw(Control, Redraw)
 }
 
+;cambiar color de fondo y texto
+;Sintaxis: ControlColor( [hWnd control], [color de fondo], [color del texto] )
+;Color: RGB o Nombre
+;Controles soportados (clases): Static, ListBox, Edit
+ControlColor(hWnd, BackgroundColor := "White", TextColor := "") {
+	static Controls := {}, Init := false
+	If (Controls.HasKey(BackgroundColor)) {
+		if !(Controls[BackgroundColor].T="")
+			DllCall("Gdi32.dll\SetTextColor", "Ptr", hWnd, "UInt", Controls[BackgroundColor].T)
+		DllCall("Gdi32.dll\SetBkColor", "Ptr", hWnd, "UInt", Controls[BackgroundColor].B)
+		, DllCall("Gdi32.dll\SetDCBrushColor", "Ptr", hWNd, "UInt", Controls[BackgroundColor].B)
+		return DllCall("Gdi32.dll\GetStockObject", "UInt", 18, "UPtr") 
+	} if (DllCall("User32.dll\IsWindow", "Ptr", hWnd)) {
+		Loop, Parse, % "0x0133|0x0134|0x0138", |
+			if !(OnMessage(A_LoopField)=A_ThisFunc)
+				OnMessage(A_LoopField, A_ThisFunc)
+		Controls.RemoveAt(hWNd, ""), BackgroundColor := _getcolor(BackgroundColor), TextColor := _getcolor(TextColor)
+		If !(BackgroundColor="") && !((B:=((BackgroundColor&0xFF0000)>>16)|(BackgroundColor&0x00FF00)|((BackgroundColor&0x0000FF)<<16))="")
+			Controls[hWnd] := {B: B, T: TextColor=""?"":((TextColor&0xFF0000)>>16)|(TextColor&0x00FF00)|((TextColor&0x0000FF)<<16)}
+		return r:=DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0405, "UInt"), ErrorLevel := !(r)
+	} return false, ErrorLevel := true
+}
 
 
 
@@ -7913,7 +8256,7 @@ WinAlwaysOnTop(hWnd, AlwaysOnTop := "") {
 WinResized(hWnd, Resize := "", Redraw := false) {
 	_gethwnd(hWnd)
 	if (Resize!="") {
-		r:=WinSetStyle(hWnd, (Resize=-1?(WinResized(hWnd)?"-":""):(Resize?"":"-")) 0x00040000)
+		r:=WinSetStyle(hWnd, (Resize=-1?(WinResized(hWnd)?"-":"+"):(Resize?"":"-")) 0x00040000)
 		if (Redraw)
 			WinRedraw(hWnd)
 		return r
@@ -8352,6 +8695,12 @@ WinGetIcon(hWnd, Type := 0) {
 	return SendMessage(hWnd, 0x007F,, Type)
 }
 
+;obtener hWnd del menu de la ventana espesificada
+;Sintaxis: WinGetMenu( [hWnd] )
+WinGetMenu(hWnd) {
+	return DllCall("User32.dll\GetMenu", "Ptr", hWnd)
+}
+
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
 
@@ -8415,7 +8764,7 @@ WinSetEventHook(hWnd, Func := "", EventMin := "", EventMax := "") {
 
 ;establecer estilo
 ;Sintaxis: WinSetStyle( [ID], [+-^Estilo], [SWP_FRAMECHANGED] )
-;Estilo: +(añadir) -(quitar) ^(alternar) || defecto es +(añadir)
+;Estilo: +(añadir) -(quitar) ^(alternar) || por defecto reemplaza el estilo
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600%28v=vs.85%29.aspx
 ;Nota: algunos cambios necesitan SWP_FRAMECHANGED para que surtan efecto.
 WinSetStyle(hWnd, Style, FRAMECHANGED := false) {
@@ -8598,33 +8947,24 @@ WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 
 
 
-;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: MENÚS ::::::::::::::::::::::::::::::::::
-;#############################################################################################################################################
-;obtener una lista con todos los elementos de los menús de la ventana
-;Sintaxis: MenuGetItemList( [ID] )
-;NOTA: sólo funciona con aplicaciones que utilizan menús estándar de Windows
-;EJEMPLO: ver uso de LoopParse con RegExMatch() en: MenuSelectItem()
-MenuGetItemList(hWnd, hMenu := 0, Prefix := "") { ;http://ahkscript.org/boards/viewtopic.php?p=48401#p48401
-	_gethwnd(hWnd)
-	, hMenu := hMenu ? hMenu : DllCall("User32.dll\GetMenu", "Ptr", hWnd)
-	, Count := DllCall("User32.dll\GetMenuItemCount", "Ptr", hMenu)
-	Loop, %Count% {
-		sSize := DllCall("User32.dll\GetMenuStringW", "Ptr", hMenu, "UInt", A_Index-1, "Ptr", 0, "Int", 0, "UInt", 0x00000400)
-		, sSize := VarSetCapacity( lpString, (sSize + 1) * 2 ) / 2
-		if !DllCall("User32.dll\GetMenuStringW", "Ptr", hMenu, "UInt", A_Index-1, "Str", lpString, "Int", sSize, "UInt", 0x00000400)
-			continue
-		lpString := StrReplace(lpString, "&")
-		, ItemId := DllCall("User32.dll\GetMenuItemID", "Ptr", hMenu, "Int", A_Index-1)
-		if (itemID = -1) AND (hSubMenu := DllCall("User32.dll\GetSubMenu", "Ptr", hMenu, "Int", A_Index-1)) {
-			List .= MenuGetItemList( "", hSubMenu, Prefix lpString " > " ) "`n"
-			continue
-		} List .= ItemId "`t" Prefix RegExReplace( lpString, "`t.*" ) "`n"
-	} return RTrim( List, "`n" )
-}
-
+/*#############################################################################################################################################
+ ::::::::::::::::::::::::::::::::::::::::::::: MENU ::::::::::::::::::::::::::::::::::
+PARÁMETROS:
+	• hWnd = ID de la ventana
+	• hMenu = ID del menu (para obtener el ID del menu por nombre, usar GetMenuByName)
+	• Menu = nombre del menu
+EJEMPLO:
+	Menu, MyMenu, Add, Item 1: Hola, close
+	Menu, MyMenu, Add, % "ID: " GetMenuByName("MyMenu"), close
+	MenuCheckRadioItem(GetMenuByName("MyMenu"), 2)
+	Menu, MyMenu, Show
+	return
+	close:
+	ExitApp
+#############################################################################################################################################
+*/
 ;ejecuta un comando del menu de la ventana
-;Sintaxis: MenuSelectItem( [ID], [ID del Menú], [Nombre del Menú] )
+;Sintaxis: MenuSelectItem( [hWnd], [ID del Menú], [Nombre del Menú] )
 ;NOTA: espesificar ' > ' para submenús
 ;Ejemplo: MenuSelectItem( IsWindow(),, "Archivo > Abrir..." )
 ;VER: MenuGetItemList()
@@ -8645,7 +8985,7 @@ MenuSelectItem(hWnd, MenuItemId := "", MenuItemName := "") {
 }
 
 ;Invoca un elemento de menú de la barra de menú de la ventana especificada
-;Sintaxis: MenuSelect( [ID], [Menu Principal], [Submenus*] )
+;Sintaxis: MenuSelect( [hWnd], [Menu Principal], [Submenus*] )
 ;EJEMPLO: MenuSelect( IsWindow(), "Archivo", "Abrir..." )
 ;VER: MenuSelectItem()
 MenuSelect(hWnd, Menu, Submenu*) {
@@ -8656,117 +8996,93 @@ MenuSelect(hWnd, Menu, Submenu*) {
 	return MenuSelectItem(hWnd,, Menu _Submenu)
 }
 
-;-------------------------------------------------------------------------------------------------------
-;-------------------------------------------------------------------------------------------------------
-
-;comprueba si es un menú válido
-IsMenu(hMenu) {
-	return DllCall("User32.dll\IsMenu", "Ptr", hMenu)
-}
-
 ;redibujar el menú de la ventana.
-;Sintaxis: MenuRedraw( [ID] )
+;Sintaxis: MenuRedraw( [hWnd] )
 MenuRedraw(hWnd) {
 	_gethwnd(hWnd)
 	return DllCall("User32.dll\DrawMenuBar", "Ptr", hWnd)
 }
 
-;añadir menú a un menú existente
-;Sintaxis: MenuAdd( [Menú], [Item], [Etiqueta|:SubMenú|Función] )
-;NOTA: especificar solo el Menú (primer parámetro) para agregar un separador
-;EJEMPLO:
-	;MenuAdd(), MenuAdd(, "Salir", Func("ExitApp"))
-	;MenuAdd( "i", "Salir Menu", Func("MenuCheck").Bind("i", "Salir Menu", -1))
-	;MenuAdd(, "Prueba Menu", ":i")
-	;MenuIcon( "Tray", "shell32.dll", 4 )
-	;MenuIcon( "i", "Salir Menu", "shell32.dll", 16 )
-	;MenuColor( "i", "Green" ), MenuColor( "Tray", "Red" )
-	;MenuDefault( "Tray", "Salir" )
-	;MenuClick( 2 )
-	;MenuCheck( "i", "Salir Menu" )
-MenuAdd(MenuName := "Tray", MenuItemName := "", Label := "") {
-	if (Label = " ")
-		return
-	Label := Label ? Label : Func( A_ThisFunc ).Bind( "",, A_Space )
-	if (MenuItemName = "")
-		try Menu, %MenuName%, Add
-	else
-		try Menu, %MenuName%, Add, %MenuItemName%, %Label%
-	catch
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+;marcar el menu espesificado. al mismo tiempo desmarca todos los demás en el grupo espesificado
+;Sintaxis: MenuCheckRadioItem( [hMenu], [item], [inicio], [fin] )
+MenuCheckRadioItem(hMenu, ItemPos, First := 1, Last := 0) {
+	if !(Last>0)
+		Last := MenuGetItemCount(hMenu)
+	return DllCall("User32.dll\CheckMenuRadioItem", "Ptr", hMenu, "UInt", First - 1, "UInt", Last - 1, "UInt", ItemPos - 1, "UInt", 0x0400)
 }
 
-;cambiar color
-;Sintaxis: MenuColor( [Menú], [Color] )
-MenuColor(MenuName, Color, Single := 1) {
-	Single := Single ? "Single" : ""
-	try Menu, %MenuName%, Color, %Color%, %Single%
-	catch
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+;-------------------------------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+
+;comprueba si es un menú válido
+;Sintaxis: IsMenu( [hMenu] )
+IsMenu(hMenu) {
+	return DllCall("User32.dll\IsMenu", "Ptr", hMenu)
 }
 
-;cambiar/quitar icono
-;Sintaxis (Tray): MenuColor( [Menú], [Icono], [Indice] )
-;Sintaxis (Otros): MenuColor( [Menú], [Item], [Icono], [Indice], [Ancho] )
-;NOTAS: 
-	;Tray: para ocultar el icono del área de notificacion: omitir el parametro 2 (Icono)
-	;Tray: para mostrar el icono del área de notificacion: establecer el parametro 2 en 1
-	;Otros: para quitar el icono de un item: obviar el parametro 3 (Icono)
-MenuIcon(MenuName, MenuItemName := "", Icon := 0, IconNumber := 1, IconWidth := "") {
-	if (MenuName = "Tray") {
-		if MenuItemName {
-			if (MenuItemName = 1)
-				try Menu, Tray, Icon
-			else
-				try Menu, Tray, Icon, %MenuItemName%, %Icon%, 1
-		} else
-			try Menu, Tray, NoIcon
-		catch
-			return 0, ErrorLevel := 1
-	} else {
-		if Icon
-			try Menu, %MenuName%, Icon, %MenuItemName%, %Icon%, %IconNumber%, %IconWidth%
-		else
-			try Menu, %MenuName%, NoIcon, %MenuItemName%
-		catch
-			return 0, ErrorLevel := 1
-	}
-	return 1, ErrorLevel := 0
+MenuIsChecked(hMenu, ItemPos) {
+	return (DllCall("User32.dll\GetMenuState", "Ptr", hMenu, "UInt", ItemPos - 1, "UInt", 0x0400, "UInt") & 0x08)
 }
 
-;clic(s) por defecto para mostrar el menú (área de notificacion)
-;Sintaxis: MenuClick( [1|2] )
-MenuClick(ClickCount) {
-	try Menu, Tray, Click, %ClickCount%
-	catch
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+;-------------------------------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+
+;obtener una lista con todos los elementos de los menús de la ventana
+;Sintaxis: MenuGetItemList( [hWnd] )
+;NOTA: sólo funciona con aplicaciones que utilizan menús estándar de Windows
+;EJEMPLO: ver uso de LoopParse con RegExMatch() en: MenuSelectItem()
+MenuGetItemList(hWnd, hMenu := 0, Prefix := "") { ;http://ahkscript.org/boards/viewtopic.php?p=48401#p48401
+	_gethwnd(hWnd)
+	, hMenu := hMenu ? hMenu : DllCall("User32.dll\GetMenu", "Ptr", hWnd)
+	, Count := DllCall("User32.dll\GetMenuItemCount", "Ptr", hMenu)
+	Loop, %Count% {
+		sSize := DllCall("User32.dll\GetMenuStringW", "Ptr", hMenu, "UInt", A_Index-1, "Ptr", 0, "Int", 0, "UInt", 0x00000400)
+		, sSize := VarSetCapacity( lpString, (sSize + 1) * 2 ) / 2
+		if !DllCall("User32.dll\GetMenuStringW", "Ptr", hMenu, "UInt", A_Index-1, "Str", lpString, "Int", sSize, "UInt", 0x00000400)
+			continue
+		lpString := StrReplace(lpString, "&")
+		, ItemId := DllCall("User32.dll\GetMenuItemID", "Ptr", hMenu, "Int", A_Index-1)
+		if (itemID = -1) AND (hSubMenu := DllCall("User32.dll\GetSubMenu", "Ptr", hMenu, "Int", A_Index-1)) {
+			List .= MenuGetItemList( "", hSubMenu, Prefix lpString " > " ) "`n"
+			continue
+		} List .= ItemId "`t" Prefix RegExReplace( lpString, "`t.*" ) "`n"
+	} return RTrim( List, "`n" )
 }
 
-;item por defecto del menu (resaltado en negrita)
-;Sintaxis: MenuDefault( [Menú], [Item] )
-MenuDefault(MenuName, MenuItemName) {
-	try Menu, %MenuName%, Default, %MenuItemName%
-	catch
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+;obtener el ID del menu por nombre
+;Sintaxis: GetMenuByName( [menu] )
+GetMenuByName(Menu) {
+	static hMenu
+	If !(hMenu) {
+		Menu, %A_ThisFunc%Menu, Add
+		Menu, %A_ThisFunc%Menu, DeleteAll
+		Gui, %A_ThisFunc%GUI:+HWNDhWnd
+		Gui, %A_ThisFunc%GUI:Menu, %A_ThisFunc%Menu
+		hMenu := WinGetMenu(hWnd)
+		Gui, %A_ThisFunc%GUI:Menu
+		Gui, %A_ThisFunc%GUI:Destroy
+	} Menu, %A_ThisFunc%Menu, Add, :%Menu%
+	hSubMenu := MenuGetSubMenu(hMenu)
+	Menu, %A_ThisFunc%Menu, Delete, :%Menu%
+	return hSubMenu
 }
 
-;añadir/quitar/alternar marca de verificacion
-;Sintaxis: MenuCheck( [Menu], [Item], [-1(alternar)|0(quitar)|1(añadir)] )
-MenuCheck(MenuName, MenuItemName, Check := 1) {
-	if (Check = 1)
-		try Menu, %MenuName%, Check, %MenuItemName%
-	else if !Check
-		try Menu, %MenuName%, UnCheck, %MenuItemName%
-	else
-		try Menu, %MenuName%, ToggleCheck, %MenuItemName%
-	catch
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+;obtener el ID del submenu del menu espesificado
+;Sintaxis: MenuGetSubMenu( [hMenu], [item] )
+MenuGetSubMenu(hMenu, ItemPos := 1) {
+	return DllCall("User32.dll\GetSubMenu", "Ptr", hMenu, "Int", ItemPos - 1)
 }
+
+;determina la cantidad de items en el menu
+;Sintaxis: MenuGetItemCount( [hMenu] )
+MenuGetItemCount(hMenu) {
+	return DllCall("User32.dll\GetMenuItemCount", "Ptr", hMenu)
+}
+
+
+
+
+
 
 
 
@@ -9340,7 +9656,7 @@ ServiceInfo(IpName) {
 ;Test (Fast vs Slow): MsgBox % "Fast: " _fspdtestex(999, "ServiceExist", "Spooler") "`nSlow: " _fspdtestex(999, "ServiceExist", "Spooler", "S")
 ServiceExist(lpDisplayName, Mode := "Fast") {
 	if (Mode="F"||Mode="Fast") ;Fast: comprueba si existe desde el registro. (recomendado)
-		return RegExist("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
+		return RegExistKey("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
 	if (Mode="S"||Mode="Slow") ;Slow: abre y cierra el servicio para comprobar si existe. (mas lento)
 		return i:=DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", ServiceOpen(lpDisplayName)), ErrorLevel:=!i
 	return 0, ErrorLevel := 1
