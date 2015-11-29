@@ -1,4 +1,106 @@
 ###############################################################
+ACTUALIZACION 29/11/2015 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• ProcessQueryPrivileges()
+	• DuplicateIcon()
+	• DefExtractIcon()
+	• ParseDisplayName()
+	• GetPathFromIDList()
+	• InsertIconResource()
+	• SizeofResource()
+	• FindResource()
+	• LockResource()
+	• LoadResource()
+	• BeginUpdateResource()
+	• EndUpdateResource()
+	• ReUpdateResource()
+	• UpdateResource()
+	• Dll_InsertIcons()
+	• Dll_CreateEmpty()
+	• CreateResourceIndexer(). WIN_10+
+	• DestroyResourceIndexer(). WIN_10+
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• OpenWithDialog(). ?
+	• GetHandleInformation(). I
+	• CloseHandle(). I
+	• WriteFile(). I
+	• CreateFile(). I + R
+	• GetValidArrayFiles(). I
+	• CreateWindow(). R
+	• CreateControl(). R
+	• ExtractIcon2(). R
+	• LookupPrivilegeName(). I
+	• OpenProcess(). I
+	• OpenProcessToken(). I
+
+Notas:
+	• mejoras generales en las funciones con procesos
+	• actualizado las funciones para Recursos
+	
+Funciones Renombradas:
+	• ProcessSetPrivilege() --> ProcessAdjustPrivileges()
+	• FileExplore() --> OpenFolderAndSelectItems()
+	• SetDesktopBackground() --> SetDesktopWallpaper()
+	• GetDesktopBackground() --> GetDesktopWallpaper()
+
+Funciones Eliminadas:
+	• ProcessEName(). usar ProcessName()
+	• FileExplore2(). usar OpenFolderAndSelectItems()
+	• __seticon(). usar InsertIconResource() (la función originalmente servia para cambiar el icono por defecto de AHK-scripts compilados)
+	• ResourceGetLanguage(). info de como enumerar recursos: https://autohotkey.com/boards/viewtopic.php?t=8659
+	• ChoosePicture(). usar ChooseIconEx(), link abajo, en ChooseIcon()
+	• ChooseIcon() + ChooseIconEx(). incluir aparte: https://autohotkey.com/boards/viewtopic.php?f=42&t=10802)
+	• Edit()
+	• Thread()
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, cambios estéticos):
+	• DirExist()
+	• ProcessExist(). ErrorLevel se establece en 1 si ha ocurrido un error, caso contrario en 0
+	• GetKnownFolderPath().
+	• SetDesktopBackground() / SetDesktopWallpaper()
+	• BitShiftLeft()
+	• BitShiftRight()
+	• ExecScript()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• ProcessSetPrivilege() / ProcessAdjustPrivileges(). funcion renombrada. ahora permite habilitar/deshabilitar y eliminar privilegios
+	• FileExplore() / OpenFolderAndSelectItems(). funcion renombrada
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 17/11/2015, 26/11 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
