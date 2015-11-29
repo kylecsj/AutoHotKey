@@ -2909,8 +2909,7 @@ ProcessQueryPrivileges(ProcessName, ByRef Count := "") {
 		if (lpLuid=cLuid)
 			return A_LoopField
 }}
-MsgBox % ProcessElevation("smss.exe") "`n" ProcessElevation(-1)
-ExitApp
+
 ;determina si el proceso tiene privilegios elevados
 ;Sintaxis: ProcessElevation( [ID] )
 ;Return: 0|1
@@ -10270,8 +10269,9 @@ return
 #Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
 ;otra opcion al InputBox
 #Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
-#Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 ;otra opcion al TrayTip
+#Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
+;otra opcion al ToolTip
 #Include *i <ToolTipEx> ;https://github.com/flipeador/AutoHotKey/blob/master/ToolTipEx
 ;color de fondo para Picture controles
 #Include *i <LinearGradient> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3593
