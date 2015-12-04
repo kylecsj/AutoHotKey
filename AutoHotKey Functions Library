@@ -2155,7 +2155,7 @@ UpdateResource(hModule, ResType, ResName, Language := 0x0C00, Data := 0, Bytes :
 	if !(Data=0) && (Bytes="*") && !(Bytes:=StrPut(Data)) ;calcular tamaño si se espesifico DATA pero no los bytes
 		return false, ErrorLevel := true
 	else if (Bytes="File") ;añadir archivo
-		l := FileOpen(IsObject(Data)?Data[1]:Data, "r", Data[2]), l.RawRead(Bin, Bytes:=l.Length), obj.Close(), Data := &Bin
+		l := FileOpen(IsObject(Data)?Data[1]:Data, "r", Data[2]), l.RawRead(Bin, Bytes:=l.Length), l.Close(), Data := &Bin
 	else if (Bytes="Str") ;añadir texto
 		StrPutVar(IsObject(Data)?Data[1]:Data, Bin, Data[2]?Data[2]:"UTF-8", 1,, Bytes), Data := &Bin
 	ResName := IsObject(ResName)?ResName:[(ResName+0)=""?"Str":"Ptr", ResName]
