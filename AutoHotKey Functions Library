@@ -2161,7 +2161,7 @@ UpdateResource(hModule, ResType, ResName, Language := 0x0C00, Data := 0, Bytes :
 	ResName := IsObject(ResName)?ResName:[(ResName+0)=""?"Str":"Ptr", ResName]
 	, ResType := IsObject(ResType)?ResType:[(ResType+0)=""?"Str":"Ptr", ResType]
 	, Bytes := IsObject(Bytes)?Bytes:[(Bytes+0)=""?"Ptr":"UInt", Bytes]
-	r:=DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hModule, ResType[1], ResType[2], ResName[1], ResName[2], "UShort", Language, "Ptr", Data, Bytes[1], Bytes[2], "UInt")
+	, r:=DllCall("Kernel32.dll\UpdateResourceW", "Ptr", hModule, ResType[1], ResType[2], ResName[1], ResName[2], "UShort", Language, "Ptr", Data, Bytes[1], Bytes[2], "UInt")
 	return r, VarSetCapacity(Data, 0), VarSetCapacity(Bin, 0), ErrorLevel := !r
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms648049(v=vs.85).aspx
 
@@ -2328,16 +2328,15 @@ ColorSelect(hWnd := 0, Color := "", ShowAll := "") {
 ;enumera todas las fuentes instaladas.
 FontEnum(lfCharSet := 1, lfFaceName := "") {
 	hDC := DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
-	if (lfFaceName!="")
-		DllCall("Kernel32.dll\lstrcpynW", "Ptr", &LOGFONT+28, "Str", lfFaceName, "Int", StrLen(lfFaceName)+1)
+	if !(lfFaceName="")
+		StrCopy(&LOGFONT+28, lfFaceName)
 	lpEnumFunc := RegisterCallback("EnumFontFamExProc", "Fast", 4), Param := {List: ""}
 	, DllCall("Gdi32.dll\EnumFontFamiliesExW", "Ptr", hDC, "Ptr", &LOGFONT, "Ptr", lpEnumFunc, "Ptr", &Param, "UInt", 0)
 	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc)
 	return Sort(Param.List, "U")
 } EnumFontFamExProc(lpelfe, lpntme, FontType, lParam) {
-	Param := Object(lParam), Ip := lpelfe+28, nSize := DllCall("Kernel32.dll\lstrlenW", "UInt", Ip)
-	, VarSetCapacity(lfFaceName, nSize * 2, 0), DllCall("Kernel32.dll\lstrcpynW", "Str", lfFaceName, "Ptr", Ip, "Int", nSize+1)
-	return true, Param.List .= (Param.List?"`n":"") lfFaceName
+	Param := Object(lParam), StrCopy(Name, lpelfe+28,, "Str")
+	return true, Param.List .= (Param.List?"`n":"") Name
 } FontExist(FontName, lfCharSet := 1, lfFaceName := "") {
 	Loop, Parse, % FontEnum(lfCharSet, lfFaceName), `n, `r
 		if (A_LoopField=FontName)
@@ -2435,8 +2434,7 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
     VarSetCapacity(LOGFONT, 92, 0) , NumPut(Round(Size*LogPixelsY/72)*-1, LOGFONT, 0, "Int")
     , NumPut(Bold, LOGFONT, 16, "Int"), NumPut(Italic, LOGFONT, 20, "UChar")
     , NumPut(Underline, LOGFONT, 21, "UChar"), NumPut(StrikeOut, LOGFONT, 22, "UChar")
-	, DllCall("Kernel32.dll\lstrcpynW", "Ptr", &LOGFONT+28, "Str", FontName, "Int", StrLen(FontName)+1)
-	, CFSize := VarSetCapacity(CHOOSEFONT, A_PtrSize=8?104:60, 0)
+	, StrCopy(&LOGFONT+28, FontName), CFSize := VarSetCapacity(CHOOSEFONT, A_PtrSize=8?104:60, 0)
 	, NumPut(CFSize, CHOOSEFONT, 0, "UInt"), NumPut(hWnd, CHOOSEFONT, A_PtrSize, "Ptr")
 	, NumPut(&LOGFONT, CHOOSEFONT, A_PtrSize=8?24:12, "Ptr")
 	, NumPut(Flags, CHOOSEFONT, A_PtrSize=8?36:20, "UInt")
@@ -2444,9 +2442,7 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	, NumPut(MinSize, CHOOSEFONT, A_PtrSize=8?92:52, "Int")
 	, NumPut(MaxSize, CHOOSEFONT, A_PtrSize=8?96:56, "Int")
 	, r := DllCall("comdlg32.dll\ChooseFontW", "Ptr", &CHOOSEFONT)
-	, VarSetCapacity(FontName, LF_FACESIZE*2), nSize := DllCall("lstrlenW", "Ptr", &LOGFONT+28)
-	, DllCall("Kernel32.dll\lstrcpynW", "Str", FontName, "Ptr", &LOGFONT+28, "Int", nSize+1)
-	, VarSetCapacity(FontName, -1), OutPutVar := [], OutPutVar[0] := FontName
+	, StrCopy(FontName, &LOGFONT+28,, "Str"), OutPutVar := [], OutPutVar[0] := FontName
 	, OutPutVar[1] := RGB(NumGet(CHOOSEFONT, A_PtrSize=8?40:24, "UInt"))
 	, OutPutVar[2] := NumGet(CHOOSEFONT, A_PtrSize=8?32:16, "Int")//10
 	, OutPutVar[3] := NumGet(LOGFONT, 16, "Int"), OutPutVar[4] := NumGet(LOGFONT, 20, "UChar")
@@ -2532,6 +2528,17 @@ FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;Copia un determinado número de caracteres de una cadena de origen en un búfer.
+;Sintaxis: StrCopy( [destino (out)], [origen], [tamaño], [destino str/ptr] )
+StrCopy(ByRef Dest, Source, Length := 0, Type := "Ptr") {
+	if !(Length)
+		Length := (Type="Ptr"?StrLen(Source):DllCall("Kernel32.dll\lstrlenW", "UInt", Source))+1
+	if (Type="Str")
+		VarSetCapacity(Dest, 0), VarSetCapacity(Dest, Length * 2, 0)
+	return DllCall("Kernel32.dll\lstrcpynW", Type, Dest, Type="Ptr"?"Str":"Ptr"
+	, Source, "Int", Length?Length:DllCall("Kernel32.dll\lstrlenW", "Ptr", Source)+1)
+}
+
 ;obtiene opciones representadas por carácter(es) y separadas por espacios.
 ;Sintaxis: SplitFlags( [texto], [opciones], [carácteres*] )
 ;Opciones: \d = incluir números | \w incluir letras | [\Q carácteres \E]
@@ -2557,7 +2564,7 @@ SplitFlags(String, Options := "\d\Q,.+-^~\E\w", Chars*) {
 ;Return: devuelve el tamaño, en bytes
 StrPutVar(Str, ByRef OutputVar := "", Encoding := "UTF-16", Min := 0, Max := 0, ByRef Length := "") {
 	VarSetCapacity(OutputVar, 0), VarSetCapacity(OutputVar, Length:=((StrPut(Str, Encoding)
-	* ((Encoding="UTF-16" || Encoding="CP1200")?2:1)) - Min) + Max), Bytes := StrPut(Str, &OutputVar, Encoding)
+	* ((Encoding="UTF-16"||Encoding="CP1200")?2:1))-Min)+Max), Bytes := StrPut(Str, &OutputVar, Encoding)
 	return IsByRef(OutputVar)?Bytes:OutputVar
 }
 
