@@ -2,6 +2,7 @@
 ACTUALIZACION 29/11/2015, 04/12/2015 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
+	• StrCopy() ~ 04/12
 	• RGBToBGR() ~ 04/12
 	• GdiplusShutdown() ~ 04/12
 	• GdiplusStartup() ~ 04/12
@@ -56,6 +57,7 @@ Notas:
 	• actualizado las funciones para Recursos
 	
 Correcciones:
+	• FontSelect() ~ 04/12
 	• FindResource() ~ 04/12
 	• UpdateResource(). +mejoras ~ 04/12
 	
