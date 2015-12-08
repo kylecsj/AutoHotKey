@@ -1,4 +1,110 @@
 ###############################################################
+ACTUALIZACION 08/12/2015 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• WinSetMenu()
+	• GdipDisposeImage()
+	• GdipCreateBitmapFromStream()
+	• GdipCreateHBitmapFromBitmap()
+	• ZeroMemory()
+	• FillMemory()
+	• GetClipboardFormat()
+	• GetClipboardText()
+	• GetClipboardData()
+	• SetClipboardData()
+	• SetClipboardText()
+	• EmptyClipboard()
+	• CloseClipboard()
+	• OpenClipboard()
+	• CreateProcess()
+	• ReadFile()
+	• Sound_GetMasterChannelCount()
+	• Sound_GetMasterMute()
+	• Sound_SetMasterMute()
+	• Sound_GetMasterVolume()
+	• Sound_EnumDevices()
+	• Sound_SetMasterVolume()
+	• Divide()
+	• FontQuery()
+	• MulDiv()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• GVAF_GetFiles. I
+	• CreateDC(). I
+	• GetDeviceCaps(). I
+	• GetStockObject(). I
+	• Sound_GetDevice(). I
+	• Sound_GetEndpointVolume(). I
+	• Sound_GetDeviceName(). I
+	
+Correcciones:
+	• ServiceSetDescription().
+	• ProcessPriority(). corrección con ErrorLevel al obtener la prioridad
+	• RoundEx(). +reescrito.
+	• Prefect(). +reescrito.
+	• Add(). +reescrito.
+	
+Notas:
+	• añadido mas funciones para el Audio
+	• añadido funciones para el portapapeles
+	
+Funciones Renombradas:
+	• IsGreater() --> Greater(). +reescrito
+
+Funciones Eliminadas:
+	• Exec()
+	• FontGetSize(). usar FontQuery(hFont)[2]
+	• FontGetName(). usar FontQuery(hFont)[1]
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• GetShortPathName()
+	• GetLongPathName()
+	• GetFullPathName()
+	• GetValidArrayFiles()
+	• TaskBarProgress()
+	• CreateShortcut(). usar Icono en base 1. agregar extension (.lnk) si no se espesificó.
+	• Multiply()
+	• Float()
+	• Edit_SelectFont(). afectado por ControlGetFont().
+	• FontCreate()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• CMD()
+	• ControlGetFont()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 29/11/2015, 04/12/2015 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
