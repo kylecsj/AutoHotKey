@@ -1,4 +1,63 @@
 ###############################################################
+ACTUALIZACION 19/12/2015 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• OpenThread()
+	
+Mejoras:
+	• GetDesktop()
+	• ControlFocus()
+	
+Correcciones:
+	• RegCopyKey()
+	• RestartWindowsExplorer(). evitar cerrar otros procesos con el nombre explorer.exe
+	• WinGetPos()
+	• WinCenter(). ahora la ventana se ajusta a toda la pantalla visible (la barra de tareas puede estar arriba, abajo, izquierda o derecha). antes solo funcionaba con la barra de tareas en la parte inferior.
+	
+Funciones Renombradas:
+	• IL_Create() --> IL_CreateEx()
+	• IL_Destroy() --> IL_DestroyEx()
+
+Funciones Eliminadas:
+	• WinSetEventHook()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• FileGetTime()
+	• FileSelect(). devolver la ruta completa al seleccionar varios archivos, separados por `n
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 08/12/2015 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
