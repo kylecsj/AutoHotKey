@@ -2,6 +2,7 @@
 ACTUALIZACION 19/12/2015, 20/12 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
+	• GetExplorerWindowPath()
 	• OpenThread()
 	
 Mejoras:
