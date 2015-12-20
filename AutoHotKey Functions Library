@@ -2,6 +2,7 @@
 FUNCIONES  AUTOHOTKEY UNICODE 32 & 64 BITS.
 -------------------------------------------------------------------------
 SO: WIN_XP, WIN_V, WIN_7, WIN_8, WIN_8.1,  WIN_10 ~ 32 & 64 Bits.
+SO BASE: MS Windows 10 Enterprise 32 bits (10.0, compilación 10586)
 Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
@@ -11,7 +12,7 @@ Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					tareas programadas, objetos, administración de memoria, Gdiplus, portapapeles, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.09 U32 & U64 || Sabado, 19 de diciembre de 2015
+Actualizado: AHK1.1.22.09 U32 & U64 || Domingo, 20 de diciembre de 2015
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -134,18 +135,10 @@ _mnum(f,s,r:=true){
 ;--------------------------------------------------------------------------------------------------------------------------------------------------
 ;copiar archivo(s)
 ;Sintaxis 1: FileCopy( [archivo], [destino\nombre.ext], [¿sobreescribir?] )
-;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?], [¿incluir archivos en subcarpetas?] )
-FileCopy(Source, Dest, Overwrite := false, Recurse := false) {
-	static CopyFlags
-	if (CopyFlags="")
-		CopyFlags := IsWindowsVistaOrGreater()?0x00001000:0
-	Flags := CopyFlags|(Overwrite?0:0x00000001), Count := 0, Dest := GetFullPathName(Dest)
-	if  !(Recurse) && !(InStr(Source, "*")) && !(InStr(Source, "?")) {
-		Source := GetFullPathName(Source), IsDir(Dest)?(Dest:=Dest "\" SplitPath(Source).FileName):
-		return r:=DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" Source, "Str", "\\?\" Dest, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags), ErrorLevel := !r
-	} Loop, Files, %Source%, % "F" (Recurse?"R":"")
-		Count := (Count+!!DllCall("Kernel32.dll\CopyFileExW", "Str", "\\?\" A_LoopFileFullPath, "Str", "\\?\" Dest "\" A_LoopFileName, "UInt", 0, "PtrP", 0, "IntP", 0, "UInt", Flags)), Index := A_Index
-	return Count, ErrorLevel := (Count!=Index)
+;Sintaxis 2: FileCopy( [directorio\*.*], [destino], [¿sobreescribir?])
+FileCopy(Source, Dest := "", Overwrite := false) {
+	FileCopy, %Source%, %Dest%, %Overwrite%
+	return !ErrorLevel
 }
 
 ;reciclar
@@ -810,7 +803,7 @@ CMD(CMD := "", Encoding := "CP0", ByRef ExitCode := "") {
 	, Size := VarSetCapacity(STARTUPINFO, A_PtrSize=4?68:104, 0), NumPut(Size, STARTUPINFO, 0, "UInt")
     , NumPut(0x100, STARTUPINFO, A_PtrSize=4?44:60, "UInt"), NumPut(hStdInRd, STARTUPINFO, A_PtrSize=4?56:80, "Ptr")
     , NumPut(hWritePipe, STARTUPINFO, A_PtrSize=4?60:88, "Ptr"), NumPut(hWritePipe, STARTUPINFO, A_PtrSize=4?64:96, "Ptr")
-	, pi := CreateProcess(, ComSpec " /c " CMD,,,, 0x08000000,,, &STARTUPINFO), CloseHandle(hWritePipe), Size := VarSetCapacity(Buff, 4095)
+	, pi := CreateProcess(, A_ComSpec() " /c " CMD,,,, 0x08000000,,, &STARTUPINFO), CloseHandle(hWritePipe), Size := VarSetCapacity(Buff, 4095)
     while ReadFile(hReadPipe, &Buff, Size, Bytes)
         OutputVar .= StrGet(&Buff, Bytes, Encoding)
 	return OutputVar, DllCall("Kernel32.dll\GetExitCodeProcess", "Ptr", pi.handle, "UIntP", ExitCode), CloseHandle(pi.handle, pihthread, hReadPipe)
@@ -944,12 +937,14 @@ DirCopy(Source, Dest, OverWrite := false) {
 }
 
 ;crear carpeta
-;Sintaxis: DirCreate( [directorio], [¿crear subdirectorios?], [eliminar antes si existe 0|1] )
-DirCreate(DirName, Recurse := true, Remove := "") {
+;Sintaxis: DirCreate( [directorio], [¿crear subdirectorios?], [eliminar antes si existe 0|1], [atributos] )
+DirCreate(DirName, Recurse := true, Remove := "", Attrib := "") {
 	if (Remove=0) || (Remove=1)
 		DirRemove(DirName, Remove)
 	if (Recurse) {
 		FileCreateDir, %DirName%
+		if (Attrib)
+			FileSetAttrib, %Attrib%, %DirName%
 		return !ErrorLevel
 	} return r:=DllCall("Kernel32.dll\CreateDirectoryW", "Str", "\\?\" DirName, "Ptr", 0), ErrorLevel := !r
 }
@@ -2933,11 +2928,19 @@ Base64Encode(Text) {
 }
 
 ;codificar URL
-UriEncode(String) {
-    obj := ComObjCreate("ScriptControl"), obj.Language := "JScript"
-    , obj.ExecuteStatement("var Encoded = encodeURIComponent(" Chr(34) String Chr(34) ")")
-    return obj.Eval("Encoded")
-}
+UriEncode(Uri, Encoding := "CP0") {
+	StrPutVar(Uri, Var, Encoding)
+	Loop {
+		Code := Hex(NumGet(Var, A_Index - 1, "UChar"))
+		If !(Code)
+			Break
+		If (Code >= 0x30 && Code <= 0x39 ; 0-9
+			|| Code >= 0x41 && Code <= 0x5A ; A-Z
+			|| Code >= 0x61 && Code <= 0x7A) ; a-z
+			Res .= Chr(Code)
+		else Res .= "%" . SubStr(Hex(Code + 0x100), -1)
+	} return Res
+} ;https://autohotkey.com/board/topic/75390-ahk-l-unicode-uri-encode-url-encode-function/
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;DECODIFICAR
@@ -2973,11 +2976,17 @@ Base64Decode(Text) {
 }
 
 ;decodificar URL
-UriDecode(String) {
-    obj := ComObjCreate("ScriptControl"), obj.Language := "JScript"
-    , obj.ExecuteStatement("var Decoded = decodeURIComponent(" Chr(34) String Chr(34) ")")
-    return obj.Eval("Decoded")
-}
+UriDecode(Uri, Enc := "CP0") {
+	Pos := 1
+	Loop {
+		if ((Pos:=RegExMatch(Uri, "i)(?:%[\da-f]{2})+", Code, Pos++))=0)
+			break
+		VarSetCapacity(Var, StrLen(Code) // 3, 0), Code := SubStr(Code, 2)
+		Loop, Parse, % Code, `%
+			NumPut("0x" . A_LoopField, Var, A_Index - 1, "UChar")
+		Uri := StrReplace(Uri, "%" Code, StrGet(&Var, Enc))
+	} return, Uri
+} ;https://autohotkey.com/board/topic/75390-ahk-l-unicode-uri-encode-url-encode-function/
 
 
 
@@ -3354,15 +3363,6 @@ ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 			return ThreadList, ErrorLevel := hSnapshot=-1, CloseHandle(hSnapshot)
 }}
 
-CreateProcess(ApplicationName := "", ByRef CommandLine := "", ProcessAttributes := 0, ThreadAttributes := 0, InheritHandles := true, CreationFlags := 0x08000000, Environment := 0, CurrentDirectory := "", StartupInfo := 0) {
-	VarSetCapacity(PROCESS_INFORMATION, A_PtrSize=4?16:24, 0)
-	, r := DllCall("Kernel32.dll\CreateProcessW", "Ptr", ApplicationName=""?0:&ApplicationName, "Ptr", CommandLine=""?0:&CommandLine
-	, "Ptr", ProcessAttributes, "Ptr", ThreadAttributes, "Int", !!InheritHandles, "UInt", CreationFlags, "Ptr", Environment, "Ptr", CurrentDirectory=""?0:&CurrentDirectory
-	, "Ptr", StartupInfo, "Ptr", &PROCESS_INFORMATION)
-	return r?{HANDLE: NumGet(PROCESS_INFORMATION, 0, "Ptr"), hThread: NumGet(PROCESS_INFORMATION, A_PtrSize, "Ptr")
-	, ID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?8:16, "Ptr"), ThreadID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?12:24, "Ptr")}:0, ErrorLevel := !r
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
-
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;OTRAS FUNCIONES (para uso interno)
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3396,7 +3396,14 @@ OpenThread(ThreadId, DesiredAccess := 0x1F03FF, InheritHandle := false) {
 	return DllCall("Kernel32.dll\OpenThread", "UInt", DesiredAccess, "Int", !!InheritHandle, "UInt", ThreadId, "Ptr")
 }
 
-
+CreateProcess(ApplicationName := "", ByRef CommandLine := "", ProcessAttributes := 0, ThreadAttributes := 0, InheritHandles := true, CreationFlags := 0x08000000, Environment := 0, CurrentDirectory := "", StartupInfo := 0) {
+	VarSetCapacity(PROCESS_INFORMATION, A_PtrSize=4?16:24, 0)
+	, r := DllCall("Kernel32.dll\CreateProcessW", "Ptr", ApplicationName=""?0:&ApplicationName, "Ptr", CommandLine=""?0:&CommandLine
+	, "Ptr", ProcessAttributes, "Ptr", ThreadAttributes, "Int", !!InheritHandles, "UInt", CreationFlags, "Ptr", Environment, "Ptr", CurrentDirectory=""?0:&CurrentDirectory
+	, "Ptr", StartupInfo, "Ptr", &PROCESS_INFORMATION)
+	return r?{HANDLE: NumGet(PROCESS_INFORMATION, 0, "Ptr"), hThread: NumGet(PROCESS_INFORMATION, A_PtrSize, "Ptr")
+	, ID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?8:16, "Ptr"), ThreadID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?12:24, "Ptr")}:0, ErrorLevel := !r
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
 
 
 
@@ -4668,6 +4675,30 @@ RegisterActiveObject(Object, CLSID := "", Flags := 0, AppId := "") {
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;obtener ruta de la ventana del explorador de windows espesificada
+;Sintaxis: GetExplorerWindowPath( [hWnd] )
+;ErrorLevel: 
+	;0 = Ok
+	;1 o 2 = Error
+	;3 = es posible que la ruta sea una biblioteca o el quipo, devuelve el nombre
+	;4 = la ventana espesificada es inválida
+GetExplorerWindowPath(hWnd := -1) {
+	static spn := {"Documentos": "Documents", "Música": "Music", "Imágenes": "Pictures", "Juegos": "Games"}
+	Class := WinGetClass(hWnd), hWnd := hWnd=-1?IsWindow():hWnd
+	if (Class=="Progman") || (Class=="WorkerW")
+		return A_Desktop, ErrorLevel := false
+	if (Class="CabinetWClass") || (Class="ExploreWClass") {
+		for this in ComObjCreate("Shell.Application").Windows {
+			if (this.hWnd=hWnd) {
+				if (this.LocationURL="") {
+					if (this.LocationName="")
+						return false, ErrorLevel := true
+					;Loop, Files, %A_AppData%\Microsoft\Windows\Libraries\*.*, F
+					return this.LocationName, ErrorLevel := this.LocationName=""?2:3
+				} return RTrim(StrReplace(UriDecode(LTrim(LTrim(Trim(this.LocationURL), "ftp:///"), "file:///")), "/", "\"), "\")
+	}}} return false, ErrorLevel := 4
+}
+
 ;ejecuta el script como administrador
 RunAsAdmin() {
 	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (IsWindowsVistaOrGreater()) {
@@ -5365,6 +5396,8 @@ RegSetSecurity(RegKey, Trustee := "S-1-1-0", AccessMask := 2032127) {
 	, newAce.AceType := false, dacl.AddAce(newAce)
 	return sdutil.SetSecurityDescriptor(RegKey, 3, sd, true)
 }
+
+
 
 
 
@@ -8231,20 +8264,24 @@ SysGet(Subcommand, Param3 := "") {
 	return OutputVar ;DllCall("User32.dll\GetSystemMetrics", "Int", Subcommand)
 }
 
-;Opciones de apagado
+;Apagar Equipo
 ;Sinraxis: Shutdown( [Código], [¿Forzar?] )
 ;CÓDIGOS
 	;1 = Apagar | 2 = Reiniciar | 3 = Cerrar sesion | 4 = apaga el ardenador y alimentación
 	;5 = Suspender | 6 = Hibernar
 	;7 = Apagar monitor | 8 = Encender monitor | 9 = Poner el monitor en bajo consumo
-	;10 = bloquear el equipo
+	;10 = bloquear el equipo (WIN+L)
 Shutdown(Code, Force := false) {
-	if Between(Code, 5, 6) {
-		return DllCall("PowrProf.dll\\SetSuspendState", "int", Code=5?0:1, "int", Force, "int", 0)
-	} else if Between(Code, 7, 9) {
+	if (Code=5) || (Code=6) { ;Suspender / Hibernar
+		if (Code=5) ;Suspender
+			CMD("powercfg -h Off"), h := false ;desactivar Hibernación
+		else CMD("powercfg -h On"), h := true ;activar Hibernación
+		Run, % A_SysDir() "\rundll32.exe powrprof.dll,SetSuspendState " h "," !!Force ",0",, Hide, PID ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa373201(v=vs.85).aspx
+		return ErrorLevel?false:(PID?PID:true)
+	} else if (Code=7) || (Code=8) || (Code=9) {
 		Code := Code=7?2:Code=8?-1:1, GetDesktop(,, hDesktop)
 		return SendMessage(hDesktop, 0x112, "UInt", 0xF170,, Code)
-	} else if Between(Code, 1, 4) {
+	} else if (Code=1) || (Code=2) || (Code=3) || (Code=4) {
 		Code := Code=1?0x00000001:Code=2?0x00000002:Code=3?0:0x00000008
 		return DllCall("User32.dll\ExitWindowsEx", "UInt", Force?Code|0x00000004:Code, "UInt", 0)
 	} else if (Code=10) {
@@ -9233,9 +9270,12 @@ WinClose(hWnd, Seconds := -1, Force := false) {
 }
 
 ;forzar cierre de la ventana
-WinKill(hWnd) {
+;Sintais: WinKill( [hWnd], [¿forzar cierre del proceso?] )
+WinKill(hWnd, Force := false) {
 	_gethwnd(hWnd)
-	, WinGetPID(hWnd, ThreadId), hThread := OpenThread(ThreadId, 0x0001)
+	if (Force)
+		return ProcessClose(WinGetPID(hWnd))
+	WinGetPID(hWnd, ThreadId), hThread := OpenThread(ThreadId, 0x0001)
 	, r := DllCall("Kernel32.dll\TerminateThread", "Ptr", hThread, "UInt", 0, "UInt")
 	if !(r)
 		r := DllCall("User32.dll\EndTask", "Ptr", hWnd, "Int", false, "Int", true)
@@ -10502,10 +10542,9 @@ ServiceContinue(IpName) {
 
 ;eliminar
 ServiceDelete(IpName) {
-	hService := ServiceOpen( IpName,, 0x00010000 )
-	return i := DllCall("Advapi32.lib\DeleteService", "Ptr", hService)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService)
-		, ErrorLevel := !i
+	hService := ServiceOpen(IpName,, 0x00010000)
+	return r := DllCall("Advapi32.dll\DeleteService", "Ptr", hService)
+		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !r
 }
 
 ;iniciar
@@ -10592,7 +10631,6 @@ ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF,
 		, x:=IsByRef(hSCManager)?"":DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hSCManager)
 		, ErrorLevel := !i
 }
-
 
 
 
