@@ -1,14 +1,20 @@
 ###############################################################
-ACTUALIZACION 19/12/2015 - AHK1.1.22.09
+ACTUALIZACION 19/12/2015, 20/12 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
 	• OpenThread()
 	
 Mejoras:
+	• DirCreate() ~ 20/12
 	• GetDesktop()
 	• ControlFocus()
 	
 Correcciones:
+	• GetExplorerWindowPath() (afectado por UriDecode) ~ 20/12
+	• UriEncode() ~ 20/12
+	• UriDecode() ~ 20/12
+	• Shutdown() (correcciones en WIN_8+ al suspender/hibernar) ~ 20/12
+	• ServiceDelete() ~ 20/12
 	• RegCopyKey()
 	• RestartWindowsExplorer(). evitar cerrar otros procesos con el nombre explorer.exe
 	• WinGetPos()
@@ -22,7 +28,8 @@ Funciones Eliminadas:
 	• WinSetEventHook()
 	
 Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
-	• FileGetTime()
+	• FileCopy() ~ 20/12
+	• FileGetTime()
 	• FileSelect(). devolver la ruta completa al seleccionar varios archivos, separados por `n
 ###############################################################
 
