@@ -1,20 +1,55 @@
 ###############################################################
-ACTUALIZACION 19/12/2015, 20/12 - AHK1.1.22.09
+ACTUALIZACION 19/12/2015, 20/12, 23/12 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
+	• CreateCompatibleDC() ~ 23/12
+	• DeleteObject() ~ 23/12
+	• CreateDC() ~ 23/12
+	• DeleteDC() ~ 23/12
+	• SelectObject() ~ 23/12
+	• GetDCEx() ~ 23/12
+	• GetDC() ~ 23/12
+	• BitBlt() ~ 23/12
+	• ReleaseDC() ~ 23/12
+	• DeleteObject() ~ 23/12
+	• GdipBitmapFromScreen() ~ 23/12
+	• GdipGetImageDimensions() ~ 23/12
+	• GdipSetCompositingMode() ~ 23/12
+	• GdipSetTextRenderingHint() ~ 23/12
+	• GdipSaveBitmapToFile() ~ 23/12
+	• GdipSetSmoothingMode() ~ 23/12
+	• GdipSetInterpolationMode() ~ 23/12
+	• GdipDeleteGraphics() ~ 23/12
+	• GdipDisposeImageAttributes() ~ 23/12
+	• GdipGetImageWidth() ~ 23/12
+	• GdipSetImageAttributesColorMatrix() ~ 23/12
+	• GdipDrawImage() ~ 23/12
+	• GdipGraphicsFromImage() ~ 23/12
+	• GdipCreateBitmap() ~ 23/12
+	• DrawIcon() ~ 23/12
+	• CreateDIBSection() ~ 23/12
+	• GetObject() ~ 23/12
+	• GetSelectedText() ~ 23/12
 	• GetExplorerWindowPath()
 	• OpenThread()
-	
+
+Notas:
+	• ya no es necesario "#Include <Gdip>", todas las funciones necesarias han sido añadidas  ~ 23/12
+		--> Nota: algunas funciones agregadas interfieren con la libreria GDIP de TIC
+
 Mejoras:
+	• A_UserProfile() ~ 23/12
 	• DirCreate() ~ 20/12
 	• GetDesktop()
 	• ControlFocus()
 	
 Correcciones:
+	• BitShiftLeft() ~ 23/12
+	• BitShiftRight()  ~ 23/12
 	• GetExplorerWindowPath() (afectado por UriDecode) ~ 20/12
 	• UriEncode() ~ 20/12
 	• UriDecode() ~ 20/12
-	• Shutdown() (correcciones en WIN_8+ al suspender/hibernar) ~ 20/12
+	• Shutdown() (correcciones en WIN_8+ al suspender/hibernar) ~ 20/12
 	• ServiceDelete() ~ 20/12
 	• RegCopyKey()
 	• RestartWindowsExplorer(). evitar cerrar otros procesos con el nombre explorer.exe
@@ -26,12 +61,20 @@ Funciones Renombradas:
 	• IL_Destroy() --> IL_DestroyEx()
 
 Funciones Eliminadas:
+	• Clipboard() ~ 23/12
+	• InternetGetString(). usar Download() ~ 23/12
 	• WinSetEventHook()
 	
 Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
 	• FileCopy() ~ 20/12
 	• FileGetTime()
 	• FileSelect(). devolver la ruta completa al seleccionar varios archivos, separados por `n
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• SaveScreenshot(). +mejoras ~ 23/12
+	• ImageGetDimension(). devuelve un array con el ancho y alto ~ 23/12
+	• SetDesktopWallpaper() ~ 23/12
+	• ImageConvert(). return value 0|1 ~ 23/12
 ###############################################################
 
 
