@@ -6,13 +6,13 @@ SO BASE: MS Windows 10 Enterprise 32 bits (10.0, compilación 10586)
 Funciones: archivos, carpetas, cadena, criptografía, procesos, internet,
 					gui & dialogos, gui controles, registro, control, mouse & teclado, sistema,
 					ventanas, servicios, unidades, sonido, monitor, números &
-					operaciones matemáticas, menús, ejecutar, barra de tareas,
+					operaciones matemáticas, menús, ejecutar, barra de tareas, Device Context Functions
 					escritorio & explorador & menu inicio & papelera de reciclaje,
 					notificaciones, fuentes & colores & recursos & DLL, nombres y rutas de archivos,
 					tareas programadas, objetos, administración de memoria, Gdiplus, portapapeles, otros.
 Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.09 U32 & U64 || Domingo, 20 de diciembre de 2015
+Actualizado: AHK1.1.22.09 U32 & U64 || Miercoles, 23 de diciembre de 2015
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -120,6 +120,7 @@ _mnum(f,s,r:=true){
 
 
 
+
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 ;<--------------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	---------------	------->
 ;<--------------------	---------------  ------------   FUNCIONES	-------------	---------------	---------------	---------------	---------------	------->
@@ -191,7 +192,7 @@ FileSecureDelete(Filename, Passes := 1) {
 		Loop, % (c)
 			obj.RawWrite(Buffer, Bytes)
 		VarSetCapacity(Buffer, Bytes2, A_index), obj.RawWrite(Buffer, Bytes2)
-	} obj.Close()
+	} obj.Close(), VarSetCapacity(Buffer, 0)
 	return FileDelete(Filename)
 }
 
@@ -1301,9 +1302,9 @@ Divide(n1, n2, l := 6){
 }
 
 BitShiftLeft(Value, Bit, BitwiseAnd := "") { ;MsgBox % (54992<<0xC) "`n" BitShiftLeft(54992, 0xC) 
-	return (BitwiseAnd=""?RoundEx(Value*Power(2, Bit)):RoundEx(Value*Power(2, Bit))&BitwiseAnd)
+	return (BitwiseAnd=""?RoundEx(Multiply(Value, Power(2, Bit))):RoundEx(Multiply(Value, Power(2, Bit)))&BitwiseAnd)
 } BitShiftRight(Value, Bit, BitwiseAnd := "") { ;MsgBox % (54992>>0xC) "`n" BitShiftRight(54992, 0xC)
-	return (BitwiseAnd=""?RoundEx(Value/Power(2, Bit)):RoundEx(Value/Power(2, Bit))&BitwiseAnd)
+	return (BitwiseAnd=""?RoundEx(Divide(Value, Power(2, Bit))):RoundEx(Divide(Value, Power(2, Bit)))&BitwiseAnd)
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -1385,7 +1386,7 @@ IsEven(num) {
 ;Sintaxis: IsNumber( [número], [carácteres no permitidos separados por coma] )
 ;EJEMPLO: MsgBox % IsNumber(-23.02) "`n" IsNumber("*1") "`n" IsNumber(-1) "`n" IsNumber(0xF,"*") "`n" IsNumber(+1)
 IsNumber(num, IfChars := "*,x") {
-	return ((Contains(num,IfChars)||((num+1)=""))?false:true)
+	return ((Contains(num,IfChars)||((num+0)=""))?false:true)
 }
 
 IsPrime(N) {
@@ -1438,6 +1439,7 @@ RGB(Color := "", ByRef R := "", ByRef G := "", ByRef B := "") {
 	return Hex(Color, 6, true)
 } ;R := ((Color & 0xFF0000) >> 16), G := ((Color & 0xFF00) >> 8), B := (Color & 0xFF)
 
+;convertir RGB a BGR
 RGBToBGR(rgb) {
  	return Hex(((rgb & 255) << 16) | (((rgb >> 8) & 255) << 8) | (rgb >> 16), 6, true)
 }   
@@ -1929,7 +1931,9 @@ DegreeToRadian(Degrees, Centesimal := false) {
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: GDIPLUS ::::::::::::::::::::::::::::::::::
 ;Link: https://msdn.microsoft.com/en-us/library/ms533971(v=vs.85).aspx
-;Nota: antes de usar cualquier funcion de abajo, usar GdiplusStartup()
+;Notas: 
+	;• antes de usar cualquier funcion de abajo: usar GdiplusStartup()
+	;• cuando ya no necesite usarlas: usar GdiplusShutdown()
 ;#############################################################################################################################################
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUNCIONES NECESARIAS ~ INICIO
@@ -1964,21 +1968,184 @@ GdiplusShutdown(hToken := 0, hModule := true) {
 GdipCreateBitmapFromStream(pStream) {
 	DllCall("gdiplus.dll\GdipCreateBitmapFromStream", "Ptr", pStream, "PtrP", pBitmap)
 	return pBitmap
-}
+} ;GdipCreateBitmapFromStream
 
 GdipCreateHBitmapFromBitmap(pBitmap, Background := 0xFFFFFFFF) {
 	DllCall("gdiplus.dll\GdipCreateHBITMAPFromBitmap", "Ptr", pBitmap, "PtrP", hBitmap, "UInt", _getcolor(Background))
 	return hBitmap
-}
+} ;https://msdn.microsoft.com/en-us/library/ms536295(v=vs.85).aspx
 
 GdipCreateBitmapFromHBitmap(hBitmap, Palette := 0) {
 	DllCall("gdiplus.dll\GdipCreateBitmapFromHBITMAP", "Ptr", hBitmap, "Ptr", Palette, "PtrP", pBitmap)
 	return pBitmap
-}
+} ;https://msdn.microsoft.com/en-us/library/ms536314(v=vs.85).aspx
 
 GdipDisposeImage(pBitmap) {
 	DllCall("gdiplus.dll\GdipDisposeImage", "Ptr", pBitmap)
 }
+
+GdipCreateBitmap(Width, Height, PixelFormat := 0x26200A) {
+	DllCall("gdiplus.dll\GdipCreateBitmapFromScan0", "Int", Width, "Int", Height, "Int", 0, "Int", PixelFormat, "Ptr", 0, "PtrP", pBitmap)
+	return pBitmap
+} ;https://msdn.microsoft.com/en-us/library/ms536315(v=vs.85).aspx
+
+GdipGraphicsFromImage(pBitmap) {
+	DllCall("gdiplus.dll\GdipGetImageGraphicsContext", "Ptr", pBitmap, "PtrP", pGraphics)
+	return pGraphics
+}
+
+GdipSetImageAttributesColorMatrix(Matrix) {
+	VarSetCapacity(ColourMatrix, 100, 0), Matrix := RegExReplace(RegExReplace(Matrix
+	, "^[^\d-\.]+([\d\.])", "$1", "", 1), "[^\d-\.]+", "|"), Matrix := StrSplit(Matrix, "|")
+	Loop, 25
+		Matrix := (Matrix[A_Index]!="")?Matrix[A_Index]:!Mod(A_Index-1, 6)
+		, NumPut(Matrix, ColourMatrix, (A_Index-1)*4, "Float")
+	DllCall("gdiplus.dll\GdipCreateImageAttributes", "PtrP", ImageAttr)
+	, DllCall("gdiplus.dll\GdipSetImageAttributesColorMatrix", "Ptr", ImageAttr, "Int", 1, "Int", 1, "Ptr", &ColourMatrix, "Ptr", 0, "Int", 0)
+	return ImageAttr
+}
+
+GdipGetImageWidth(pBitmap) {
+   DllCall("gdiplus.dll\GdipGetImageWidth", "Ptr", pBitmap, "UIntP", Width)
+   return Width
+}
+
+GdipGetImageHeight(pBitmap) {
+   DllCall("gdiplus.dll\GdipGetImageHeight", "Ptr", pBitmap, "UIntP", Height)
+   return Height
+}
+
+GdipDisposeImageAttributes(ImageAttr) {
+	return DllCall("gdiplus.dll\GdipDisposeImageAttributes", "Ptr", ImageAttr)
+}
+
+GdipDrawImage(pGraphics, pBitmap, dx := "", dy := "", dw := "", dh := "", sx := "", sy := "", sw := "", sh := "", Matrix := 1) {
+	if ((Matrix&1)="")
+		ImageAttr := GdipSetImageAttributesColorMatrix(Matrix)
+	else if !(Matrix=1)
+		ImageAttr := GdipSetImageAttributesColorMatrix("1|0|0|0|0|0|1|0|0|0|0|0|1|0|0|0|0|0|" Matrix "|0|0|0|0|0|1")
+	if (sx sy sw sh="") {
+		if (dx dy dw dh="") {
+			sx := dx := sy := dy := 0
+			, sw := dw := GdipGetImageWidth(pBitmap)
+			, sh := dh := GdipGetImageHeight(pBitmap)
+		} else {
+			sx := sy := 0
+			, sw := GdipGetImageWidth(pBitmap)
+			, sh := GdipGetImageHeight(pBitmap)
+	}} himgr := DllCall("gdiplus.dll\GdipDrawImageRectRect", "Ptr", pGraphics, "Ptr", pBitmap, "Float", dx, "Float", dy
+	, "Float", dw, "Float", dh, "Float", sx, "Float", sy, "Float", sw, "Float", sh, "Int", 2, "Ptr", ImageAttr, "Ptr", 0, "Ptr", 0)
+	if (ImageAttr)
+		GdipDisposeImageAttributes(ImageAttr)
+	return himgr
+}
+
+GdipDeleteGraphics(pGraphics) {
+	return DllCall("gdiplus.dll\GdipDeleteGraphics", "Ptr", pGraphics)
+}
+
+GdipCreateBitmapFromFile(File, Index := 1, IconSizes := "256|128|64|48|32|16") {
+	SplitPath, File,,, Ext
+	if (Ext="exe") || (Ext="dll") {
+		Size := VarSetCapacity(ICONINFO, 16 + (2*A_PtrSize), 0)
+		Loop, Parse, % IconSizes, |
+		{ 	if !(hIcon:=ExtractIconEx(File, Index, A_LoopField, A_LoopField))
+				continue
+			if !(DllCall("User32.dll\GetIconInfo", "Ptr", hIcon, "Ptr", &ICONINFO, "Int")) || !(GetObject(c:=NumGet(ICONINFO, 12 + (A_PtrSize-4) + 4), Size, ICONINFO) && c) {
+				ExtractIcon(hIcon, -1), hIcon := ""
+				continue
+			} break
+		} if !(hIcon)
+			return false
+		hbm := CreateDIBSection(Width:=NumGet(ICONINFO, 4, "Int"), -(Height:=NumGet(ICONINFO, 8, "Int"))), hDC := CreateCompatibleDC(), hSelectObj := SelectObject(hDC, hbm)
+		if !DrawIcon(hDC,,, hIcon, Width, Height)
+			return false, ExtractIcon(hIcon, -1)
+		GetObject(hbm, A_PtrSize=8?104:84, dib, 104), Stride := NumGet(dib, 12, "Int"), Bits := NumGet(dib, 20 + (A_PtrSize-4))
+		, DllCall("gdiplus.dll\GdipCreateBitmapFromScan0", "Int", Width, "Int", Height, "Int", Stride, "Int", 0x26200A, "Int", Bits, "PtrP", pBitmapOld)
+		, pBitmap := GdipCreateBitmap(Width, Height), pGraphics := GdipGraphicsFromImage(pBitmap), GdipDrawImage(pGraphics, pBitmapOld, 0, 0, Width, Height, 0, 0, Width, Height)
+		, SelectObject(hDC, obm), DeleteObject(obm), DeleteDC(hDC), GdipDeleteGraphics(pGraphics), GdipDisposeImage(pBitmapOld), ExtractIcon(hIcon, -1)
+	} else DllCall("gdiplus.dll\GdipCreateBitmapFromFile", "Ptr", &File, "PtrP", pBitmap)
+	return pBitmap
+}
+
+;pBitmap --> File
+;Sintaxis: GdipSaveBitmapToFile( [pBitmap], [archivo], [jpg calidad 0~100], [¿sobreescribir archivo?] )
+;Extensiones soportadas: BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
+;Return: 0|1
+GdipSaveBitmapToFile(pBitmap, File, Quality := 100, OverWrite := true) {
+	if !(OverWrite) && (FileExist(File))
+		return false, ErrorLevel := 5 ;5=el archivo ya existe
+	File := GetFullPathName(File), SplitPath(File,, Dir, Ext)
+	if !(InVar(Ext, "bmp,dib,rle,jpg,jpeg,jpe,jfif,gif,tif,tiff,png")) 
+		return false, ErrorLevel := 4 ;4=extension no soportada
+	DllCall("gdiplus.dll\GdipGetImageEncodersSize", "UIntP", Count, "UIntP", Size)
+	, VarSetCapacity(ci, Size, 0), DllCall("gdiplus.dll\GdipGetImageEncoders", "UInt", Count, "UInt", Size, "Ptr", &ci)
+	if !(Count) && !(Size)
+		return false, ErrorLevel := 2 ;2=no se pudo obtener una lista de los codificadores en el sistema
+	Loop, %Count% {
+		if !(InStr(Str:=StrGet(NumGet(ci, (idx:=(48+7*A_PtrSize)*(A_Index-1))+32+3*A_PtrSize), "UTF-16"), "*." Ext))
+			continue
+		Codec := &ci+idx
+		break
+	} if !(DirCreate(Dir)="*") && !(Codec)
+		return false, ErrorLevel := 3 ;3=no se pudo encontrar codificador para el formato de archivo especificado
+	if !(Quality=75) {
+		if !((Quality:=Quality<0?0:Quality>100?100:Quality)="*") && (InVar(Ext, "jpg,jpeg,jpe,jfif")) {
+			DllCall("gdiplus.dll\GdipGetEncoderParameterListSize", "Ptr", pBitmap, "Ptr", Codec, "UIntP", Size), VarSetCapacity(EncoderParameters
+			, Size, 0), DllCall("gdiplus.dll\GdipGetEncoderParameterList", "Ptr", pBitmap, "Ptr", Codec, "UInt", Size, "Ptr", &EncoderParameters)
+			Loop, % NumGet(EncoderParameters, 0, "UInt") {
+				elem := (24+A_PtrSize)*(A_Index-1) + 4 + (pad:=A_PtrSize-4)
+				if (NumGet(EncoderParameters, elem+16, "UInt")=1) && (NumGet(EncoderParameters, elem+20, "UInt")=6) {
+					p := elem+&EncoderParameters-pad-4, NumPut(Quality, NumGet(NumPut(4, NumPut(1, p+0)+20, "UInt")), "UInt")
+					break
+	}	}	}	} return Error:=!DllCall("gdiplus.dll\GdipSaveImageToFile", "Ptr", pBitmap, "Ptr", &File, "Ptr", Codec, "UInt", p?p:0), ErrorLevel := !Error ;1=error al guardar el archivo
+}
+
+GdipGetImageDimensions(pBitmap, ByRef Width := "", ByRef Height := "") {
+	if (w:=true) && IsByRef(Width)
+		w := !DllCall("gdiplus.dll\GdipGetImageWidth", "Ptr", pBitmap, "UIntP", Width)
+	if (h:=true) && IsByRef(Height)
+		h := !DllCall("gdiplus.dll\GdipGetImageHeight", "Ptr", pBitmap, "UIntP", Height)
+	return h&&w, ErrorLevel := !(h&&w)
+}
+
+;Bitmap From Screen
+;Sintaxis: GdipBitmapFromScreen( [pantalla], [raster], [hWnd] )
+;Pantalla:
+	;0 = todas
+	;x|y|w|h = coordenadas
+GdipBitmapFromScreen(Screen := 0, Raster := 0x00CC0020, hWnd := 0) {
+	if (Screen=0) && (Pos:=[])
+		Pos[1] := SysGet(76), Pos[2] := SysGet(77), Pos[3] := SysGet(78), Pos[4] := SysGet(79)
+	else Pos := StrSplit(Screen, "|", A_Space A_Tab)
+	hDC := CreateCompatibleDC(), hbm := CreateDIBSection(Pos[3], Pos[4], hDC), hSelObject := SelectObject(hDC, hbm)
+	, hDC2 := GetDC(hWnd, 0, hWnd?3:0), BitBlt(hDC,,, Pos[3], Pos[4], hDC2, Pos[1], Pos[2], Raster)
+	, ReleaseDC(0, hDC2), pBitmap := GdipCreateBitmapFromHBITMAP(hbm), SelectObject(hDC, hSelObject)
+	return pBitmap, DeleteObject(hbm), DeleteDC(hDC2, hDC)
+}
+
+;funciones de calidad
+GdipSetInterpolationMode(pGraphics, Mode := 7) {
+	return DllCall("gdiplus.dll\GdipSetInterpolationMode", "Ptr", pGraphics, "Int", Mode)
+}
+
+GdipSetSmoothingMode(pGraphics, Mode := 4) {
+   return DllCall("gdiplus.dll\GdipSetSmoothingMode", "Ptr", pGraphics, "Int", Mode)
+}
+
+GdipSetTextRenderingHint(pGraphics, Hint := 4) {
+	return DllCall("gdiplus.dll\GdipSetTextRenderingHint", "Ptr", pGraphics, "Int", Hint)
+}
+
+GdipSetCompositingMode(pGraphics, Mode := 0) {
+   return DllCall("gdiplus.dll\GdipSetCompositingMode", "Ptr", pGraphics, "Int", !!Mode)
+}
+
+
+
+
+
+
 
 
 
@@ -2101,6 +2268,131 @@ VirtualFree(hProcess, Address, Size, FreeType := 0x4000) {
 		return DllCall("Kernel32.dll\VirtualFreeEx", "Ptr", hProcess, "PtrP", Address, "UInt", Size, "UInt", FreeType)
 	return DllCall("Kernel32.dll\VirtualFree", "PtrP", Address, "UInt", Size, "UInt", FreeType)
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa366894(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: DEVICE CONTEXT FUNCTIONS ::::::::::::::::::::::::::::::::::
+;Notas:
+	;usar DeleteDC para: CreateDC, CreateIC, CreateCompatibleDC
+	;usar ReleaseDC para: GetDC
+;#############################################################################################################################################
+;crea un contexto de dispositivo (DC, device context) para un dispositivo utilizando el nombre especificado
+;Sintaxis: CreateDC( [nombre], [nombre del dispositivo de salida], [data] )
+;Return: hDC
+CreateDC(Driver := "DISPLAY", Device := "", InitData := 0) {
+	if (Driver="DISPLAY") && !(Device="") && !(Device=Driver) ;si Driver="DISPLAY" -> Device="" o Device="DISPLAY"
+		Device := ""
+	return DllCall("Gdi32.dll\CreateDC", "Ptr", Driver=""?0:&Driver, "Ptr", Device=""?0:&Device, "Ptr", 0, "Ptr", InitData, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/dd183490(v=vs.85).aspx
+
+CreateCompatibleDC(hWnd := 0) {
+	return DllCall("Gdi32.dll\CreateCompatibleDC", "Ptr", hWnd, "Ptr")
+}
+
+;recupera la información para el dispositivo especificado
+;Sintaxis: GetDeviceCaps( [hDC], [Index], [return type] )
+GetDeviceCaps(ByRef hDC := 0, Index := 1, ReturnType := "Int") {
+	r := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC?hDC:(DC:=CreateDC()), "Int", Index, ReturnType)
+	if (DC)
+		hDC := IsByRef(hDC)?DC:DllCall("Gdi32.dll\DeleteDC", "Ptr", DC, "Int")
+	return r
+} ;https://msdn.microsoft.com/en-us/library/dd144877(v=vs.85).aspx
+
+GetStockObject(Object, ByRef hDC := 0) {
+	if IsByRef(hDC)
+		hDC := DllCall("User32.dll\GetDC", "Ptr", hDC?hDC:0, "Ptr")
+	return DllCall("Gdi32.dll\GetStockObject", "Int", Object, "Ptr")
+}
+
+;Sintaxis: GetDC( [hWnd], [region], [modo] )
+;hWnd: ventana_hwnd o 0 para toda la pantalla
+;Return: hDC
+GetDC(hWnd := 0, RegionClip := 0, Flags := 0) {
+	if (RegionClip) || (Flags)
+		return DllCall("User32.dll\GetDCEx", "Ptr", hWnd, "Ptr", RegionClip, "UInt", Flags)
+	return DllCall("User32.dll\GetDC", "Ptr", hWnd, "Ptr")
+}
+
+;Sintaxis: ReleaseDC( [hWnd], [hDC] )
+ReleaseDC(hWnd, hDC) {
+	return DllCall("User32.dll\ReleaseDC", "Ptr", hWnd, "Ptr", hDC, "Int")
+}
+
+;Sintaxis: DeleteDC( [hDC] )
+DeleteDC(hDC*) {
+	Ok := 0
+	Loop, % hDC.MaxIndex()
+		Ok += !!DllCall("Gdi32.dll\DeleteDC", "Ptr", hDC[A_Index], "UInt")
+	return Ok=hDC.MaxIndex()
+}
+
+;Sintaxis: BitBlt( [destino], [x], [y], [ancho], [alto], [source], [sx], [sy], [raster] )
+BitBlt(Dest, x := 0, y := 0, Width := 32, Height := 32, Source := 0, sx := 0, sy := 0, Raster := 0x00CC0020) {
+	return DllCall("gdi32.dll\BitBlt", "Ptr", Dest, "Int", x, "Int", y, "Int", Width, "Int", Height, "Ptr", Source, "Int", sx, "Int", sy, "UInt", Raster, "UInt")
+} ;https://msdn.microsoft.com/en-us/library/dd183370(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2409,53 +2701,18 @@ _getcolor(c) {
 }
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
-;OTRAS FUNCIONES PARA USO INTERNO ~ FUENTES
-;Parámetros:
-	;hDC (válido solo para GetDeviceCaps):
-		;si no se espesifica, lo crea y luego lo elimina.
-		;si se espesifica, lo usa sin modificar
-		;si se espesifica una variable vacía o con un valor de cero, lo crea y devuelve hDC sin eliminarlo
-;Notas:
-	;usar DeleteDC para: CreateDC, CreateIC, CreateCompatibleDC
-	;usar ReleaseDC para: GetDC
-;-------------------------------------------------------------------------------------------------------------------------------------------------
-;crea un contexto de dispositivo (DC, device context) para un dispositivo utilizando el nombre especificado
-;Sintaxis: CreateDC( [nombre], [nombre del dispositivo de salida], [data] )
-;Return: hDC
-CreateDC(Driver := "DISPLAY", Device := "", InitData := 0) {
-	if (Driver="DISPLAY") && !(Device="") && !(Device=Driver) ;si Driver="DISPLAY" -> Device="" o Device="DISPLAY"
-		Device := ""
-	return DllCall("Gdi32.dll\CreateDC", "Ptr", Driver=""?0:&Driver, "Ptr", Device=""?0:&Device, "Ptr", 0, "Ptr", InitData, "Ptr")
-} ;https://msdn.microsoft.com/en-us/library/dd183490(v=vs.85).aspx
-
-;recupera la información para el dispositivo especificado
-;Sintaxis: GetDeviceCaps( [hDC], [Index], [return type] )
-GetDeviceCaps(ByRef hDC := 0, Index := 1, ReturnType := "Int") {
-	r := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC?hDC:(DC:=CreateDC()), "Int", Index, ReturnType)
-	if (DC)
-		hDC := IsByRef(hDC)?DC:DllCall("Gdi32.dll\DeleteDC", "Ptr", DC, "Int")
-	return r
-} ;https://msdn.microsoft.com/en-us/library/dd144877(v=vs.85).aspx
-
-GetStockObject(Object, ByRef hDC := 0) {
-	if IsByRef(hDC)
-		hDC := DllCall("User32.dll\GetDC", "Ptr", hDC?hDC:0, "Ptr")
-	return DllCall("Gdi32.dll\GetStockObject", "Int", Object, "Ptr")
-}
-
-;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUENTES
 ;Parámetros:
 	;hFont: hFont (FontCreate) o dejar vacío (o cero) para usar la fuente por defecto
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;enumera todas las fuentes instaladas.
 FontEnum(lfCharSet := 1, lfFaceName := "") {
-	hDC := DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
+	hDC := GetDC(), VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
 	if !(lfFaceName="")
 		StrCopy(&LOGFONT+28, lfFaceName)
 	lpEnumFunc := RegisterCallback("EnumFontFamExProc", "Fast", 4), Param := {List: ""}
 	, DllCall("Gdi32.dll\EnumFontFamiliesExW", "Ptr", hDC, "Ptr", &LOGFONT, "Ptr", lpEnumFunc, "Ptr", &Param, "UInt", 0)
-	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc)
+	, ReleaseDC(0, hDC), DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc)
 	return Sort(Param.List, "U")
 } EnumFontFamExProc(lpelfe, lpntme, FontType, lParam) {
 	Param := Object(lParam), StrCopy(Name, lpelfe+28,, "Str")
@@ -2487,19 +2744,14 @@ FontCreate(FontName := "", Size := 0, Bold := 400, Italic := false, Underline :=
 ;obtiene información sobre una fuente (hFont)
 ;Sintaxis: FontQuery( [hFont], [nombre], [tamaño], [negrita], [cursiva], [subrayado], [tachado] )
 FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRef Italic := "", ByRef Underline := "", ByRef Strike := "") {
-	hFont := hFont?hFont:GetStockObject(17)
-	, hDC := DllCall("User32.dll\GetDC", "Ptr", 0, "Ptr")
-	, hSelectObj := DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont, "Ptr")
-	, Size := DllCall("Gdi32.dll\GetTextFace", "Ptr", hDC, "Ptr", 0, "Ptr", 0)
-	, VarSetCapacity(Name, (Size>0?Size:(Size:=32)) * 2, 0)
-	, DllCall("Gdi32.dll\GetTextFace", "Ptr", hDC, "Ptr", Size, "Str", Name)
-	, LogPixelsY := GetDeviceCaps(hDC, 90), VarSetCapacity(TEXTMETRIC, 60, 0)
-	, DllCall("Gdi32.dll\GetTextMetricsW", "Ptr", hDC, "Ptr", &TEXTMETRIC)
+	hFont := hFont?hFont:GetStockObject(17), hDC := GetDC(), hSelectObj := SelectObject(hDC, hFont)
+	, Size := DllCall("Gdi32.dll\GetTextFace", "Ptr", hDC, "Ptr", 0, "Ptr", 0), VarSetCapacity(Name, (Size>0?Size:(Size:=32)) * 2, 0)
+	, DllCall("Gdi32.dll\GetTextFace", "Ptr", hDC, "Ptr", Size, "Str", Name), LogPixelsY := GetDeviceCaps(hDC, 90)
+	, VarSetCapacity(TEXTMETRIC, 60, 0), DllCall("Gdi32.dll\GetTextMetricsW", "Ptr", hDC, "Ptr", &TEXTMETRIC)
 	, Size := Round((NumGet(TEXTMETRIC, 0, "Int")-NumGet(TEXTMETRIC, 12, "Int"))*72/LogPixelsY)
 	, Bold := NumGet(TEXTMETRIC, 28, "Int"), Italic := !!NumGet(TEXTMETRIC, 52, "UChar")
 	, Underline := !!NumGet(TEXTMETRIC, 53, "UChar"), Strike := !!NumGet(TEXTMETRIC, 54, "UChar")
-	, DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hSelectObj), DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
-	return [Name, Size, Bold, Italic, Underline, Strike], VarSetCapacity(FontName, -1)
+	return [Name, Size, Bold, Italic, Underline, Strike], VarSetCapacity(FontName, -1), SelectObject(hDC, hSelectObj), ReleaseDC(0, hDC)
 }
 
 ;dialogo para seleccionar fuente
@@ -2531,7 +2783,7 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	, MaxSize := (s:=StrSplit(Options[2], ",", A_Space)[3])&&s>0?s:0
 	, Bold := Between(Options[3], 0, 900)?Options[3]:400
 	, Italic := !!Options[4], Underline := !!Options[5], StrikeOut := !!Options[6]
-	, LogPixelsY := GetDeviceCaps(hDC:=CreateDC(), 90), DllCall("Gdi32.dll\DeleteDC", "Ptr", hDC)
+	, hDC := CreateDC(), LogPixelsY := GetDeviceCaps(hDC, 90), DeleteDC(hDC)
 	, Flags := Flags|0x1|0x40|(Effects?0x100:0x0)|(((MinSize||MaxSize)&&MinSize<MaxSize)?0x2000:0x0)|0x10000
     VarSetCapacity(LOGFONT, 92, 0) , NumPut(-MulDiv(Size, LogPixelsY, 72), LOGFONT, 0, "Int")
     , NumPut(Bold, LOGFONT, 16, "Int"), NumPut(Italic, LOGFONT, 20, "UChar")
@@ -2931,7 +3183,7 @@ Base64Encode(Text) {
 UriEncode(Uri, Encoding := "CP0") {
 	StrPutVar(Uri, Var, Encoding)
 	Loop {
-		Code := Hex(NumGet(Var, A_Index - 1, "UChar"))
+		Code := NumGet(Var, A_Index - 1, "UChar")
 		If !(Code)
 			Break
 		If (Code >= 0x30 && Code <= 0x39 ; 0-9
@@ -3138,7 +3390,7 @@ ProcessWait(ProcessName, Seconds := 0) {
 			return ProcessId, ErrorLevel := 0
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return false, ErrorLevel := true
-		Sleep(100)
+		Sleep, 100
 }}
 
 ;esperar a que el proceso finalize
@@ -3155,7 +3407,7 @@ ProcessWaitClose(ProcessName, Seconds := 0) {
 			return true, ErrorLevel := false
 		if (Seconds>0&&A_TickCount>=ElapsedTime)
 			return false, ErrorLevel := true
-		Sleep(100)
+		Sleep, 100
 }} WaitForSingleObject(ProcessName, Seconds := 0) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032%28v=vs.85%29.aspx
 	if (Seconds = -1)
 		return false
@@ -3479,9 +3731,6 @@ Download(URL, Filename := "", OverWrite := true, UseCache := false) {
 		return false, ErrorLevel := 2
 	URLDownloadToFile, % Trim(URL) (UseCache?"":"?f=" param), %Filename%
 	return !ErrorLevel
-} InternetGetString(URL) {
-	i := ComObjCreate("WinHttp.WinHttpRequest.5.1"), i.Open("GET", URL), i.Send()
-	return i.ResponseText
 }
 
 ;comprueba la conexion a internet
@@ -3911,16 +4160,17 @@ DesktopIconList(ByRef hDesktop := "", ByRef ProcessId := "") {
 	;MsgBox % SaveScreenshot(A_Desktop "\Screenshot_3.jpg", "Window") ;ventana activa.
 	;MsgBox % SaveScreenshot(A_Desktop "\Screenshot_4.jpg", ["ID", GetTaskbar()]) ;ventana espesificada (barra de tareas).
 SaveScreenshot(Filename, Pos := "Screen") {
-	GdiplusStartup(hModule)
+	GdiplusStartup(hModule), k := 0x0
 	if (Pos="Window") || (Pos="A") || (Pos[1]="ID") 
-		WinGetPos(IsObject(Pos)?Pos[2]:-1, x, y, w, h)
+		WinGetPos(k:=IsObject(Pos)?Pos[2]:IsWindow(), x, y, w, h)
 	else x := ((Pos="Screen")||(Pos[1]="")||!(Pos[1]>-1))?0:Pos[1], y := ((Pos="Screen")||(Pos[2]="")||!(Pos[2]>-1))?0:Pos[2]
 	, w := ((Pos="Screen")||(Pos[3]="")||!(Pos[3]>0))?A_ScreenWidth:Pos[3], h := ((Pos="Screen")||(Pos[4]="")||!(Pos[4]>0))?A_ScreenHeight:Pos[4]
-	pBitmap := Gdip_BitmapFromScreen(x "|" y "|" w "|" h, 0x40000000+0x00CC0020), Gdip_SaveBitmapToFile(pBitmap, Filename, 100), Gdip_DisposeImage(pBitmap)
+	pBitmap := GdipBitmapFromScreen(x "|" y "|" w "|" h, 0x40000000+0x00CC0020), GdipSetInterpolationMode(pBitmap)
+	, GdipSetSmoothingMode(pBitmap), GdipSetTextRenderingHint(pBitmap), GdipSaveBitmapToFile(pBitmap, Filename,, k), GdipDisposeImage(pBitmap)
 	return true, GdiplusShutdown(, hModule)
 }
 
-;guarda la posición de los iconos del escritorio.
+;obtiene la posición de los iconos del escritorio.
 ;Ejemplo: 
 	;for k, v in DesktopGetIconsPos()
 	;	MsgBox %  "Nombre: " k "`nPosición: " v[1] "x" v[2]
@@ -3932,8 +4182,8 @@ DesktopGetIconsPos(ByRef hDesktop := "", ByRef ProcessId := "") {
 	return Array
 }
 
-;restaura la posición de los iconos del escritorio.
-;Ejemplo:
+;establece la posición de los iconos del escritorio.
+;Ejemplo: guardar y reestablecer la posicion de los iconos
 	;DesktopIconsPos := DesktopGetIconsPos(hDesktop, ProcessId)
 	;MsgBox mueva un icono en el escritorio!
 	;DesktopSetIconsPos(DesktopIconsPos, hDesktop, ProcessId)
@@ -4353,6 +4603,9 @@ GetValidArrayFiles(Files, Exist := true, Path := "", ByRef Length := "", RemoveD
 
 
 
+
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: PORTAPAPELES ::::::::::::::::::::::::::::::::::
 ;Notas:
@@ -4443,13 +4696,27 @@ ClipWait(Seconds := -1, AnyFormats := true) {
 	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
 		if (AnyFormats&&DllCall("User32.dll\CountClipboardFormats"))
-		||(!AnyFormats&&(DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1)
-		||DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15)))
+		||(!AnyFormats&&(DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 1, "Int")
+		||DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", 15, "Int")))
 			return true, ErrorLevel := false
 		if (Seconds>=0) && (A_TickCount>=ElapsedTime)
 			return false, ErrorLevel := true
 		Sleep, 50
 }}
+
+;obtener texto seleccionado (usa el portapapeles)
+;Sintaxis: GetSelectedText( [¿no reestablecer portapapeles?] )
+GetSelectedText(NoRestoreClipboard := false) {
+	Error := ErrorLevel
+	if !(NoRestoreClipboard)
+		Clip := ClipboardAll
+	OpenClipboard(), EmptyClipboard(), CloseClipboard(), Sleep(10)
+	, Send("{LCTRL DOWN}c{LCTRL UP}"), Sleep(10), ClipWait(1)
+	if !(NoRestoreClipboard)
+		Text := Clipboard, Clipboard := Clip
+	else Text := Clipboard
+	return Text, ErrorLevel := Error
+}
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;OTRAS FUNCIONES
@@ -4574,13 +4841,39 @@ RegisterActiveObject(Object, CLSID := "", Flags := 0, AppId := "") {
 	return r, ErrorLevel := !r, l[Object] := r
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221551(v=vs.85).aspx
 
+;recupera información para el objeto grafico espesificado
+;Sintaxis: GetObject( [objeto], [bytes], [objeto (out)], [var_bytes] )
+;var_bytes: establecer capacidad de la variable, si se espesifica el 3er parámetro no debe ser una Adress(&)
+;Nota: para calcular el tamaño, dejar el 2do parámetro vacío o en 0
+GetObject(Object, Bytes := 0, ByRef OutObject := 0, VarCap := 0) {
+	if ((Bytes+0)="") || !(Bytes) || !(Bytes>0) ;calcular tamaño, en bytes
+		Bytes := DllCall("Gdi32.dll\GetObjectW", "Ptr", Object, "Int", 0, "Ptr", 0, "UInt")
+	if (VarCap) ;OutObject | else &OutObject
+		VarSetCapacity(OutObject, 0), VarSetCapacity(OutObject, VarCap, 0)
+	return DllCall("Gdi32.dll\GetObjectW", "Ptr", Object, "Int", Bytes, "Ptr", VarCap?&OutObject:OutObject, "UInt")
+} ;https://msdn.microsoft.com/en-us/library/dd144904(v=vs.85).aspx
 
+CreateDIBSection(Width, Height, hDC := 0, bpp := 32, ByRef ppvBits := 0) {
+	hDC2 := hDC?hDC:DllCall("User32.dll\GetDC", "Ptr", 0, "Ptr")
+	, VarSetCapacity(BITMAPINFO, 40, 0), NumPut(Width, BITMAPINFO, 4, "UInt")
+	, NumPut(Height, BITMAPINFO, 8, "UInt"), NumPut(40, BITMAPINFO, 0, "UInt")
+	, NumPut(1, BITMAPINFO, 12, "UShort"), NumPut(0, BITMAPINFO, 16, "UInt")
+	, NumPut(bpp, BITMAPINFO, 14, "UShort"), hbm := DllCall("Gdi32.dll\CreateDIBSection"
+	, "Ptr", hDC2, "Ptr", &BITMAPINFO, "UInt", 0, "PtrP", ppvBits, "Ptr", 0, "UInt", 0, "Ptr")
+	if !(hDC)
+		DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC2)
+	return hbm
+}
 
+;Sintaxis: SelectObject( [hDC], [objeto] )
+;Return: Object | Value
+SelectObject(hDC, Object) {
+	return DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", Object, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/dd162957(v=vs.85).aspx
 
-
-
-
-
+DeleteObject(Object) {
+	return DllCall("Gdi32.dll\DeleteObjectW", "Ptr", Object, "UInt")
+} ;https://msdn.microsoft.com/en-us/library/dd183539(v=vs.85).aspx
 
 
 
@@ -4789,24 +5082,23 @@ EnvUpdate() {
 }
 
 ;cambiar imagen de fondo del escritorio
-;Sintaxis: SetDesktopWallpaper( [imagen], [ancho], [alto] )
-SetDesktopWallpaper(Image, Width := "", Height := "") {
-	Path := A_AppData "\Microsoft\Windows\Themes\TranscodedWallpaper.bmp", DirCreate(A_AppData "\Microsoft\Windows\Themes")
-    if !IsFile(Image)
-        return false, ErrorLevel := 2
-	SplitPath, Image,,, Ext
+;Sintaxis: SetDesktopWallpaper( [imagen], [ancho], [alto], [archivo] )
+;Ancho / Alto: espesificar las nuevas dimenciones para la imagen o dejar vacío para no modificar
+;Archivo: espesificar el archivo donde guardar la imagen a establecer como fondo de escritorio con extension .bmp
+SetDesktopWallpaper(Image, Width := "", Height := "", File := "") {
+	File := File?File:A_AppData "\Microsoft\Windows\Themes\TranscodedWallpaper.bmp", SplitPath(Image,,, Ext)
 	if !(Ext="bmp")
-		GdiplusStartup(hModule), ImageConvert(Image, Path, Width, Height), GdiplusShutdown(, hModule)
-	else FileCopy(Image, Path, true)
-	return r:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0014, "UInt", 0, "Str", Path, "UInt", 0x0001|0x0002), ErrorLevel := !r
+		GdiplusStartup(hModule), ImageConvert(Image, File, Width, Height), GdiplusShutdown(, hModule)
+	else FileCopy(Image, File, true)
+	return r:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0014, "UInt", 0, "Ptr", &File, "UInt", 0x0001|0x0002), ErrorLevel := !r
 }
 
 ;obtener ruta de la imagen de fondo del escritorio
 ;Sintaxis: GetDesktopWallpaper()
 GetDesktopWallpaper() {
 	VarSetCapacity(OutputVar, 260 * 2, 0)
-	, r := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0073, "UInt", 260, "Str", OutputVar, "UInt", 0)
-	return OutputVar, ErrorLevel := !r
+	, Ok := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0073, "UInt", 260, "Str", OutputVar, "UInt", 0)
+	return OutputVar, ErrorLevel := !Ok
 }
 
 ;crea un objeto que se puede utilizar para pasar un valor ByRef
@@ -4947,30 +5239,6 @@ ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/b
     ending := A_TickCount+(Seconds*1000)
 }
 
-;potapapeles
-;Sintaxis: Clipboard( [texto], [¿copiar seleccionado al portapapeles? (segundos a esperar)] )
-Clipboard(String := "", Selected := 0) {
-	if Selected {
-		try {
-			Temp := ClipboardAll, Clipboard()
-			, Send("{LCtrl Down}c{LCtrl Up}")
-			, ClipWait(Selected>0?Selected:1)
-			return Clipboard, Clipboard := Temp
-		} catch {
-			return ""
-	}} else if (String="") {
-		if !DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd) {
-			ElapsedTime := A_TickCount+3000
-			Loop {
-				if DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd)
-					break
-				if (A_TickCount>=ElapsedTime)
-					return 0
-				Sleep, 100
-		}} return DllCall("User32.dll\EmptyClipboard"), DllCall("User32.dll\CloseClipboard")
-	} try return Clipboard := String
-}
-
 ;recupera el tiempo que ha pasado (ms) desde que el script se inició
 GetTickCount(ByRef TickCount := "") {
 	return TickCount := DllCall("Kernel32.dll\GetTickCount")
@@ -5006,7 +5274,7 @@ FormatTime(Time, Format := "yyyyMMddHmmss") {
 }
 
 ;ejecutar script
-;Sintaxis: ExecScript( [script], [parámetros], [ejecutableAHK], [nombre] )
+;Sintaxis: ExecScript( [script], [parámetros], [A_AhkPath], [nombre] )
 ExecScript(Script, Params := "", AhkPath := "", Name := "") {
 	Name := Name=""?"AutoHotKey" A_AhkVersion:Name, AhkPath := FileExist(AhkPath)?AhkPath:A_AhkPath
 	, Call := Chr(34) AhkPath Chr(34) A_Space "/CP65001" A_Space Chr(34) "\\.\pipe\" Name Chr(34), Pipe := []
@@ -5031,37 +5299,6 @@ Translate(String, From := "", To := "") {
 	return RegExReplace(i.ResponseText, "^.*?" Chr(34) "(.*?)" Chr(34) ".*$")
 }
 
-ImageWaterCtrl(hWnd := "", Mode := "Enable", Option*) {
-	static LoadLibrary, LibraryPath
-	if (Mode="SETPATH")
-		return (i:=FileExist(hWnd))?(LibraryPath:=hWnd):0, ErrorLevel := !i
-	if !LibraryPath&&!FileExist(A_ScriptDir "\waterctrl.dll")
-		return 0, ErrorLevel := 2 ;ErrorLevel 2 = waterctrl.dll no se encuentra
-	if LoadLibrary&&(Mode="EXIT"||Mode="FREE") {
-		ImageWaterCtrl(, "DETACH")
-		return i:=FreeLibrary(LoadLibrary), ErrorLevel := !i, LoadLibrary := ""
-	}
-	if !LoadLibrary&&!(LoadLibrary:=LoadLibrary(LibraryPath?LibraryPath:A_ScriptDir "\waterctrl.dll"))
-		return 0, ErrorLevel := 3 ;ErrorLevel 3 = error al cargar waterctrl.dll
-	if (Mode="ATTACH"||Mode="ENABLE") {
-		if FileExist(Option[1])
-			SplitPath(Option[1],,, Ext)
-			, Img := DllCall("User32.dll\LoadImageW", "Int", 0, "Str", Option[1], "UInt", Ext="Ico"?1:0, "Int", 0, "Int", 0, "UInt", 0x2010)
-		return i:=DllCall("waterctrl\enablewater", "Ptr", hWnd, "Int", Option[2]=""?0:Option[2]
-			, "Int", Option[3]=""?0:Option[3], "Ptr", Img?Img:Option[1], "Int", Option[3]=""?3:Option[3]
-			, "Int", Option[4]=""?20:Option[4]), ErrorLevel := !i
-	} else if (Mode="DETACH"||Mode="DISABLE") {
-		return i:=DllCall("waterctrl\disablewater"), ErrorLevel := !i
-	} else if (Mode="BLOB") {
-		return i:=DllCall("waterctrl\waterblob", "Int", Option[1]=""?0:Option[1], "Int", Option[2]=""?0:Option[2]
-		, "Int", Option[3]=""?30:Option[3], "Int", Option[4]=""?30:Option[4]), ErrorLevel := !i
-	} else if (Mode="SETPARENT") {
-		return i:=DllCall("waterctrl\setwaterparent", "Ptr", hWnd), ErrorLevel := !i
-	} else if (Mode="FLATTEN")
-		return i:=DllCall("waterctrl\flattenwater"), ErrorLevel := !i
-	return 0, ErrorLevel := 1 ;ErrorLevel 1 = el modo espesificado es inválido
-} ;http://ahkscript.org/boards/viewtopic.php?f=22&t=3302&p=16261&hilit=waterctrl#p16261
-
 ;separar tiempo
 ;Sintaxis: SplitTime( [YYYYMMDDHH24MISS], [año], [mes], [dia], [hora], [min], [seg], [AM/PM] )
 ;Nota: devuelve un Array con el tiempo en el siguiente orden: año, mes, día, hora, min, seg, am/pm.
@@ -5074,7 +5311,7 @@ SplitTime(Time := "", ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef 
 	return Time
 }
 
-;obtener color de fondo por defecto de cada Gui
+;obtener color de fondo por defecto usado por autohotkey en las ventanas (gui)
 GetGuiDefaultColor() {
 	return RGB((((l:=DllCall("User32.dll\GetSysColor","Int",15,"UInt"))>>16)&0xFF)|(l&0x00FF00)|((l&0xFF)<<16))
 }
@@ -7466,38 +7703,31 @@ IL_GetIcon(ImageList, Index := 1, Flags := 0x0) {
 
 ;obtener ancho y alto de una imagen
 ;Sintaxis: ImageGetDimension( [imagen], [ancho (out)], [alto (out)] )
+;Return: OK=[ancho, alto] | ERROR=0
 ImageGetDimension(Image, ByRef Width := "", ByRef Height := "") {
-	GdiplusStartup(hModule)
-	pBitmap := Gdip_CreateBitmapFromFile(Image), pGraphics := Gdip_GraphicsFromImage(pBitmap)
-	, x:=Gdip_GetImageDimensions(pBitmap, Width, Height), Gdip_DeleteGraphics(pGraphics)
-	, Gdip_DisposeImage(pBitmap), i := {}, i.w := i.Width := Width, i.h := i.Height := Height
-	if (pToken)
-		Gdip_Shutdown(pToken)
-	return i, ErrorLevel := !x, GdiplusShutdown(, hModule)
+	GdiplusStartup(hModule), pBitmap := GdipCreateBitmapFromFile(Image), pGraphics := GdipGraphicsFromImage(pBitmap)
+	, Ok := GdipGetImageDimensions(pBitmap, Width, Height), GdipDeleteGraphics(pGraphics), GdipDisposeImage(pBitmap)
+	return Ok?[Width, Height]:false, GdiplusShutdown(, hModule), ErrorLevel := !Ok
 }
 
 ;convertir imágenes
 ;Sintaxis: ImageConvert( [imagen], [directorio\nombre.ext], [ancho], [alto], [¿preservar la relacion de aspecto?], [profundidad de bits 24/32 (solo .bmp)] )
 ;Extensiones soportadas: png, bmp, jpg, tiff, gif
+;Return: 0|1
+;Nota: el archivo salida es reescrito (si existe)
 ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio := true, BitDepth := 32) {
-	GdiplusStartup(hModule)
-	SplitPath, Output, NewImgDir, NewImgExt
-	pBitmapFile := Gdip_CreateBitmapFromFile(Image)
-	, CurrentWidth := Gdip_GetImageWidth(pBitmapFile), CurrentHeight := Gdip_GetImageHeight(pBitmapFile)
+	GdiplusStartup(hModule), SplitPath(Output,,, Ext), pBitmapFile := GdipCreateBitmapFromFile(Image)
+	, CurrentWidth := GdipGetImageWidth(pBitmapFile), CurrentHeight := GdipGetImageHeight(pBitmapFile)
 	, NewWidth := Width=""?CurrentWidth:Width, NewHeight := Height=""?CurrentHeight:Height
 	if (PreserveAspectRatio) && ((r1:=CurrentWidth/NewWidth)>(r2:=CurrentHeight/NewHeight))
 		NewHeight := CurrentHeight/r1
 	else if (PreserveAspectRatio)
 		NewWidth := CurrentWidth/r2
-	if !(FileExist(NewImgDir))
-		FileCreateDir, %NewImgDir%
-	pBitmap := Gdip_CreateBitmap(NewWidth, NewHeight, NewImgExt="bmp"&&BitDepth=24?0x00021808:0x26200A)
-	, pGraphics := Gdip_GraphicsFromImage(pBitmap), Gdip_SetSmoothingMode(pGraphics, 4), Gdip_SetInterpolationMode(pGraphics, 7)
-	, Gdip_DrawImage(pGraphics, pBitmapFile, false, false, NewWidth, NewHeight), Gdip_DisposeImage(pBitmapFile)
-	, Gdip_SaveBitmapToFile(pBitmap, Output), Gdip_DisposeImage(pBitmap), Gdip_DeleteGraphics(pGraphics) 
-	if (pToken)
-		Gdip_Shutdown(pToken)
-	return true, GdiplusShutdown(, hModule)
+	pBitmap := GdipCreateBitmap(NewWidth, NewHeight, (Ext="bmp"&&BitDepth=24)?0x00021808:0x26200A)
+	, pGraphics := GdipGraphicsFromImage(pBitmap), GdipSetSmoothingMode(pGraphics), GdipSetInterpolationMode(pGraphics)
+	, GdipDrawImage(pGraphics, pBitmapFile, false, false, NewWidth, NewHeight), GdipDisposeImage(pBitmapFile)
+	, Ok := GdipSaveBitmapToFile(pBitmap, Output), GdipDisposeImage(pBitmap), GdipDeleteGraphics(pGraphics)
+	return Ok, GdiplusShutdown(, hModule), ErrorLevel := !Ok
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&p=49878&sid=8974c43be898318cea6b8dc509f2e6df#p49878
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -7532,7 +7762,11 @@ DuplicateIcon(hIcon) {
 	return r:=DllCall("Shell32.dll\DuplicateIcon", "Ptr", A_ScriptHwnd, "Ptr", hIcon), ErrorLevel := !r
 }
 
-
+;dibuja un icono o cursor en el contexto de dispositivo especificado
+DrawIcon(hDC, Left := 0, Top := 0, hIcon := 0, Width := 32, Height := 32, istepIfAniCur := 0, hbrFlickerFreeDraw := 0, Flags := 3) {
+	return DllCall("User32.dll\DrawIconEx", "Ptr", hDC, "Int", Left, "Int", Top, "Ptr", hIcon, "Int", Width
+	, "Int", Height, "UInt", istepIfAniCur, "Ptr", hbrFlickerFreeDraw, "UInt", Flags, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms648065(v=vs.85).aspx
 
 
 
@@ -8380,7 +8614,11 @@ SystemIconsReload() {
 ;Recupera la ruta a la raíz del directorio del usuario actual
 A_UserProfile() {
 	static UserProfile
-	return UserProfile?UserProfile:(UserProfile:=EnvGet("USERPROFILE"))
+	if !(UserProfile) {
+		if !(IsDir(UserProfile:=EnvGet("USERPROFILE"))) {
+			SplitPath, A_AppData,, UserProfile
+			SplitPath, UserProfile,, UserProfile
+	}	} return UserProfile
 }
 
 ;Recupera la ruta a la raíz del directorio que contiene los datos del programa compartidos por todos los usuarios.
@@ -9976,6 +10214,8 @@ MenuGetItemCount(hMenu) {
 
 
 
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: TAREAS PROGRAMADAS ::::::::::::::::::::::::::::::::::
 ;Nota: requiere WIN_V+
@@ -10314,7 +10554,7 @@ Sound_SetMasterMute(Mute := true, Type := "Default") {
 
 ;obtiene el estado actual del volumen
 ;Sintaxis: Sound_GetMasterMute( [tipo] )
-;Return: devuelve 1 si está silenciado (sepatados por coma si se encontraron mas dispositivos)
+;Return: devuelve 1 si está silenciado (separados por coma si se encontraron mas dispositivos)
 Sound_GetMasterMute(Type := "Default") {
 	for k, v in Sound_GetDevice(Type)
 		hInterface := Sound_GetEndpointVolume(v)
@@ -11037,7 +11277,7 @@ return
 ;FUNCIONES
 ;--------------------------------------
 ;GDI+
-#Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
+;#Include <Gdip> ;http://ahkscript.org/boards/viewtopic.php?t=6517
 ;otra opcion al InputBox
 #Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 ;otra opcion al TrayTip
