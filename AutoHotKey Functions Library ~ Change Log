@@ -1,4 +1,105 @@
 ###############################################################
+ACTUALIZACION 29/12/2015 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• IsWindowOnCurrentVirtualDesktop()
+	• PowerWriteProcessorStateValueIndex()
+	• StringFromCLSID()
+	• FileCopyEx()
+	• Ping()
+	• GdipAddPathLine()
+	• GdipAddPathLines()
+	• GdipAddPathBezier()
+	• GdipAddPathBeziers()
+	• GetSystemPowerStatus()
+	• DriveFormat()
+	• WriteProcessMemory()
+	• ReadProcessMemory()
+	• VirtualAlloc()
+	• FindWindowEx()
+	• FindWindow()
+	• DestroyIcon()
+	• StretchBlt()
+	• SetStretchBltMode()
+	• UpdateLayeredWindow()
+
+Clases Agregadas:
+	• IVirtualDesktopManager(). para uso interno de otras funciones
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• RECT(). I
+	• POINT(). I
+
+Mejoras:
+	• ControlSetText()
+	• WinRedraw()
+	• GetValidArrayFiles(). ahora soporta arrays de arrays
+	• PictureFromResource(). añadido parámetro para espesificar el color de fondo de la imagen
+	
+Correcciones:
+	• VirtualFree()
+	• GetTaskBar(). correcciones en windows 10
+	• WinGetPID()
+	
+Notas:
+	• añadido Administración De Energia funciones
+	• añadido ESTRUCTURAS funciones
+	• varias correcciones generales con el tipo de valor a devolver (ReturnType. probablemente solo tenga efecto en sistemas de 64-Bits) y ErrorLevel.
+	
+Funciones Renombradas:
+	• InternetGetState() --> InternetGetConnectedState()
+
+Funciones Eliminadas:
+	• WinMenuSelectItem(). usar MenuSelect()
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• FileGetTime()
+	• FileSetTime()
+	• SetClipboardText()
+	• CursorGetPos()
+	• ControlMove()
+	• PostMessage()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• MouseGetPos()
+	• WinGetTitle()
+	• WinGetBorder(). ahora devuelve un Array.
+	• WinGetPos(). reescrito, ahora devuelve un Array.
+	• SendMessage()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 19/12/2015, 20/12, 23/12 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
