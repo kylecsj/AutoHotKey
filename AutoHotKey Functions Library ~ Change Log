@@ -1,4 +1,91 @@
 ###############################################################
+ACTUALIZACION 05/01/2016 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• RegSetOwner()
+	• RegGetOwner()
+	• FileGetOwner()
+	• FileTakeOwn()
+	• GetCurrentUserInfo()
+	• UserAccountsEnum()
+	• A_UserNameEx()
+	• Eval()
+	• RunProcess()
+	• VBS()
+	• GetExitCodeProcess()
+	• ServiceEnum()
+	• CLSIDFromString()
+	• PowerSetActivePlan()
+	• PowerEnumeratePlans()
+	• LocalFree()
+	• InternetCheckConnection()
+
+Clases Agregadas:
+	• ConnectNamedPipe()
+	• CreateNamedPipe()
+	• CreatePipe()
+	• SetHandleInformation()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• WM_COPYDATA(). ?R
+
+Mejoras:
+	• FileSetSecurity(). añadido explicación de los parámetros de forma mas detallada
+	• PowerWriteProcessorStateValueIndex()
+	
+Correcciones:
+	• ControlGetText()
+	
+Notas:
+	• añadido USUARIOS funciones
+	• agregado PIPE funciones
+	• modificacion en los privilegios para el proceso en RunAsAdminInit()
+	
+Funciones Eliminadas:
+	• Start()
+	• RunAs()
+	• Get() / Set() / _fspdtestex() / _fspdtest() / _wildc() / _clfm()
+	• ControlSetCursor()
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• RegSetSecurity()
+	• ExecScript()
+	• FileSetAttrib()
+	• CMD()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 29/12/2015 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
