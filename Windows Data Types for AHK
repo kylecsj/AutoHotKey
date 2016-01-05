@@ -1,0 +1,273 @@
+; ===============================================================================================================================
+; AHK Version ...: AHK_L 1.1.22.00 x64 Unicode
+; Win Version ...: Windows 7 Professional x64 SP1
+; Description ...: Windows Data Types for AHK
+;                  (https://msdn.microsoft.com/en-us/library/aa383751.aspx)
+; Version .......: v0.2
+; Modified ......: 2015.05.04-1927
+; Author ........: jNizM (+ just me for the translation) (+ Flipeador Modified Added Size Data Types)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+; Licence .......: Unlicense (http://unlicense.org/)
+; ===============================================================================================================================
+;@Ahk2Exe-SetName Windows_Data_Types_for_AHK
+;@Ahk2Exe-SetDescription Windows Data Types for AHK
+;@Ahk2Exe-SetVersion v0.2
+;@Ahk2Exe-SetCopyright Copyright (c) 2015-2015`, jNizM
+;@Ahk2Exe-SetOrigFilename Windows_Data_Types_for_AHK.ahk
+; ===============================================================================================================================
+
+; GLOBAL SETTINGS ===============================================================================================================
+
+#Warn
+#NoEnv
+#SingleInstance Force
+SetBatchLines, -1
+
+; MSDN_TYPES ====================================================================================================================
+
+MSDN_TYPES=
+(
+ATOM,UShort,,typedef WORD ATOM,2
+BOOL,Int,,typedef int BOOL,4
+BOOLEAN,UChar,,typedef BYTE BOOLEAN,1
+BYTE,UChar,,typedef unsigned char BYTE,1
+CCHAR,Char,,typedef char CCHAR,1
+CHAR,Char,,typedef char CHAR,1
+COLORREF,UInt,,typedef DWORD COLORREF,4
+DWORD,UInt,,typedef unsigned long DWORD,4
+DWORDLONG,Int64,,typedef unsigned __int64 DWORDLONG,8
+DWORD_PTR,UPtr,,typedef ULONG_PTR DWORD_PTR,A_PtrSize
+DWORD32,UInt,,typedef unsigned int DWORD32,4
+DWORD64,Int64,,typedef unsigned __int64 DWORD64,8
+FLOAT,Float,,typedef float FLOAT,4
+HACCEL,Ptr,,typedef HANDLE HACCEL,A_PtrSize
+HALF_PTR,Short (32) | Int (64),,typedef short HALF_PTR | typedef int HALF_PTR,A_PtrSize=8?4:2
+HANDLE,Ptr,,typedef PVOID HANDLE,A_PtrSize
+HBITMAP,Ptr,,typedef HANDLE HBITMAP,A_PtrSize
+HBRUSH,Ptr,,typedef HANDLE HBRUSH,A_PtrSize
+HCOLORSPACE,Ptr,,typedef HANDLE HCOLORSPACE,A_PtrSize
+HCONV,Ptr,,typedef HANDLE HCONV,A_PtrSize
+HCONVLIST,Ptr,,typedef HANDLE HCONVLIST,A_PtrSize
+HCURSOR,Ptr,,typedef HICON HCURSOR,A_PtrSize
+HDC,Ptr,,typedef HANDLE HDC,A_PtrSize
+HDDEDATA,Ptr,,typedef HANDLE HDDEDATA,A_PtrSize
+HDESK,Ptr,,typedef HANDLE HDESK,A_PtrSize
+HDROP,Ptr,,typedef HANDLE HDROP,A_PtrSize
+HDWP,Ptr,,typedef HANDLE HDWP,A_PtrSize
+HENHMETAFILE,Ptr,,typedef HANDLE HENHMETAFILE,A_PtrSize
+HFILE,Int,,typedef int HFILE,4
+HFONT,Ptr,,typedef HANDLE HFONT,A_PtrSize
+HGDIOBJ,Ptr,,typedef HANDLE HGDIOBJ,A_PtrSize
+HGLOBAL,Ptr,,typedef HANDLE HGLOBAL,A_PtrSize
+HHOOK,Ptr,,typedef HANDLE HHOOK,A_PtrSize
+HICON,Ptr,,typedef HANDLE HICON,A_PtrSize
+HINSTANCE,Ptr,,typedef HANDLE HINSTANCE,A_PtrSize
+HKEY,Ptr,,typedef HANDLE HKEY,A_PtrSize
+HKL,Ptr,,typedef HANDLE HKL,A_PtrSize
+HLOCAL,Ptr,,typedef HANDLE HLOCAL,A_PtrSize
+HMENU,Ptr,,typedef HANDLE HMENU,A_PtrSize
+HMETAFILE,Ptr,,typedef HANDLE HMETAFILE,A_PtrSize
+HMODULE,Ptr,,typedef HINSTANCE HMODULE,A_PtrSize
+HMONITOR,Ptr,,typedef HANDLE HMONITOR,A_PtrSize
+HPALETTE,Ptr,,typedef HANDLE HPALETTE,A_PtrSize
+HPEN,Ptr,,typedef HANDLE HPEN,A_PtrSize
+HRESULT,Int,,typedef LONG HRESULT,A_PtrSize
+HRGN,Ptr,,typedef HANDLE HRGN,A_PtrSize
+HRSRC,Ptr,,typedef HANDLE HRSRC,A_PtrSize
+HSZ,Ptr,,typedef HANDLE HSZ,A_PtrSize
+HWINSTA,Ptr,,typedef HANDLE WINSTA,A_PtrSize
+HWND,Ptr,,typedef HANDLE HWND,A_PtrSize
+INT,Int,,typedef int INT,4
+INT_PTR,Ptr,,typedef int INT_PTR / __int64 INT_PTR,A_PtrSize
+INT8,Char,,typedef signed char INT8,1
+INT16,Short,,typedef signed short INT16,2
+INT32,Int,,typedef signed int INT32,4
+INT64,Int64,,typedef signed __int64 INT64,8
+LANGID,UShort,,typedef WORD LANGID,2
+LCID,UInt,,typedef DWORD LCID,4
+LCTYPE,UInt,,typedef DWORD LCTYPE,4
+LGRPID,UInt,,typedef DWORD LGRPID,4
+LONG,Int,,typedef long LONG,4
+LONGLONG,Int64,,typedef __int64 LONGLONG,8
+LONG_PTR,Ptr,,typedef long LONG_PTR / __int64 LONG_PTR,A_PtrSize
+LONG32,Int,,typedef signed int LONG32,4
+LONG64,Int64,,typedef __int64 LONG64,8
+LPARAM,Ptr,,typedef LONG_PTR LPARAM,A_PtrSize
+LPBOOL,Ptr,IntP,typedef BOOL far *LPBOOL,A_PtrSize
+LPBYTE,Ptr,UCharP,typedef BYTE far *LPBYTE,A_PtrSize
+LPCOLORREF,Ptr,UIntP,typedef DWORD *LPCOLORREF,A_PtrSize
+LPCSTR,Ptr,Str / AStr,typedef __nullterminated CONST CHAR *LPCST,A_PtrSize
+LPCTSTR,Ptr,Str,typedef LPCSTR LPCTSTR / LPCWSTR LPCTSTR,A_PtrSize
+LPCVOID,Ptr,PtrP,typedef CONST void *LPCVOID,A_PtrSize
+LPCWSTR,Ptr,Str / WStr,typedef CONST WCHAR *LPCWSTR,A_PtrSize
+LPDWORD,Ptr,UIntP,typedef DWORD *LPDWORD,A_PtrSize
+LPHANDLE,Ptr,PtrP,typedef HANDLE *LPHANDLE,A_PtrSize
+LPINT,Ptr,IntP,typedef int *LPINT,A_PtrSize
+LPLONG,Ptr,IntP,typedef long *LPLONG,A_PtrSize
+LPSTR,Ptr,Str / AStr,typedef CHAR *LPSTR,A_PtrSize
+LPTSTR,Ptr,Str,typedef LPSTR LPTSTR / LPWSTR LPTSTR,A_PtrSize
+LPVOID,Ptr,PtrP,typedef void *LPVOID,A_PtrSize
+LPWORD,Ptr,UShortP,typedef WORD *LPWORD,A_PtrSize
+LPWSTR,Ptr,Str / WStr,typedef WCHAR *LPWSTR,A_PtrSize
+LRESULT,Ptr,,typedef LONG_PTR LRESULT,A_PtrSize
+PBOOL,Ptr,IntP,typedef BOOL *PBOOL,4
+PBOOLEAN,Ptr,CharP,typedef BOOLEAN *PBOOLEAN,A_PtrSize
+PBYTE,Ptr,UCharP,typedef BYTE *PBYTE,A_PtrSize
+PCHAR,Ptr,CharP,typedef CHAR *PCHAR,A_PtrSize
+PCSTR,Ptr,Str / AStr,typedef CONST CHAR *PCSTR,A_PtrSize
+PCTSTR,Ptr,Str,typedef LPCSTR PCTSTR / LPCWSTR PCTSTR,A_PtrSize
+PCWSTR,Ptr,Str / WStr,typedef CONST WCHAR *PCWSTR,A_PtrSize
+PDWORD,Ptr,UIntP,typedef DWORD *PDWORD,A_PtrSize
+PDWORDLONG,Ptr,Int64P,typedef DWORDLONG *PDWORDLONG,A_PtrSize
+PDWORD_PTR,Ptr,UPtrP,typedef DWORD_PTR *PDWORD_PTR,A_PtrSize
+PDWORD32,Ptr,UIntP,typedef DWORD32 *PDWORD3,A_PtrSize
+PDWORD64,Ptr,Int64P,typedef DWORD64 *PDWORD64,A_PtrSize
+PFLOAT,Ptr,FloatP,typedef FLOAT *PFLOAT,A_PtrSize
+PHALF_PTR,Short (32) | Int (64),ShortP | IntP,typedef HALF_PTR *PHALF_PTR | typedef HALF_PTR *PHALF_PTR,A_PtrSize
+PHANDLE,Ptr,PtrP,typedef HANDLE *PHANDLE,A_PtrSize
+PHKEY,Ptr,PtrP,typedef HKEY *PHKEY,A_PtrSize
+PINT,Ptr,IntP,typedef int *PINT,A_PtrSize
+PINT_PTR,Ptr,PtrP,typedef INT_PTR *PINT_PTR,A_PtrSize
+PINT8,Ptr,CharP,typedef INT8 *PINT8,A_PtrSize
+PINT16,Ptr,ShortP,typedef INT16 *PINT16,A_PtrSize
+PINT32,Ptr,IntP,typedef INT32 *PINT32,A_PtrSize
+PINT64,Ptr,Int64P,typedef INT64 *PINT64,A_PtrSize
+PLCID,Ptr,UIntP,typedef PDWORD PLCID,A_PtrSize
+PLONG,Ptr,IntP,typedef LONG *PLONG,A_PtrSize
+PLONGLONG,Ptr,Int64P,typedef LONGLONG *PLONGLONG,A_PtrSize
+PLONG_PTR,Ptr,PtrP,typedef LONG_PTR *PLONG_PTR,A_PtrSize
+PLONG32,Ptr,IntP,typedef LONG32 *PLONG32,A_PtrSize
+PLONG64,Ptr,Int64P,typedef LONG64 *PLONG64,A_PtrSize
+POINTER_32,Int,,#define POINTER_32 __ptr32,A_PtrSize
+POINTER_64,Int64,,#define POINTER_64 __ptr64,A_PtrSize
+POINTER_SIGNED,Ptr,,#define POINTER_SIGNED __sptr,A_PtrSize
+POINTER_UNSIGNED,UPtr,,#define POINTER_UNSIGNED __uptr,A_PtrSize
+PSHORT,Ptr,ShortP,typedef SHORT *PSHORT,A_PtrSize
+PSIZE_T,Ptr,UPtrP,typedef SIZE_T *PSIZE_T,A_PtrSize
+PSSIZE_T,Ptr,PtrP,typedef SSIZE_T *PSSIZE_T,A_PtrSize
+PSTR,Ptr,Str / AStr,typedef CHAR *PSTR,A_PtrSize
+PTBYTE,Ptr,UCharP (A) | UShortP (U),typedef TBYTE *PTBYTE | typedef TBYTE *PTBYTE,A_PtrSize
+PTCHAR,Ptr,CharP (A) | ShortP (U),typedef TCHAR *PTCHAR | typedef TCHAR *PTCHAR,A_PtrSize
+PTSTR,Ptr,Str / AStr / WStr,typedef LPSTR PTSTR / LPWSTR PTSTR,A_PtrSize
+PUCHAR,Ptr,UCharP,typedef UCHAR *PUCHAR,A_PtrSize
+PUHALF_PTR,UShort (32) | UInt (64),UShortP | UIntP,typedef UHALF_PTR *PUHALF_PTR | typedef UHALF_PTR *PUHALF_PTR,A_PtrSize
+PUINT,Ptr,UIntP,typedef UINT *PUINT,A_PtrSize
+PUINT_PTR,UPtr,UPtrP,typedef UINT_PTR *PUINT_PTR,A_PtrSize
+PUINT8,Ptr,UCharP,typedef UINT8 *PUINT8,A_PtrSize
+PUINT16,Ptr,UShortP,typedef UINT16 *PUINT16,A_PtrSize
+PUINT32,Ptr,UIntP,typedef UINT32 *PUINT32,A_PtrSize
+PUINT64,Ptr,Int64P,typedef UINT64 *PUINT64,A_PtrSize
+PULONG,Ptr,UIntP,typedef ULONG *PULONG,A_PtrSize
+PULONGLONG,Ptr,Int64P,typedef ULONGLONG *PULONGLONG,A_PtrSize
+PULONG_PTR,UPtr,UPtrP,typedef ULONG_PTR *PULONG_PTR,A_PtrSize
+PULONG32,Ptr,UIntP,typedef ULONG32 *PULONG32,A_PtrSize
+PULONG64,Ptr,Int64P,typedef ULONG64 *PULONG64,A_PtrSize
+PUSHORT,Ptr,UShortP,typedef USHORT *PUSHORT,A_PtrSize
+PVOID,Ptr,PtrP,typedef void *PVOID,A_PtrSize
+PWCHAR,Ptr,UShortP,typedef WCHAR *PWCHAR,A_PtrSize
+PWORD,Ptr,UShortP,typedef WORD *PWORD,A_PtrSize
+PWSTR,Ptr,Str / WStr,typedef WCHAR *PWSTR,A_PtrSize
+QWORD,Int64,,typedef unsigned __int64 QWORD,8
+SC_HANDLE,Ptr,,typedef HANDLE SC_HANDLE,A_PtrSize
+SC_LOCK,Ptr,PtrP,typedef LPVOID SC_LOCK,A_PtrSize
+SERVICE_STATUS_HANDLE,Ptr,,typedef HANDLE SERVICE_STATUS_HANDLE,A_PtrSize
+SHORT,Short,,typedef short SHORT,2
+SIZE_T,UPtr,,typedef ULONG_PTR SIZE_T,A_PtrSize
+SSIZE_T,Ptr,,typedef LONG_PTR SSIZE_T,A_PtrSize
+TBYTE,UChar (A) | UShort (U),,typedef unsigned char TBYTE | typedef WCHAR TBYTE,A_IsUnicode?2:1
+TCHAR,Char (A) | UShort (U),,typedef char TCHAR | typedef WCHAR TCHAR,A_IsUnicode?2:1
+UCHAR,UChar,,typedef unsigned char UCHAR,1
+UHALF_PTR,UShort (32) | UInt (64),,typedef unsigned short UHALF_PTR | typedef unsigned int UHALF_PTR,A_PtrSize=8?4:2
+UINT,UInt,,typedef unsigned int UINT,4
+UINT_PTR,UPtr,,typedef unsigned int UINT_PTR / unsigned __int64 UINT_PTR,A_PtrSize
+UINT8,UChar,,typedef unsigned char UINT8,1
+UINT16,UShort,,typedef unsigned short UINT16,2
+UINT32,UInt,,typedef unsigned int UINT32,4
+UINT64,Int64,,typedef usigned __int 64 UINT64,8
+ULONG,UInt,,typedef unsigned long ULONG,4
+ULONGLONG,Int64,,typedef unsigned __int64 ULONGLONG,8
+ULONG_PTR,UPtr,,typedef unsigned long ULONG_PTR / unsigned __int64 ULONG_PTR,A_PtrSize
+ULONG32,UInt,,typedef unsigned int ULONG32,4
+ULONG64,Int64,,typedef unsigned __int64 ULONG64,8
+USHORT,UShort,,typedef unsigned short USHORT,2
+USN,Int64,,typedef LONGLONG USN,8
+VOID,Ptr,,#define VOID void,A_PtrSize
+WCHAR,UShort,,typedef wchar_t WCHAR,2
+WORD,UShort,,typedef unsigned short WORD,2
+WPARAM,UPtr,,typedef UINT_PTR WPARAM,A_PtrSize
+)
+
+; GUI ===========================================================================================================================
+
+Gui +Resize
+Gui, Font,, Courier New
+Gui, Add, ListView, x5 y5 w500 h400 vLVData, % "Data Type|AHK Type|Alternative for DllCall()|MSDN Definition|Size"
+LV_ModifyCol(1, 155), LV_ModifyCol(2, 175), LV_ModifyCol(3, 187), LV_ModifyCol(4, 432)
+Gui, Add, Edit, x5 y+1 w445 h23 hWndEditSearch gLVSearch vEditSearch
+DllCall("user32.dll\SendMessage", "Ptr", EditSearch, "UInt", 0x1501, "Ptr", 1, "Str", "Search Data Type", "Ptr")
+Gui, Add, Edit, x+5 yp w54 h23 0x800 vEditEntries
+Gui, Show, AutoSize, % "Windows Data Types for AHK"
+Gui, +LastFound
+WinSet, Redraw
+
+ListView:
+    GuiControl, -Redraw, SysListView321
+    MSDN_TYPES_ARR := []
+    loop, parse, MSDN_TYPES, `n, `r
+    {
+        MSDN_TYPES_ARR := StrSplit(A_LoopField, ",")
+        LV_Add("", MSDN_TYPES_ARR[1], MSDN_TYPES_ARR[2], MSDN_TYPES_ARR[3], MSDN_TYPES_ARR[4], MSDN_TYPES_ARR[5]), LV_ModifyCol(1, "Sort")
+    } GuiControl,, EditEntries, % LV_GetCount()
+    GuiControl, Focus, EditSearch
+    Loop, % LV_GetCount("Col")
+        LV_ModifyCol(A_Index, "AutoHdr")
+    GuiControl, +Redraw, SysListView321
+return
+
+; SCRIPT ========================================================================================================================
+
+GuiSize:
+
+    GuiControl, Move, LVData, % "x5 y5 w" (A_GuiWidth - 10) " h" (A_GuiHeight - 40)
+    GuiControl, Move, EditSearch, % "x5 y" (A_GuiHeight - 29) " w" (A_GuiWidth - 69)
+    GuiControl, Move, EditEntries, % "x" (A_GuiWidth - 59) " y" (A_GuiHeight - 29)
+return
+
+LVSearch:
+    Gui, Submit, NoHide
+    GuiControl, -Redraw, LVData
+    LV_Delete(), MSDN_TYPES_ARR := []
+    loop, parse, MSDN_TYPES, `n, `r
+    {
+        MSDN_TYPES_ARR := StrSplit(A_LoopField, ",")
+        if (InStr(MSDN_TYPES_ARR[1], EditSearch))
+            LV_Add("", MSDN_TYPES_ARR[1], MSDN_TYPES_ARR[2], MSDN_TYPES_ARR[3], MSDN_TYPES_ARR[4], MSDN_TYPES_ARR[5]), LV_ModifyCol(1, "Sort")
+    }
+    GuiControl,, EditEntries, % LV_GetCount()
+    GuiControl, +Redraw, LVData
+return
+
+; EXIT ==========================================================================================================================
+
+GuiClose:
+GuiEscape:
+ExitApp
