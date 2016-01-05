@@ -4,6 +4,7 @@ ACTUALIZACION 05/01/2016 - AHK1.1.22.09
 Funciones Agregadas:
 	• RegSetOwner()
 	• RegGetOwner()
+	• FileSetOwner()
 	• FileGetOwner()
 	• FileTakeOwn()
 	• GetCurrentUserInfo()
