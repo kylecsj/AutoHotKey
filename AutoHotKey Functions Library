@@ -16,7 +16,7 @@ Funciones:
 	• Registro
 	• Control
 	• Mouse & Teclado
-	• Sistema
+	• Sistema y Configuración
 	• Ventanas
 	• Servicios
 	• Unidades
@@ -26,7 +26,7 @@ Funciones:
 	• Menús
 	• Ejecutar
 	• Barra de tareas
-	• Device Context Functions
+	• Device Context
 	• Escritorio & Explorador & Menu Inicio & Papelera De Reciclaje
 	• Estructuras
 	• Notificaciones
@@ -34,18 +34,21 @@ Funciones:
 	• Nombres y Rutas de Archivos
 	• Objetos
 	• Tareas programadas
-	• Administración de memoria,
+	• Administración de memoria
 	• Gdiplus (GDI+)
 	• Portapapeles
 	• Administración de Energía
-	• Pipe Functions
+	• Pipe
+	• Usuarios
+	• Autorización y Seguridad
+	• Dispositivos y Aplicaciones Predeterminadas
 	• Otros (funciones variadas)
 Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variables, IVirtualDesktopManager:=1):
 	• IVirtualDesktopManager
 	• __gsvalue
-Link: http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
+Link (reporta problemas o sugerencias para nuevas funciones): http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.09 U32 & U64 || Martes, 05 de enero de 2016
+Actualizado: AHK1.1.22.09 U32 & U64 || Domingo, 10 de enero de 2016
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -55,6 +58,7 @@ Notas:
 	• algunas funciones posiblemente no funcionen correctamente en la version de 64-Bits de AHK, reportar problemas.
 Codificación: UTF-8 BOM
 Windows System Error Codes (exit codes) Description: http://www.symantec.com/connect/articles/windows-system-error-codes-exit-codes-description
+Windows Data Types For AHK: https://github.com/flipeador/AutoHotKey/blob/master/Windows%20Data%20Types%20for%20AHK
 */ ;flipeador@gmail.com ################################################################################################
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ; ::::::::::::::::::::::::::::::::::::::::::::: FUNCIONES APARTE (para uso interno) ::::::::::::::::::::::::::::::::::																							   #
@@ -152,7 +156,7 @@ FileCopy(Source, Dest := "", Overwrite := false) {
 	return !ErrorLevel
 }
 
-;copiar archivo, opcional llamar a una funcion con información mientras se copia el archivo
+;copiar archivo, opcional llamar a una funcion con información mientras se copia
 ;Sintaxis: FileCopyEx( [archivo], [archivo destino], [¿sobreescribir?], [funcion], [opciones] )
 ;Parámetros:
 	;Archivo Destino: espesificar el archivo destino, si espesifica un valor vacío, se crea en el directorio de trabajo actual.
@@ -686,23 +690,21 @@ VersionCompare(version1, version2, ByRef OutputVar := "") {
 	return VersionCompare(v1, v2)
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&t=5959
 
-;comparar el tamaño de varios archivos
-;RESULTADO:
-	;0: todos tienen el mismo tamaño
-	;1: el primer tamaño (1º archivo) es mayor al segundo (2º archivo)
-	;2: el primer tamaño (1º archivo) es menor al segundo (2º archivo)
-	;3+: devuelve la posicion de larchivo con el tamaño diferente
-FileSizeCompare(Files*) {
-	if !(Files.MaxIndex() >= 2)
-		return 0, ErrorLevel := 1
-	Loop, % Files.MaxIndex() {
-		CurrentFileSize := FileGetSize(Files[A_Index])
-		, FirstFileSize := A_Index=1?CurrentFileSize:FirstFileSize
-		, SecondFileSize := A_Index=2?CurrentFileSize:SecondFileSize
-		if (A_Index > 1) && (CurrentFileSize != LastFileSize)
-			return FirstFileSize>SecondFileSize?1:(FirstFileSize<SecondFileSize?2:A_Index)
-		LastFileSize := CurrentFileSize
-	} return ErrorLevel := 0
+;Comparar 2 archivos
+;Sintaxis: FileCompare( [archivo 1], [archivo 2] )
+;Return:
+	;1 = archivo1 > archivo2
+	;0 = archivo1 = archivo2
+	;-1 = archivo1 < archivo2
+;ErrorLevel: 0|1(return "")
+;Nota: si los archivos tienen el mismo tamaño, ejecuta una comparación binaria
+FileCompare(File1, File2) {
+	if !IsObject(oF1:=FileOpen(File1, "r")) || !IsObject(oF2:=FileOpen(File2, "r"))
+		return "", oF1.Close(), ErrorLevel := true
+	if !(oF1.Length=oF2.Length)
+		return oF1.Length>oF2.Length?1:-1, oF1.Close(), oF2.Close(), ErrorLevel := false
+	oF1.RawRead(Source1, oF1.Length), oF2.RawRead(Source2, oF2.Length)
+	return CompareMemory(Source1, Source2), oF1.Close(), oF2.Close()
 }
 
 ;separa un nombre de archivo o URL en su nombre, directorio, la extensión y la unidad.
@@ -2484,6 +2486,29 @@ GdipCreateBitmapFromHBitmap(hBitmap, Palette := 0) {
 	return pBitmap
 } ;https://msdn.microsoft.com/en-us/library/ms536314(v=vs.85).aspx
 
+;obtener Bitmap desde el Portapapeles
+;Return:
+	;0 = ERROR
+	;pBitmap = OK
+;ErrorLevel:
+	;-2 = no se ha encontrado ningun Bitmap
+	;-1 = no se ha podido abrir el portapapeles
+	;0 = OK
+	;1 = error al obtener el hBitmap desde el portapapeles
+	;2 = error al obtener pBitmap desde hBitmap.
+GdipCreateBitmapFromClipboard() {
+	if !OpenClipboard()
+		return false, ErrorLevel := -1
+	if !IsClipboardFormatAvailable(8)
+		return false, ErrorLevel := -2, CloseClipboard()
+	if !(hBitmap:=GetClipboardData(2))
+		return false, ErrorLevel := true, CloseClipboard()
+	CloseClipboard()
+	if !(pBitmap:=GdipCreateBitmapFromHBitmap(hBitmap))
+		return false, ErrorLevel := 2
+	return pBitmap, ErrorLevel := false, DeleteObject(hBitmap)
+}
+
 GdipDisposeImage(pBitmap) {
 	DllCall("gdiplus.dll\GdipDisposeImage", "Ptr", pBitmap)
 }
@@ -2766,6 +2791,20 @@ FillMemory(ByRef Destination, Bytes, Fill) {
 ZeroMemory(ByRef Destination, Bytes) {
 	DllCall("ntdll.dll\RtlZeroMemory", "Ptr", Destination, "UInt", Bytes)
 } ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff563610(v=vs.85).aspx
+
+;compara dos bloques de memoria
+;Sintaxis: CompareMemory( [mem1], [mem2], [tamaño total, en bytes] )
+;Return:
+	;1 = mem1 > mem2
+	;0 = mem1 = mem2
+	;-1 = mem1 < mem2
+CompareMemory(Source1, Source2, Size := 0) {
+	if !(Size)
+		Size1 := VarSetCapacity(Source1), Size2 := VarSetCapacity(Source2), Size := Size1<Size2?Size1:Size2
+		, Result := DllCall("msvcrt.dll\memcmp", "UPtr", &Source1, "UPtr", &Source2, "UInt", Size, "CDecl Int")
+	else Result := DllCall("msvcrt.dll\memcmp", "UPtr", Source1, "UPtr", Source2, "UInt", Size, "CDecl Int")
+	return Result>0?1:Result<0?-1:0, ErrorLevel := ((Result+0)="")
+}
 
 ;recupera la cantidad de memoria RAM en KB instalada físicamente de tablas de firmware SMBIOS (System Management BIOS) del equipo
 ;Ejemplo: MsgBox % Round(GetPhysicallyInstalledSystemMemory()/1024, 1) " MB"
@@ -3365,35 +3404,40 @@ FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRe
 
 ;dialogo para seleccionar fuente
 ;Sintaxis: FontSelect( [hWnd], [fuente], [opciones], [efectos 0|1], [opciones adicionales] )
-;hWnd: ventana propietaria
-;Opciones: array que contiene las opciones por defecto a mostrar, en el siguiente orden:
-	;Color del texto = RGB o nombre
-	;Tamaño,Tamaño Minimo, Tamaño Máximo = separados por coma, tamaño por defecto y MaxMin permitidos.
-	;Negrita = 700 es negrita, 400 es normal.
-	;Cursiva = 0|1
-	;Subrayado = 0|1
-	;Tachado = 0|1
-;Efectos: permite al usuario seleccionar el tipo de letra (subrayado y tachado) y el color del texto (defecto=1)
-;NOTAS: 
-	;devuelve un Array con la informacion, en el mismo orden del 3er parametro (opciones).
-		;Array[0] contiene la fuente seleccionada
-	;ErrorLevel es 1 si el usuario canceló el diálogo
+;Parámetros:
+	;hWnd: ventana propietaria
+	;Opciones: array que contiene las opciones por defecto a mostrar, en el siguiente orden:
+		;Color del texto = RGB o nombre
+		;Tamaño, Tamaño Minimo, Tamaño Máximo = separados por coma, tamaño por defecto y Minimo/Máximo permitidos.
+		;Negrita = 700 es negrita, 400 es normal.
+		;Cursiva = 0|1
+		;Subrayado = 0|1
+		;Tachado = 0|1
+	;Opciones Adicionales: sumar para combinar
+		;0x00000200 = mostrar boton Aplicar
+		;0x00000004 = mostrar boton Ayuda
+		;0x00040000 = mostrar solo fuentes TrueType
+		;0x02000000 = mostrar fuentes ocultas
+		;0x00000100 (defecto) = habilita el subrayado, tachado y seleccion de color
+		;0x00010000 (defecto) = la fuente debe existir
+;Return: devuelve un Array con la informacion, en el mismo orden del 3er parametro (opciones). Array[0] contiene la fuente seleccionada
+;ErrorLevel: 0|1. 1 si el usuario canceló el dialogo.
 ;EJEMPLO:
 	;FontInfo := FontSelect(, "Arial", ["Lime", "12,10,20", 700, true, true, true])
 	;MsgBox %  "Fuente: " FontInfo[0]
 	;	. "`nColor: " FontInfo[1]
 	;	. "`nTamaño: " FontInfo[2] "`nNegrita: " FontInfo[3] "`nCursiva: " FontInfo[4]
 	;	. "`nSubrayado: " FontInfo[5] "`nTachado: " FontInfo[6] "`n`nErrorLevel: " ErrorLevel
-FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0x0) {
+FontSelect(hWnd := 0, FontName := "", Options := "", Flags := 0x10100) {
 	FontName := FontName?FontName:FontQuery()[1]
 	, Color := RGBToInt(_getcolor(Options[1]))
-	, Size := (s:=StrSplit(Options[2], ",", A_Space)[1])&&s>0?s:FontQuery()[2]
-	, MinSize := (s:=StrSplit(Options[2], ",", A_Space)[2])&&s>0?s:0
-	, MaxSize := (s:=StrSplit(Options[2], ",", A_Space)[3])&&s>0?s:0
+	, Size := StrSplit(Options[2], ",", A_Space A_Tab)
+	, MinSize := Size[2], MaxSize := Size[3]
+	, Size := Size[1]=""?FontQuery()[2]:Size[1]
 	, Bold := Between(Options[3], 0, 900)?Options[3]:400
 	, Italic := !!Options[4], Underline := !!Options[5], StrikeOut := !!Options[6]
 	, hDC := CreateDC(), LogPixelsY := GetDeviceCaps(hDC, 90), DeleteDC(hDC)
-	, Flags := Flags|0x1|0x40|(Effects?0x100:0x0)|(((MinSize||MaxSize)&&MinSize<MaxSize)?0x2000:0x0)|0x10000
+	, Flags := 0x00000041|Flags|(MinSize!=""&&MaxSize!=""?0x00002000:0x00000000) ;0x00000008
     VarSetCapacity(LOGFONT, 92, 0) , NumPut(-MulDiv(Size, LogPixelsY, 72), LOGFONT, 0, "Int")
     , NumPut(Bold, LOGFONT, 16, "Int"), NumPut(Italic, LOGFONT, 20, "UChar")
     , NumPut(Underline, LOGFONT, 21, "UChar"), NumPut(StrikeOut, LOGFONT, 22, "UChar")
@@ -3402,15 +3446,17 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Effects := true, Flags := 0
 	, NumPut(&LOGFONT, CHOOSEFONT, A_PtrSize=8?24:12, "Ptr")
 	, NumPut(Flags, CHOOSEFONT, A_PtrSize=8?36:20, "UInt")
 	, NumPut(Color, CHOOSEFONT, A_PtrSize=8?40:24, "UInt")
+	;, NumPut(CustData, CHOOSEFONT, A_PtrSize=8?48:28, "UInt")
+	;, NumPut(nHook, CHOOSEFONT, A_PtrSize=8?56:32, "UInt")
 	, NumPut(MinSize, CHOOSEFONT, A_PtrSize=8?92:52, "Int")
 	, NumPut(MaxSize, CHOOSEFONT, A_PtrSize=8?96:56, "Int")
-	, r := DllCall("comdlg32.dll\ChooseFontW", "Ptr", &CHOOSEFONT)
+	, Ok := DllCall("comdlg32.dll\ChooseFontW", "Ptr", &CHOOSEFONT, "Int")
 	, StrCopy(FontName, &LOGFONT+28,, "Str"), OutPutVar := [], OutPutVar[0] := FontName
 	, OutPutVar[1] := RGB(NumGet(CHOOSEFONT, A_PtrSize=8?40:24, "UInt"))
 	, OutPutVar[2] := NumGet(CHOOSEFONT, A_PtrSize=8?32:16, "Int")//10
 	, OutPutVar[3] := NumGet(LOGFONT, 16, "Int"), OutPutVar[4] := NumGet(LOGFONT, 20, "UChar")
 	, OutPutVar[5] := NumGet(LOGFONT,21,"UChar"), OutPutVar[6] := NumGet(LOGFONT, 22, "UChar")
-	return OutPutVar, ErrorLevel := !r
+	return OutPutVar, ErrorLevel := !Ok
 }
 
 ;obtener tamaño dependiendo de la fuente y texto
@@ -3932,18 +3978,30 @@ Notas:
 	ID / ProcessName = ID o Nombre del proceso
 */
 ;devuelve una lista de todos los procesos (PID+Nombre)
+;Sintaxis: ProcessEnum( [¿recuperar mas información? ]
 ;Ejemplo:
-	;for k, v in ProcessEnum()
-	;	MsgBox % k ": " v
-ProcessEnum() {
-	dwSize := VarSetCapacity(lppe, A_PtrSize=4?296:304, 0), NumPut(dwSize, lppe, 0, "UInt")
-	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0)
-	, DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &lppe), List := {}
-	Loop
-		List[NumGet(lppe, 8, "UInt")] := StrGet(&lppe+(A_PtrSize=4?36:44), 260, "CP0")
-	until !(DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &lppe))
-	return hSnapshot?List:false, ErrorLevel := !hSnapshot, CloseHandle(hSnapshot)
-}
+	;for k, v in p:=ProcessEnum(true)
+		;MsgBox % "#" p.MaxIndex() "`n`n" k "`nNombre: " v.ProcessName "`nPID: " v.ProcessId "`nThreads: " v.Threads
+			;. "`nParent: " v.ParentProcessId "`nPrioridad: " v.Priority
+ProcessEnum(FullInfo := false) {
+	static Priority := {32: "Normal", 64: "Low", 128: "High", 256: "RealTime", 16384: "BelowNormal", 32768: "AboveNormal"}
+	Size := VarSetCapacity(PROCESSENTRY32, A_PtrSize=4?296:304, 0), NumPut(Size, PROCESSENTRY32, 0, "UInt")
+	, hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000002, "UInt", 0, "Ptr")
+	, Ok := DllCall("Kernel32.dll\Process32First", "Ptr", hSnapshot, "Ptr", &PROCESSENTRY32, "Int"), List := []
+	Loop {
+		Info := {}
+		, Info.ProcessId := NumGet(PROCESSENTRY32, 8, "UInt")
+		, Info.ProcessName := StrGet(&PROCESSENTRY32+(A_PtrSize=4?36:44), 260, "CP0")
+		, Info.Threads := NumGet(PROCESSENTRY32, A_PtrSize=4?20:28, "UInt")
+		, Info.ParentProcessId := NumGet(PROCESSENTRY32, A_PtrSize=4?24:32, "UInt")
+		if (FullInfo)
+			hProcess := OpenProcess(Info.ProcessId, 0x0400)
+			, Info.Priority := Priority[DllCall("Kernel32.dll\GetPriorityClass", "Ptr", hProcess, "Uint")]
+			, CloseHandle(hProcess)
+		List.Push(Info)
+	} until !DllCall("Kernel32.dll\Process32Next", "Ptr", hSnapshot, "UInt", &PROCESSENTRY32, "Int")
+	return Ok?List:false, CloseHandle(hSnapshot), ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684834(v=vs.85).aspx
 
 ;Recupera información sobre el uso de memoria del proceso especificado en bytes
 ProcessMemoryInfo(ProcessName) {
@@ -4134,10 +4192,7 @@ ProcessGetWorkingSetSize(ProcessName, ByRef Min := "", ByRef Max := "") {
 ;Estados: Enable | Disable | Delete. Nota: el 3er parámetro solo es válido cuando se espesifican los privilegios separados por coma
 ;Deshabilitar todos los privilegios: establecer en verdadero para deshabilitar todos los privilegios. el 2do y 3er parámetro no tienen efecto
 ;Privilegios: https://msdn.microsoft.com/en-us/library/windows/desktop/bb530716(v=vs.85).aspx
-	;SeChangeNotifyPrivilege|SeCreateGlobalPrivilege|SeDebugPrivilege|SeShutdownPrivilege|SeSystemtimePrivilege|SeCreatePagefilePrivilege
-	;SeImpersonatePrivilege|SeIncreaseQuotaPrivilege|SeTimeZonePrivilege|SeIncreaseBasePriorityPrivilege|SeManageVolumePrivilege|SeRemoteShutdownPrivilege
-	;SeCreateSymbolicLinkPrivilege|SeSecurityPrivilege|SeTakeOwnershipPrivilege|SeBackupPrivilege|SeProfileSingleProcessPrivilege|SeRestorePrivilege
-	;SeSystemEnvironmentPrivilege|SeSystemProfilePrivilege|SeUndockPrivilege|SeIncreaseWorkingSetPrivilege|SeLoadDriverPrivilege
+	;Ver LookupPrivilegeName() para una lista con todos los privilegios
 ;Ejemplo:
 	;MsgBox % ProcessAdjustPrivileges("notepad.exe", [["SeDebugPrivilege", "Enable"], ["SeRestorePrivilege", "Enable"]]) ;Array
 	;MsgBox % ProcessAdjustPrivileges("notepad.exe", "SeDebugPrivilege,SeRestorePrivilege", "Disable") ;Privilegios separados por coma, uso del 3er parámetro
@@ -4149,47 +4204,57 @@ ProcessAdjustPrivileges(ProcessName, Privileges := "", State := "Enable", Disabl
 	, hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x00000028), c := 4
 	, VarSetCapacity(TOKEN_PRIVILEGES, 16*Privileges.MaxIndex(), 0), NumPut(Privileges.MaxIndex(), TOKEN_PRIVILEGES, 0, "UInt")
 	for Index, Info in Privileges {
-		DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Str", IsObject(Info)?Info[1]:Info, "Int64P", lpLuid)
-		, NumPut(lpLuid, TOKEN_PRIVILEGES, c, "Ptr"), NumPut(States[IsObject(Info)?Info[2]:State], TOKEN_PRIVILEGES, c+8, "UInt"), c += 12
+		NumPut(LookupPrivilegeValue(IsObject(Info)?Info[1]:Info), TOKEN_PRIVILEGES, c, "Ptr")
+		, NumPut(States[IsObject(Info)?Info[2]:State], TOKEN_PRIVILEGES, (c:=(c+12))-4, "UInt"), c := c+4
 	} DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", !!DisableAllPrivileges, "Ptr", &TOKEN_PRIVILEGES, "UInt", 0, "Ptr", 0, "Ptr", 0)
 	return !(r:=A_LastError), ErrorLevel := r, CloseHandle(hToken, hProcess) ;AdjustTokenPrivileges --> A_LastError --> ERROR_SUCCESS = 0
 } ;https://msdn.microsoft.com/en-us/library/aa375202(VS.85).aspx | https://msdn.microsoft.com/en-us/library/aa379306(v=vs.85).aspx
 
+/* NOTA: NO DEVUELVE EL ESTADO DEL PRIVILEGIO CORRECTAMENTE!
+;winnt.h (constantes) = https://source.winehq.org/source/include/winnt.h
+;LUID STRUCTURE  =https://msdn.microsoft.com/en-us/library/aa379261(v=vs.85).aspx
+;LUID_AND_ATTRIBUTES structure = https://msdn.microsoft.com/en-us/library/aa379263(v=vs.85).aspx
+;TOKEN_PRIVILEGES = https://msdn.microsoft.com/en-us/library/aa379630(v=vs.85).aspx
 ;obtener privilegios del proceso
-;Sintaxis: ProcessQueryPrivileges( [ID], [devuelve la cantidad de privilegios] )
-;Return: devuelve un Array [[priv 1, estado 1], [priv 2, estado 2], ...], ver ejemplo.
-;Estados: Enabled | Disabled | Default (habilitado por defecto) | Access. Info: https://msdn.microsoft.com/en-us/library/aa379630(v=vs.85).aspx
+;Sintaxis: ProcessQueryPrivileges( [ID] )
+;Return: [{Nombre, Estado}]
+	;Nombre: nombre del privilegio
+	;Estados: estado del provilegio
+		;Enabled = habilitado
+		;Disabled = deshabilitado
+		;Default = habilitado por defecto
+		;Access = el privilegio se utilizó para obtener acceso a un objeto o servicio
 ;Ejemplo:
-	;for k, v in ProcessQueryPrivileges("notepad.exe", Count)
-	;	MsgBox % "#" k " ~ " Count " ------------`nPrivilegio: " v[1] "`nEstado: " v[2]
-ProcessQueryPrivileges(ProcessName, ByRef Count := "") {
+	;for k, v in p:=ProcessQueryPrivileges("notepad.exe")
+	;	MsgBox % "#" k " ~ " p.MaxIndex() " ------------`nPrivilegio: " v[1] "`nEstado: " v[2]
+ProcessQueryPrivileges(ProcessName) {
 	static States := {0x00000002: "Enabled", 0x00000000: "Disabled", 0x00000001: "Default", 0x80000000: "Access"}
 	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x0008)
-	, DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 3, "Ptr", 0, "UInt", 0, "UIntP", Size)
-	, VarSetCapacity(TOKEN_PRIVILEGES, Size * 2, 0), c := 4, Array := []
-	, r:=DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 3, "Ptr", &TOKEN_PRIVILEGES, "UInt", Size, "UIntP", Size)
-	Loop, % (Count:=NumGet(TOKEN_PRIVILEGES, 0, "UInt")) ;PrivilegeCount
-		Array.Push([LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, c, "Int64P")), States[NumGet(TOKEN_PRIVILEGES, c+8, "UInt")]]), c += 12
-	return Array, ErrorLevel := !r, CloseHandle(hToken, hProcess)
-} LookupPrivilegeName(lpLuid) {
-	Loop, Parse, % "SeChangeNotifyPrivilege|SeCreateGlobalPrivilege|SeDebugPrivilege|SeShutdownPrivilege|SeSystemtimePrivilege|SeCreatePagefilePrivilege"
-		. "|SeImpersonatePrivilege|SeIncreaseQuotaPrivilege|SeTimeZonePrivilege|SeIncreaseBasePriorityPrivilege|SeManageVolumePrivilege|SeRemoteShutdownPrivilege"
-		. "|SeCreateSymbolicLinkPrivilege|SeSecurityPrivilege|SeTakeOwnershipPrivilege|SeBackupPrivilege|SeProfileSingleProcessPrivilege|SeRestorePrivilege"
-		. "|SeSystemEnvironmentPrivilege|SeSystemProfilePrivilege|SeUndockPrivilege|SeIncreaseWorkingSetPrivilege|SeLoadDriverPrivilege", |
-	{ DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Str", A_LoopField, "Int64P", cLuid)
-		if (lpLuid=cLuid)
-			return A_LoopField
-}}
+	, Ok := GetTokenInformation(hToken, 3, TOKEN_PRIVILEGES), Array := [], Offset := 4
+	Loop, % NumGet(TOKEN_PRIVILEGES, 0, "UInt") {
+		PrivilegeInfo := {}
+		PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset, "Int64P"))
+		if !(PrivilegeInfo.Name)
+			PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset:=A_PtrSize, "Int64P"))
+		if !(PrivilegeInfo.Name)
+			continue
+		PrivilegeInfo.State := NumGet(TOKEN_PRIVILEGES, Offset + 8, "UInt") ;*! ESTADO?
+		Offset += 12
+		;, PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset, "Int64P"))
+		;, PrivilegeInfo.State := NumGet(TOKEN_PRIVILEGES, Offset + 8, "UInt")
+		Array.Push(PrivilegeInfo)
+	}
+	return Array, CloseHandle(hToken, hProcess), ErrorLevel := !Ok
+}
+*/
 
 ;determina si el proceso tiene privilegios elevados
 ;Sintaxis: ProcessElevation( [ID] )
 ;Return: 0|1
-ProcessElevation(ProcessName) {
+ProcessElevation(ProcessName, ByRef Owner := "") {
 	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x0008)
-	, DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 20, "Ptr", 0, "UInt", 0, "UIntP", Size)
-	, VarSetCapacity(TOKEN_ELEVATION, Size * 2, 0)
-	, r:=DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 20, "Ptr", &TOKEN_ELEVATION, "UInt", Size, "UIntP", Size)
-	return r?NumGet(TOKEN_ELEVATION, 0, "Int"):false, ErrorLevel := !r, CloseHandle(hToken, hProcess)
+	, GetTokenInformation(hToken, 20, TOKEN_ELEVATION)
+	return NumGet(TOKEN_ELEVATION, 0, "UInt"), CloseHandle(hToken, hProcess)
 }
 
 ;suspender
@@ -4205,18 +4270,22 @@ ProcessResume(ProcessName) {
 	, DllCall("ntdll.dll\NtResumeProcess", "Ptr", hProcess)
 	return hProcess, CloseHandle(hProcess)
 }
-	
+
 ;obtiene el SID, opcional también el nombre de usuario y dominio del proceso
 ;Sintaxis: ProcessGetSid( [proceso], [nombre de usuario (salida)], [dominio (salida)] )
-ProcessGetSid(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
-	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x00000008)
-	, DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 0x1, "PtrP", 0, "UInt", 0, "UIntP", Length)
-	, VarSetCapacity(TokenInformation, Length * 2, 0), DllCall("Kernel32.dll\CloseHandle", "Ptr", hProcess)
-	, r:=DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", 0x1, "UInt", &TokenInformation, "UInt", Length, "UIntP", 0)
-	if (Sid:=NumGet(TokenInformation, 0, "UInt")) && ((IsByRef(UserName)) || (IsByRef(UserDomain)))
-		VarSetCapacity(UserName, 512), VarSetCapacity(UserDomain, 512)
-		, DllCall("Advapi32.dll\LookupAccountSidW", "Ptr", 0, "Ptr", Sid, "Str", UserName, "UIntP", 512, "Str", UserDomain, "UIntP", 512, "UIntP", 0)
-	return Sid, ErrorLevel := !r, CloseHandle(hToken, hProcess)
+;MsgBox % ProcessGetSid("chrome.exe", un, ud) "`n" un "`n" ud
+;ExitApp
+ProcessGetSid(ProcessName, ByRef UserName := "", ByRef Domain := "") {
+	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400)
+	, hToken := OpenProcessToken(hProcess, 0x00000008)
+	, Ok := GetTokenInformation(hToken, 1, TOKEN_USER)
+	, pSID := NumGet(TOKEN_USER, 0, "UInt")
+	if IsByRef(UserName) || IsByRef(Domain)
+		LookupAccountSid(pSID, UserName, Domain)
+	;Size := DllCall("Advapi32.dll\GetLengthSid", "Ptr", pSID, "UInt")
+	;VarSetCapacity(SID, Size * 2, 0)
+	;MsgBox % DllCall("Advapi32.dll\ConvertSidToStringSidW", "Ptr", pSID, "UPtrP", &SID, "UInt")
+	return pSID, CloseHandle(hToken, hProcess), ErrorLevel := !Ok
 }
 
 ;obtener una lista de los Threads del proceso espesificado
@@ -4226,11 +4295,11 @@ ProcessGetSid(ProcessName, ByRef UserName := "", ByRef UserDomain := "") {
 		;if (i:=ProcessName(v.ProcessId))
 			;MsgBox % "ThreadId: " v.ThreadId ", OwnerProcessId: " v.ProcessId " (" i ")"
 ProcessThreadList(ProcessName := "", Delimiter := "`n") {
-	ProcessName := _getpid(ProcessName), dwSize := VarSetCapacity(THREADENTRY32, A_PtrSize=4?28:40, 0)
+	ProcessName := _getpid(ProcessName), dwSize := VarSetCapacity(THREADENTRY32, 28, 0)
 	, NumPut(dwSize, THREADENTRY32, 0, "UInt"), hSnapshot := DLLCall("Kernel32.dll\CreateToolhelp32Snapshot", "UInt", 0x00000004, "UInt", 0)
 	, DllCall("Kernel32.dll\Thread32First", "Ptr", hSnapshot, "Ptr", &THREADENTRY32)
 	Loop {
-		th32OwnerProcessID := NumGet(THREADENTRY32, A_PtrSize=4?12:20, "UInt")
+		th32OwnerProcessID := NumGet(THREADENTRY32, 12, "UInt")
 		, th32ThreadID := NumGet(THREADENTRY32, 8, "UInt")
 		if (ProcessName) {
 			if (ProcessName=th32OwnerProcessID)
@@ -4338,6 +4407,124 @@ GetExitCodeProcess(hProcess) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: AUTORIZACIÓN Y SEGURIDAD ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;pSID = pointer a una estructura SID. https://msdn.microsoft.com/en-us/library/windows/desktop/aa379594(v=vs.85).aspx
+	;SID = SID STRING
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/aa375742(v=vs.85).aspx
+;#############################################################################################################################################
+;obtiene información de un Token
+;Sintaxis: GetTokenInformation( [hToken], [TokenInformationClass], [TokenInformation (out)], [ReturnLength] )
+;Parámetros:	
+	;hToken: usar OpenProcessToken()
+	;TokenInformationClass: tipo de información de obtener: https://msdn.microsoft.com/en-us/library/aa379626(v=vs.85).aspx
+	;TokenInformation: información
+	;ReturnLength: bytes necesarios
+;Acceso requerido: 
+	;TOKEN_QUERY_SOURCE = para TokenInformationClass-->TokenSource
+	;TOKEN_QUERY = para todo lo demás
+GetTokenInformation(hToken, TokenInformationClass, ByRef TOKEN_INFORMATION, ByRef ReturnLength := "") {
+	DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", TokenInformationClass, "Ptr", 0, "UInt", 0, "UIntP", ReturnLength)
+	, VarSetCapacity(TOKEN_INFORMATION, ReturnLength * 2, 0)
+	, Ok := DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", TokenInformationClass
+		, "Ptr", &TOKEN_INFORMATION, "UInt", ReturnLength, "UIntP", ReturnLength, "UInt")
+	return Ok, ErrorLevel := !Ok
+}
+
+;obtener LUID de un privilegio
+;Sintaxis: LookupPrivilegeValue( [str privilegio] )
+;Return: lpLuid
+LookupPrivilegeValue(PrivilegeName) {
+	Ok := DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Ptr", &PrivilegeName, "Int64P", PrivilegeValue, "UInt")
+	return PrivilegeValue, ErrorLevel := !Ok
+}
+
+;obtener una cadena de carácteres que reprecenta al privilegio
+;Sintaxis: LookupPrivilegeName( [lpLuid] )
+;Return: String
+LookupPrivilegeName(lpLuid) {
+	Loop, Parse, % "SeChangeNotifyPrivilege|SeCreateGlobalPrivilege|SeDebugPrivilege|SeShutdownPrivilege|SeSystemtimePrivilege|SeCreatePagefilePrivilege"
+		. "|SeImpersonatePrivilege|SeIncreaseQuotaPrivilege|SeTimeZonePrivilege|SeIncreaseBasePriorityPrivilege|SeManageVolumePrivilege|SeRemoteShutdownPrivilege"
+		. "|SeCreateSymbolicLinkPrivilege|SeSecurityPrivilege|SeTakeOwnershipPrivilege|SeBackupPrivilege|SeProfileSingleProcessPrivilege|SeRestorePrivilege"
+		. "|SeSystemEnvironmentPrivilege|SeSystemProfilePrivilege|SeUndockPrivilege|SeIncreaseWorkingSetPrivilege|SeLoadDriverPrivilege|SeMachineAccountPrivilege", |
+		if (lpLuid=LookupPrivilegeValue(A_LoopField))
+			return A_LoopField
+}
+
+;comprueba si es un SID válido
+;Sintaxis: IsValidSid( [pSID] )
+IsValidSid(pSID) {
+	return DllCall("Advapi32.dll\IsValidSid", "Ptr", pSID, "UInt")
+}
+
+;obtiene el nombre de usuario y dominio
+;Sintaxis: LookupAccountSid( [pSID], [nombre se usuario (out)], [dominio (out)] )
+LookupAccountSid(pSID, ByRef UserName := "", ByRef Domain := "") {
+	DllCall("Advapi32.dll\LookupAccountSidW", "Ptr", 0, "Ptr", pSID, "Ptr", 0, "UIntP", SizeN:=0, "Ptr", 0, "UIntP", SizeD:=0, "Ptr", 0)
+	, VarSetCapacity(UserName, SizeN * 2, 0), VarSetCapacity(Domain, SizeD * 2, 0)
+	return DllCall("Advapi32.dll\LookupAccountSidW", "Ptr", 0, "Ptr", pSID, "Str", UserName, "UIntP", SizeN, "Str", Domain, "UIntP", SizeD, "Ptr", 0, "UInt")
+}
+
+FreeSid(pSID) {
+	Ok := 0, Error := ErrorLevel
+	for k, v in pSID
+		Ok += DllCall("Advapi32.dll\FreeSid", "Ptr", v, "Ptr")=0
+	return Ok=pSID.MaxIndex(), ErrorLevel := Error
+}
 
 
 
@@ -4507,6 +4694,127 @@ Ping(Address, Timeout := 1000, ByRef Data := "", Length := 0, ByRef Result := ""
     , MoveMemory(&Result, NumGet(Reply,16), ResultLength), hModule := hModule?FreeLibrary("icmp.dll"):false
     return NumGet(Reply, 8, "UInt"), ErrorLevel := !l
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: DISPOSITIVOS Y APLICACIONES PREDETERMINADAS ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------
+;IMPRESORAS Y FAXES
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------
+;establecer impresora predeterminada
+;Sintaxis: SetDefaultPrinter( [str nombre que puede verse en el panel de control] )
+;Return: 0|1
+SetDefaultPrinter(Printer := 0) {
+	return DllCall("Winspool.drv\SetDefaultPrinterW", "Ptr", &Printer, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd162971(v=vs.85).aspx
+ 
+;obtener impresora predeterminada
+;Return: str nombre
+;ErrorLevel: 0|1
+GetDefaultPrinter() {
+	DllCall("Winspool.drv\GetDefaultPrinterW", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, Size * 2, 0)
+	, Ok := DllCall("Winspool.drv\GetDefaultPrinterW", "Str", OutputVar, "UIntP", Size, "Int")
+	return OutputVar, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd144876(v=vs.85).aspx
+ 
+;enumerar todos los dispositivos de impresora y fax
+;Return: [{uint Flags, str Description, str Name, str Comment}]
+	;for k, v in EnumPrinters()
+	;	MsgBox % "#" k "`nFlags: " v.Flags "`nDescription: " v.Description
+	;		. "`nName: " v.Name "`nComment: " v.Comment
+EnumPrinters() {
+	DllCall("Winspool.drv\EnumPrintersW", "UInt", 0x00000002, "Ptr", 0, "UInt", 1, "Ptr", 0, "UInt", 0, "UIntP", Size, "UIntP", 0)
+	, VarSetCapacity(PRINTER_INFO_1, Size * 2, 0)
+	, DllCall("Winspool.drv\EnumPrintersW", "UInt", 0x00000002, "Ptr", 0, "UInt", 1, "Ptr", &PRINTER_INFO_1, "UInt", Size, "UIntP", 0, "UIntP", Count)
+	Offset := A_PtrSize=4?-16:-28, List := []
+	Loop, % Count {
+		Info := {}, Offset += A_PtrSize=4?16:28
+		, Info.Flags := NumGet(PRINTER_INFO_1, Offset, "UInt")
+		, Info.Description := StrGet(NumGet(PRINTER_INFO_1, Offset+A_PtrSize))
+		, Info.Name := StrGet(NumGet(PRINTER_INFO_1, Offset+(A_PtrSize*2)))
+		, Info.Comment := StrGet(NumGet(PRINTER_INFO_1, Offset+(A_PtrSize*3)))
+		, List.Push(Info)
+	} return List
+}
+
+
+
+
+
 
 
 
@@ -4776,8 +5084,8 @@ RecycleBinEmpty(Path, NoConfirmation := true, NoProgressUI := true, NoSound := t
 RestartWindowsExplorer() {
 	explorer_path := A_WinDir "\explorer.exe"
 	for k, v in ProcessEnum()
-		if (v="explorer.exe") && (ProcessPath(k)=explorer_path)
-			if !ProcessClose(k, 3)
+		if (v.ProcessName="explorer.exe") && (ProcessPath(v.ProcessId)=explorer_path)
+			if !ProcessClose(v.ProcessId, 3)
 				return false, ErrorLevel := true
 	Run, %explorer_path%, %A_WinDir%, Hide, PID
 	return ErrorLevel?false:PID
@@ -5617,20 +5925,29 @@ PowerSetActivePlan(GUID) {
 ;FUNCIONES NECESARIAS
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;abre el portapapeles y evita que otras aplicaciones modifiquen el contenido del portapapeles
-;Nota: si el portapapeles se encuentra abierto por otro proceso, lo reintenta durante 1 segundo, si aún no se puede abrir, devuelve 0
 ;Sintaxis: OpenClipboard( [ms a esperar si no se puede abrir, por defecto 1000ms o 1s], [retraso para comprobar, por defecto 50ms] )
+;Return: 0|1
 OpenClipboard(Wait := 1000, Delay := 50) {
-	if !DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd, "Int") { ;si no se puede abrir el portapepeles
-		Loop ;reintentar durante 1s
-			Sleep, %Delay% ;esperar 50ms entre cada reintento, por defecto.
-		until ((r:=DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd, "Int"))||(A_Index=Round(Wait/Delay))) ;durante 1000ms (1000/50) o hasta que se pueda abrir (por defecto 1s)
-		return r ;r=1 => [se abrió con éxito]
-	} else return true
+	Error := ErrorLevel
+	if !DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd, "Int") {
+		Loop
+			Sleep, %Delay%
+		until (Ok:=DllCall("User32.dll\OpenClipboard", "Ptr", A_ScriptHwnd, "Int")) || (A_Index=Ceil(Wait/Delay))
+		return Ok, ErrorLevel := Error
+	} else return true, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms649048(v=vs.85).aspx
 
 ;cierra el portapapeles
-CloseClipboard() {
-	return DllCall("User32.dll\CloseClipboard", "Int")
+;Sintaxis: OpenClipboard( [ms a esperar si no se puede cerrar, por defecto 1000ms o 1s], [retraso para comprobar, por defecto 50ms] )
+;Return: 0|1
+CloseClipboard(Wait := 1000, Delay := 50) {
+	Error := ErrorLevel
+	if !DllCall("User32.dll\CloseClipboard", "Int") {
+		Loop
+			Sleep, %Delay%
+		until (Ok:=DllCall("User32.dll\CloseClipboard", "Int")) || (A_Index=Ceil(Wait/Delay))
+		return Ok, ErrorLevel := Error
+	} return true, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms649035(v=vs.85).aspx
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -5688,6 +6005,23 @@ GetClipboardText() {
 	return "", ErrorLevel := 2 ;ErrorLevel=2 => formato de momento no soportado
 }
 
+;enumera los datos disponibles en el portapapeles
+;Return:
+	;0 = no hay formatos o ha ocurrido un ERROR
+	;[] = array con los formatos OK
+;ErrorLevel: 0(OK) | N(ERROR, donde N es un número)
+EnumClipboardFormats() {
+	Formats := [], Format := 0
+	Loop {
+		Format := DllCall("User32.dll\EnumClipboardFormats", "UInt", Format, "UInt")
+		if !(A_LastError=0) ;ERROR_SUCCESS=0
+			return false, ErrorLevel := A_LastError
+		if (Format)
+			Formats.Push(Format)
+		else break
+	} return Formats, ErrorLevel := false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms649038(v=vs.85).aspx
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUNCIONES VARIAS
 ;Notas:
@@ -5743,6 +6077,8 @@ GetClipboardFormat() {
 		if DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", A_LoopField, "Int")
 			Format[A_LoopField] := A_LoopField
 	return Format
+} IsClipboardFormatAvailable(Format) {
+	return DllCall("User32.dll\IsClipboardFormatAvailable", "UInt", Format, "Int")
 }
 
 ;registra un nuevo formato válido para el portapapeles
@@ -6017,6 +6353,13 @@ RunAsAdmin() {
 	SetKeyDelay, 10, 10, 10
 	SetMouseDelay, 0
 	SetWinDelay, 50 ;<--
+}
+
+PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
+	if (x="")||(y="")
+		MouseGetPos(x_, y_)
+	PixelGetColor, OutputVar, % (x="")?x_:x, % (y="")?y_:y, %AltSlowRGB%
+	return OutputVar
 }
 
 ;determina si el script ya se está ejecutando en el mismo directorio y con igual nombre.
@@ -9400,8 +9743,26 @@ SetSystemCursor(Cursor := "") {
 
 
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA Y CONFIGURACIÓN ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;CONFIGURACIÓN
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;recupera el valor de configuración del sistema métrico o sistema especificado.
+;Sintaxis: GetSystemMetrics( [valor] )
+;Parámetros:
+	;Valores: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724385(v=vs.85).aspx
+;Nota: todas las dimencionas son recuperadas en pixeles
+GetSystemMetrics(Index) {
+	return DllCall("User32.dll\GetSystemMetrics", "Int", Index, "Int")
+} SysGet(Subcommand, Param3 := "") {
+	SysGet, OutputVar, %Subcommand%, %Param3%
+	return OutputVar
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724385(v=vs.85).aspx
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;SISTEMA
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;modo de inicio del sistema
 ;Sintaxis: SystemBoot()
 ;Return: 0(normal) | 1(a prueba de fallos) | 2(a prueba de fallos con acceso a la red)
@@ -9413,11 +9774,6 @@ SystemBoot() {
 SystemAssocChanged() {
 	return r:=DllCall("Shell32.dll\SHChangeNotify", "UInt", 0x08000000, "UInt", 0, "Ptr", 0, "Ptr", 0), ErrorLevel := !r
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762118%28v=vs.85%29.aspx
-
-SysGet(Subcommand, Param3 := "") {
-	SysGet, OutputVar, %Subcommand%, %Param3%
-	return OutputVar ;DllCall("User32.dll\GetSystemMetrics", "Int", Subcommand)
-}
 
 ;Apagar Equipo
 ;Sinraxis: Shutdown( [Código], [¿Forzar?] )
@@ -12245,122 +12601,237 @@ DriveEject(Drive, Close := false) {
 
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: MONITOR ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;hWnd: hWnd a una ventana existente. -1 para la ventana activa (defecto).
+	;hMonitor: identificador del monitor, 0 para el monitor primario
+	;Monitor_Name: nombreN del monitor o 0 para el monitor primario (defecto). se puede obtener con GetMonitorInfo(hMonitor).Name
+	;Monitor: espesificar hMonitor, Monitor_Name o 0 para usar el monitor primario (defecto)
+;Link: https://msdn.microsoft.com/en-us/library/dd145072(v=vs.85).aspx
+;Constantes: https://www.omniref.com/ruby/gems/win-user32-ruby/0.1.1/symbols/WinAPISys::MONITOR_DEFAULTTOPRIMARY
+;Class Monitor: https://autohotkey.com/boards/viewtopic.php?t=7854
 ;#############################################################################################################################################
-PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
-	if (x="")||(y="")
-		MouseGetPos(x_, y_)
-	PixelGetColor, OutputVar, % (x="")?x_:x, % (y="")?y_:y, %AltSlowRGB%
-	return OutputVar
+;obtener información de un monitor
+;Sintaxis: GetMonitorInfo( [hMonitor] )
+;Return: 
+	;0 = ERROR
+	;{Name, Primary?, Left, Top, Right, Bottom, wLeft, wTop, wRight, wBottom} = OK
+;ErrorLevel: 0|1
+;Notas:
+	;el ancho es: Right-Left
+	;el alto es: Bottom-Top
+GetMonitorInfo(hMonitor) {
+	Size := VarSetCapacity(MONITORINFOEX, (4+16+16+4 +12) * 2, 0)
+	, NumPut(Size, MONITORINFOEX, 0, "UInt")
+	, Ok := DllCall("User32.dll\GetMonitorInfoW", "Ptr", hMonitor, "Ptr", &MONITORINFOEX, "UInt")
+	, Info := {}, Info.Name := StrGet(&MONITORINFOEX+40) ;Sintaxis: \\.\[nombre][número]
+	, Info.Primary := NumGet(MONITORINFOEX, 36, "UInt") ;primario?
+	Loop, Parse, % "Left,Top,Right,Bottom,wLeft,wTop,wRight,wBottom", `, ;pos
+		Info[A_LoopField] := NumGet(MONITORINFOEX, 4 * A_Index, "Int")
+	return Ok?Info:false, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/dd144901(v=vs.85).aspx
+
+;obtener resolucion  y frecuencia
+;Sintaxis: GetMonitorSettings( [monitor], [ancho (out)], [alto (out)], [frecuencia (out)] )
+;Parámetros:
+	;Ancho / Alto: resolución
+	;Frecuencia: frecuencia, en hercios (ciclos por segundo), del dispositivo.
+;Return: 0|1
+;ErrorLevel: 0|1
+;Nota: si solo necesita la resolucion, usar GetMonitorResolution() o GetMonitorInfo()
+GetMonitorSettings(hMonitor := 0, ByRef Width := "", ByRef Height := "", ByRef Freqency := "", ByRef DEV_MODE := "") {
+	Monitor_Name := GetMonitorName(hMonitor)
+	, Ok := EnumDisplaySettings(Monitor_Name,, DEV_MODE)
+	, Width := NumGet(DEV_MODE, 108 + 64, "UInt")
+	, Height := NumGet(DEV_MODE, 112 + 64, "UInt")
+	, Freqency := NumGet(DEV_MODE, 120 + 64, "UInt")
+	return !!Ok, ErrorLevel := !Ok
 }
 
-;obtiene informacion de un monitor
-;Sintaxis: MonitorInfo( [monitor], [número], [nombre] ]
-;Ejemplo: MsgBox % "Monitor Primario: " MonitorInfo().Name
-MonitorInfo(hWnd := "", Number := "", Name := "") {
-	if !(hWnd) && !(Number) && !(Name)
-		hWnd := MonitorPrimary()
-	if !(hWnd) {
-		for k, v in MonitorEnum() {
-			if (Number) && (v.Num!=Number)
-				continue
-			if (Name) && (v.Name!=Name)
-				continue
-			v["hWnd"] := k
-			return v, ErrorLevel := !v
-		} return false, ErrorLevel := true
-	} cbSize := VarSetCapacity(MONITORINFOEX, 52 * 2, 0)
-	, NumPut( cbSize, MONITORINFOEX, 0, "UInt"), DllCall("User32.dll\GetMonitorInfoW", "Ptr", hWnd, "Ptr", &MONITORINFOEX)
-	, MonName := StrGet(&MONITORINFOEX + 40, 32), MonNum := RegExReplace(MonName, ".*(\d+)$", "$1")
-	return {Name: (Name := StrGet(&MONITORINFOEX + 40, 32)), Num: RegExReplace(Name, ".*(\d+)$", "$1")
-		, Left: NumGet(MONITORINFOEX, 4, "Int"), Top: NumGet(MONITORINFOEX, 8, "Int") , Right: NumGet(MONITORINFOEX, 12, "Int") 
-		, Bottom: NumGet(MONITORINFOEX, 16, "Int") , WALeft: NumGet(MONITORINFOEX, 20, "Int") , WATop: NumGet(MONITORINFOEX, 24, "Int") 
-		, WARight: NumGet(MONITORINFOEX, 28, "Int") , WABottom: NumGet(MONITORINFOEX, 32, "Int") , Primary: NumGet(MONITORINFOEX, 36, "UInt")}
+;establecer resolución y frecuencia
+;Sintaxis: SetMonitorSettings( [monitor], [ancho], [alto], [frecuencia, en hercios] )
+;Nota: dejar los parámetros vacíos para no modificar
+;Return: 0|1
+SetMonitorSettings(hMonitor := 0, Width := "", Height := "", Freqency := "") {
+	Monitor_Name := GetMonitorName(hMonitor)
+	, GetMonitorSettings(Monitor_Name, w, h, f, DEV_MODE)
+	, NumPut(0x5c0000, DEV_MODE, 6 + 32, "UInt")
+	, NumPut(Width=""?w:Width, DEV_MODE, 108 + 64, "UInt")
+	, NumPut(Height=""?h:Height, DEV_MODE, 112 + 64, "UInt")
+	, NumPut(Freqency=""?(f?f:0):Freqency, DEV_MODE, 120 + 64, "UInt")
+	return DllCall("User32.dll\ChangeDisplaySettingsEx", "Ptr", &Monitor_Name, "Ptr", &DEV_MODE, "Ptr", 0, "UInt", 0x00000001, "Ptr", 0, "Int")=0
 }
 
-;obtiene una lista de monitores e informacion
-;Sintaxis: MonitorEnum( [monitor|opcion] )
-;Opcion: -1 = recupera la cantidad de monitores | -2 = solo devuelve el hWnd
-;EJEMPLO:
-	;Gui, Add, ListView, w660 r10 Grid, HMON|Num|Name|Primary|Left|Top|Right|Bottom|WALeft|WATop|WARight|WABottom
-	;for HMON, M In MonitorEnum()
-	;   LV_Add(, HMON, M.Num, M.Name, M.Primary, M.Left, M.Top, M.Right, M.Bottom, M.WALeft, M.WATop, M.WARight, M.WABottom)
-	;Loop, % LV_GetCount("Column")
-	;   LV_ModifyCol(A_Index, "AutoHdr")
-	;Gui, Show
-MonitorEnum(hMonitor := "") {
-	static MonitorEnumProc := RegisterCallback("MonitorEnumProc", "Fast", 4)
-	static Monitors := {}
-	if !(hMonitor) || (hMonitor=-1) || (hMonitor=-2) {
-		Monitors:={"Mode": hMonitor, "Count": 0, "List": []}
-		, i := DllCall("User32.dll\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", MonitorEnumProc, "Ptr", &Monitors)
-		return hMonitor=-1?Monitors.Count:Monitors.List, ErrorLevel := !i
-	} return Monitors.List[hMonitor], ErrorLevel := !Monitors.List.HasKey(hMonitor)
-} MonitorEnumProc(HMON, HDC, PRECT, ObjectAddr) {
-	Monitors := Object(ObjectAddr)
-	if (Monitors.Mode="")
-		Monitors.List[HMON] := MonitorInfo(HMON),
-	else if (Monitors.Mode=-1)
-		Monitors.Count++
-	else if (Monitors.Mode=-2)
-		Monitors.List.Push(HMON)
+;obtener ancho y alto actual (resolución) del monitor
+;Sintaxis: GetMonitorResolution( [hMonitor], [ancho (out)], [alto (out)], [anchoW (out)], [altoW (out)] )
+;Parámetros:
+	;Alto: alto total del la pantalla
+	;Ancho: ancho total del la pantalla
+	;AnchoW: el área se reduce a excluir a la zona ocupada por la barra de tareas y otras barras de herramientas de escritorio registrados
+	;AltoW: el área se reduce a excluir a la zona ocupada por la barra de tareas y otras barras de herramientas de escritorio registrados
+;Return: [ancho, alto, anchoW, altoW]
+;Ejemplo:
+	;hMonitor := GetPrimaryDisplayMonitor()
+	;MsgBox % GetMonitorResolution(hMonitor,, h, w2, h2)[1] "x" h "`n" w2 "x" h2
+GetMonitorResolution(hMonitor, ByRef Width := "", ByRef Height := "", ByRef wWidth := "", ByRef wHeight := "") {
+	Info := GetMonitorInfo(hMonitor)
+	return [Width:=Info.Right-Info.Left, Height:=Info.Bottom-Info.Top, wWidth:=Info.wRight-Info.wLeft, wHeight:=Info.wBottom-Info.wTop]
+}
+
+;recupera un identificador para el monitor de visualización que tiene la mayor superficie de intersección con el rectángulo de delimitación de una ventana especificada
+;Sintaxis: MonitorFromWindow( [hWnd] )
+;Return: hMonitor
+MonitorFromWindow(hWnd := -1) {
+	_gethwnd(hWnd)
+	return DllCall("User32.dll\MonitorFromWindow", "Ptr", hWnd, "UInt", 0x00000002, "Ptr")
+}
+
+;recupera un identificador para el monitor de visualización que tiene la mayor superficie de intersección con un rectángulo especificado
+;Sintaxis: MonitorFromRect( [&RECT] )
+;Sintaxis 2: MonitorFromPoint [&POINT] )
+;Parámetros:
+	;RECT: espesificar una estructura rect.
+	;POINT: espesificar una estructura point.
+;Return: hMonitor
+MonitorFromRect(RECT) {
+	return DllCall("User32.dll\MonitorFromRect", "Ptr", RECT, "UInt", 0x00000002, "Ptr")
+} MonitorFromPoint(POINT) {
+	return DllCall("User32.dll\MonitorFromPoint", "Ptr", POINT, "UInt", 0x00000002, "Ptr")
+}
+
+;obtener el monitor primario
+;Ejemplo: MsgBox % GetMonitorInfo(GetPrimaryDisplayMonitor()).Name ;obtener nombreN del monitor principal
+GetPrimaryDisplayMonitor() {
+	return DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", 0x00000001, "Ptr")
+}
+
+;enumera monitores de visualización (incluyendo pseudo-monitores invisibles asociados con los controladores de mirroring)
+;que intersecan una región formada por la intersección de un área de recorte especificada y la región visible de un contexto de dispositivo.
+;Sintaxis: EnumDisplayMonitors( [hDC, RECT] )
+;Return: 
+	;0 = ERROR
+	;[] = OK
+;ErrorLevel: 0|1
+;Ejemplo:
+	;for k, v in EnumDisplayMonitors()
+	;	MsgBox % "#" k "`n`nhMonitor: " v.hMonitor "`nNombre: " GetMonitorInfo(v.hMonitor).Name
+EnumDisplayMonitors(hDC := 0, RECT := 0) {
+	Address := RegisterCallback("MonitorEnumProc", "Fast", 4), Data := {List: []}
+	, Ok := DllCall("User32.dll\EnumDisplayMonitors", "Ptr", hDC, "Ptr", RECT, "Ptr", Address, "Ptr", &Data)
+	return Ok?Data.List:false, ErrorLevel := !Ok, GlobalFree(Address)
+} MonitorEnumProc(hMonitor, hDC, RECT, Data) {
+	Data := Object(Data), Data.List.Push({hMonitor: hMonitor, hDC: hDC, RECT: RECT})
 	return true
 }
 
-;obtiene el número de monitores
-;Sintaxis: MonitorCount( [¿incluir todos los monitores?] )
-MonitorCount(All := false) {
-	if !(All)
-		return DllCall("User32.dll\GetSystemMetrics", "Int", 80)
-	return MonitorEnum(-1)
+;cuenta sólo los monitores de visualización
+;Return: int
+GetDisplayMonitors() {
+	return GetSystemMetrics(80)
 }
 
-;recupera hWnd del monitor principal
-;Sintaxis: MonitorPrimary( [info (salida)] )
-;Ejemplo: MsgBox % "hWnd: " MonitorPrimary(h) "`nNúmero: " h.Num "`nNombre: " h.Name
-MonitorPrimary(ByRef Info := "", dwFlags := 0x1) {
-	hMonitor := DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", dwFlags)
-	if (IsByRef(Info))
-		Info := MonitorInfo(v)
-	return hMonitor, ErrorLevel := !hMonitor
-} 
-
-;modificar brillo y gama
-;Sintaxis: SetDeviceGammaRamp( [brillo 1~256 N125], [gama] )
-SetDeviceGammaRamp(Brightness := 125, Gamma := 1.0) {
-	Brightness := (Brightness>256)?256:(Brightness<0)?1:Brightness
-	, VarSetCapacity(gr, 512*3), x := 1/gamma
-	Loop, 256 {
-		(nValue:=(Brightness+128)*(A_Index-1))>65535?(nValue:=65535)
-		nValue := (nValue**x/65535**x)*65535
-		, NumPut(nValue, gr, 2*(A_Index-1), "Ushort")
-		, NumPut(nValue, gr, 512+2*(A_Index-1), "Ushort")
-		, NumPut(nValue, gr, 1024+2*(A_Index-1), "Ushort")
-	} hDC := DllCall("User32.dll\GetDC", "Ptr", 0)
-	return DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC, "Ptr", &gr)
-	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
+;obtener DPI del monitor
+;Sintaxis: GetMonitorDPI( [monitor] )
+;Return: 0 = ERROR
+GetMonitorDPI(hMonitor := 0) {
+	hDC := GetMonitorDC(hMonitor)
+	return GetDeviceCaps(hDC, 88), DeleteDC(hDC) ;LOGPIXELSX=88 | LOGPIXELSY=90
 }
 
-;obtener brillo
-;Sintaxis: MonitorBrightness( [rojo], [verde], [azul] )
-MonitorGetBrightness(ByRef R := "", ByRef G := "", ByRef B := "") {
-	hDC:=DllCall("User32.dll\GetDC", "Ptr", 0), VarSetCapacity(gr, 1536, 0)
-	, i:=DllCall("Gdi32.dll\GetDeviceGammaRamp", "Ptr", hDC, "Ptr", &gr), R := NumGet(gr, 2, "UShort") - 128
-	, G := NumGet(gr, 512 + 2, "UShort") - 128, B := NumGet(gr, 1024 + 2, "UShort") - 128
-	return R, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
+;establecer gama
+;Sintaxis: SetDeviceGammaRamp( [monitor], [gama] )
+;Parámetros:
+	;Gama: un valor entre 1 y 255 inclusive. 125 es el predeterminado
+;Return: 0|1
+SetDeviceGammaRamp(hMonitor := 0, Gamma := 125) { ;WIN_V+
+	Gamma := (Gamma > 255) ? 255 : (Gamma < 0) ? 0 : Gamma
+	, hDC := GetMonitorDC(hMonitor), Size := VarSetCapacity(Ramp, 1536, 0)
+	Loop, % Size / 6
+            NumPut((N := (Gamma + 128) * (A_Index - 1)) > 65535 ? 65535 : N, Ramp, 2 * (A_Index - 1), "UShort")
+        MoveMemory(&Ramp + 512, &Ramp, 512), MoveMemory(&Ramp + 1024, &Ramp, 512)
+	return DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC, "Ptr", &Ramp, "Int"), DeleteDC(hDC)
 }
 
-;modificar brillo
-;Sintaxis: MonitorBrightness( [rojo], [verde], [azul] )
-MonitorSetBrightness(R := "", G := "", B := "") {
-	if (R="")||(G="")||(B="")
-		MonitorGetBrightness(_R, _G, _B), R := (R="")?_R:R, G := (G="")?_G:G, B := (B="")?_B:B
-	Loop % (VarSetCapacity(gr, 1536, 0) / 6)
-		NumPut((r:=(R+128)*(A_Index-1))>65535?65535:r, gr, 2*(A_Index-1), "UShort")
-		, NumPut((g:=(G+128)*(A_Index-1))>65535?65535:g, gr, 512+2*(A_Index-1), "UShort")
-		, NumPut((b:=(B+128)*(A_Index-1))>65535?65535:b, gr, 1024+2*(A_Index-1), "UShort")
-	i:=DllCall("Gdi32.dll\SetDeviceGammaRamp", "Ptr", hDC:=DllCall("user32.dll\GetDC", "Ptr", 0), "Ptr", &gr)
-	return i, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), ErrorLevel := !i
+;obtener gama
+;Sintaxis: GetDeviceGammaRamp( [monitor] )
+;Return: Int
+;ErrorLevel: 0|1
+GetDeviceGammaRamp(hMonitor := 0) { ;WIN_V+
+	hDC := GetMonitorDC(hMonitor), VarSetCapacity(Ramp, 1536, 0)
+	, Ok := DllCall("Gdi32.dll\GetDeviceGammaRamp", "Ptr", hDC, "Ptr", &Ramp, "Int")
+	return NumGet(Ramp, 2, "UShort") - 128, ErrorLevel := !Ok, DeleteDC(hDC)
 }
+
+;obtener hPhysicalMonitor desde hMonitor
+GetPhysicalMonitorsFromHMONITOR(hMonitor, ByRef PHYSICAL_MONITOR := "") {
+	if !DllCall("Dxva2.dll\GetNumberOfPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UIntP", NumberOfPhysicalMonitors, "Int")
+		return false
+	VarSetCapacity(PHYSICAL_MONITOR, (A_PtrSize + 256) * NumberOfPhysicalMonitors, 0)
+	if !DllCall("Dxva2.dll\GetPhysicalMonitorsFromHMONITOR", "Ptr", hMonitor, "UInt", NumberOfPhysicalMonitors, "Ptr", &PHYSICAL_MONITOR, "Int")
+		return false
+	return NumGet(PHYSICAL_MONITOR) ;0?
+}
+
+/* COMENTADO DEBIDO A QUE GetPhysicalMonitorsFromHMONITOR() NO DEVUELVE hPhysicalMonitor CORRECTAMENTE EN CIERTOS MONITORES
+	,LINK REFERENCIA: http://stackoverflow.com/questions/846518/getphysicalmonitorsfromhmonitor-returned-handle-is-always-null
+;recupera las capacidades de configuración de un monitor. Llame a esta función para saber qué funciones de configuración del monitor de alto nivel son compatibles con el monitor.
+;Sintaxis: GetMonitorCapabilities( [hMonitor], [MonitorCapabilities (out)], [SupportedColorTemperatures (out)] )
+;Parámetros:
+	;MonitorCapabilities: para comprobar si soporta una capacidad use (MonitorCapabilities & N), donde N es uno de los siguientes valores.+
+		;MC_CAPS_NONE = 0x00000000,
+		;MC_CAPS_MONITOR_TECHNOLOGY_TYPE = 0x00000001
+		;MC_CAPS_BRIGHTNESS = 0x00000002
+		;MC_CAPS_CONTRAST = 0x00000004
+		;MC_CAPS_COLOR_TEMPERATURE = 0x00000008
+		;MC_CAPS_RED_GREEN_BLUE_GAIN = 0x00000010
+		;MC_CAPS_RED_GREEN_BLUE_DRIVE = 0x00000020
+		;MC_CAPS_DEGAUSS = 0x00000040
+		;MC_CAPS_DISPLAY_AREA_POSITION = 0x00000080
+		;MC_CAPS_DISPLAY_AREA_SIZE = 0x00000100
+		;MC_CAPS_RESTORE_FACTORY_DEFAULTS = 0x00000400
+		;MC_CAPS_RESTORE_FACTORY_COLOR_DEFAULTS = 0x00000800
+		;MC_RESTORE_FACTORY_DEFAULTS_ENABLES_MONITOR_SETTINGS = 0x00001000
+	;SupportedColorTemperatures: para comprobar si soporta una temperatura de color use (SupportedColorTemperatures & N), donde N es uno de los siguientes valores.
+		;MC_SUPPORTED_COLOR_TEMPERATURE_NONE = 0x00000000
+		;MC_SUPPORTED_COLOR_TEMPERATURE_4000K = 0x00000001
+		;MC_SUPPORTED_COLOR_TEMPERATURE_5000K = 0x00000002
+		;MC_SUPPORTED_COLOR_TEMPERATURE_6500K = 0x00000004
+		;MC_SUPPORTED_COLOR_TEMPERATURE_7500K = 0x00000008
+		;MC_SUPPORTED_COLOR_TEMPERATURE_8200K = 0x00000010
+		;MC_SUPPORTED_COLOR_TEMPERATURE_9300K = 0x00000020
+		;MC_SUPPORTED_COLOR_TEMPERATURE_10000K = 0x00000040
+		;MC_SUPPORTED_COLOR_TEMPERATURE_11500K = 0x00000080
+;Return: 0|1
+GetMonitorCapabilities(hMonitor, ByRef MonitorCapabilities := "", ByRef SupportedColorTemperatures := "") { ;WIN_V+
+	hPhysicalMonitor := GetPhysicalMonitorsFromHMONITOR(hMonitor)
+	if !DllCall("Dxva2.dll\GetMonitorCapabilities", "Ptr", hPhysicalMonitor, "UIntP", MonitorCapabilities, "UIntP", SupportedColorTemperatures, "Int")
+		return false
+	return true
+} ;https://msdn.microsoft.com/en-us/library/dd692940(v=vs.85).aspx
+*/
+
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;FUNCIONES PARA USO INTERNO
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtener hDC desde hMonitor, Monitor_Name o 0=MONITOR PRIMARIO
+GetMonitorDC(hMonitor := 0) {
+	Monitor_Name := (hMonitor+0)=""?hMonitor:(hMonitor?GetMonitorInfo(hMonitor).Name:"DISPLAY")
+	return CreateDC(Monitor_Name)
+}
+
+;obtener nombre desde hMonitor, Monitor_Name, 0=MONITOR PRIMARIO
+GetMonitorName(hMonitor) {
+	Monitor_Name := (hMonitor+0)=""?hMonitor:GetMonitorInfo(hMonitor?hMonitor:GetPrimaryDisplayMonitor()).Name
+	return Monitor_Name
+}
+
+;obtiene la estructura DEV_MODE con información de un monitor 
+;https://autohotkey.com/board/topic/85382-change-screen-resolution-using-unicode-and-ansi-version/
+;https://autohotkey.com/board/topic/96293-changing-multiple-monitor-display-resolutions/
+EnumDisplaySettings(Monitor_Name := 0, ModeNum := -1, ByRef DEV_MODE := "") {
+	Size := VarSetCapacity(DEV_MODE, 220, 0)
+	, NumPut(Size, DEV_MODE, 4 + 32, "UInt")
+	return DllCall("User32.dll\EnumDisplaySettingsW", "Ptr", &Monitor_Name, "UInt", ModeNum, "Ptr", &DEV_MODE, "Int") 
+} ;https://msdn.microsoft.com/en-us/library/dd162611(v=vs.85).aspx
 
 
 
@@ -12472,47 +12943,6 @@ class __gsvalue {
 	static LastControlId ;ultimo ID espesificado para un control
 	static LastProcessId ;ultimo ID espesificado para un proceso
 }
-
-/*
-;IUIAutomation interface
-;Exposes methods that enable Microsoft UI Automation client applications to discover, access, and filter UI Automation elements
-;https://msdn.microsoft.com/en-us/library/windows/desktop/ee671406(v=vs.85).aspx
-class CUIAutomation {
-	static obj ;CUIAutomation Object
-	
-	ComObjCreate() {
-		if !(this.obj)
-			this.obj := ComObjCreate("{FF48DBA4-60EF-4201-AA87-54103EEF594E}", "{30CBE57D-D9D0-452A-AB13-7AC5AC4825EE}")
-	} ObjRelease() {
-		ObjRelease(this.obj), this.obj := ""
-	} _variant(ByRef var, type := 0, val := 0) {
-		return (VarSetCapacity(var,8+2*A_PtrSize)+NumPut(type,var,0,"short")+NumPut(val,var,8,"ptr"))*0+&var
-	} _vas(obj, ByRef txt) {
-		for k,v in obj
-			if (v=txt)
-				return false
-		return true
-	}
-	
-	ElementsFromPoint(x, y) {
-		DllCall(NumGet(NumGet(this.obj+0), 7*A_PtrSize), "Ptr", this.obj, "Int64", x|y<<32,"PtrP", obj)
-		DllCall(NumGet(NumGet(obj+0), 23*A_PtrSize),"Ptr", obj, "PtrP", name), OutputVar := []
-		DllCall(NumGet(NumGet(obj+0), 10*A_PtrSize),"Ptr", obj, "UInt", 30045, "Ptr", this._variant(val))
-		DllCall(NumGet(NumGet(obj+0), 10*A_PtrSize),"Ptr", obj, "UInt", 30092, "Ptr", this._variant(lname))
-		DllCall(NumGet(NumGet(obj+0), 10*A_PtrSize),"Ptr", obj, "UInt", 30093, "Ptr", this._variant(lval))
-		if !((a:=StrGet(name, "UTF-16"))="")
-			OutputVar.Push(a)
-		if !((b:=StrGet(NumGet(val, 8), "UTF-16"))="") && () ;-------------->
-		c := StrGet(NumGet(lname, 8), "UTF-16")
-		d := StrGet(NumGet(lval,8,"Ptr"), "UTF-16")
-		
-		b&&_vas(Item,b)?Item.Push(b):0,c&&_vas(Item,c)?Item.Push(c):0
-
-		ObjRelease(obj)
-	}
-	
-}
-*/
 
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: INCLUDE :::::::::::::::::::::::::::::::::: *i
