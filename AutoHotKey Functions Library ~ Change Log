@@ -1,4 +1,98 @@
 ###############################################################
+ACTUALIZACION 10/01/2016 - AHK1.1.22.09
+###############################################################
+Funciones Agregadas:
+	• GetMonitorSettings()
+	• SetMonitorSettings()
+	• GetMonitorResolution()
+	• EnumClipboardFormats()
+	• GdipCreateBitmapFromClipboard()
+	• IsClipboardFormatAvailable()
+	• GetPhysicalMonitorsFromHMONITOR()
+	• GetMonitorCapabilities()
+	• GetDeviceGammaRamp()
+	• SetDeviceGammaRamp()
+	• GetPrimaryDisplayMonitor()
+	• GetMonitorDPI()
+	• GetSystemMetrics()
+	• EnumDisplayMonitors()
+	• MonitorFromPoint()
+	• MonitorFromRect()
+	• MonitorFromWindow()
+	• GetMonitorInfo()
+	• CompareMemory()
+	• FreeSid()
+	• LookupAccountSid()
+	• IsValidSid()
+	• GetTokenInformation()
+	• LookupPrivilegeValue()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• EnumDisplaySettings(). I
+	• GetMonitorName(). I
+	• GetMonitorDC(). I
+	• MonitorEnumProc(). I
+
+Mejoras:
+	• CloseClipboard()
+	• ProcessEnum() (ahora debuelve un objeto en el array)
+	
+Correcciones:
+	• ProcessThreadList()
+	• ProcessElevation()
+	• LookupPrivilegeName() (agregado privilegio SeMachineAccountPrivilege)
+	
+Notas:
+	• todas las funciones con MONITORES han sido reescritas, algunas eliminadas, renombradas, y otras nuevas
+	• añadido Dispositivos y Aplicaciones Predeterminadas funciones
+	• Agregado Autorización y Seguridad funciones
+	
+Funciones Eliminadas:
+	• MonitorGetBrightness()
+	• MonitorSetBrightness()
+	• MonitorCount(). usar GetDisplayMonitors()
+	• MonitorPrimary(). usar GetPrimaryDisplayMonitor()
+	• MonitorInfo(). usar GetMonitorInfo()
+	• MonitorEnum(). usar EnumDisplayMonitors()
+	• FileSizeCompare()
+	• ProcessQueryPrivileges() (linea comentada, no recupera el estado correctamente)
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• FontSelect()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 05/01/2016 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
