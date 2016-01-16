@@ -3,7 +3,7 @@ FUNCIONES  AUTOHOTKEY UNICODE 32 & 64 BITS.
 -------------------------------------------------------------------------
 SO: WIN_XP, WIN_V, WIN_7, WIN_8, WIN_8.1,  WIN_10
 AHK/SO Arquitectura: 32-Bits / 64-Bits
-SO BASE: MS Windows 10 Enterprise 32 bits (10.0, compilación 10586)
+SO BASE: MS Windows 10 Pro 32 bits (10.0, compilación 10586)
 Funciones:
 	• Archivos
 	• Carpetas
@@ -32,7 +32,6 @@ Funciones:
 	• Notificaciones
 	• Fuentes & Colores & Recursos & DLL
 	• Nombres y Rutas de Archivos
-	• Objetos
 	• Tareas programadas
 	• Administración de memoria
 	• Gdiplus (GDI+)
@@ -42,13 +41,16 @@ Funciones:
 	• Usuarios
 	• Autorización y Seguridad
 	• Dispositivos y Aplicaciones Predeterminadas
+	• Administración De Configuración Plug and Play (PnP)
+	• Array y Objetos
+	• Lista de Imágenes, Imágenes, Bitmap, Iconos, Pixel
 	• Otros (funciones variadas)
 Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variables, IVirtualDesktopManager:=1):
 	• IVirtualDesktopManager
 	• __gsvalue
 Link (reporta problemas o sugerencias para nuevas funciones): http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
-AutoHotKey: 1.1.21.01+
-Actualizado: AHK1.1.22.09 U32 & U64 || Domingo, 10 de enero de 2016
+AutoHotKey: 1.1.23.00+
+Actualizado: AHK1.1.23.00 U32 & U64 || sábado, 16 de enero de 2016
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -89,15 +91,6 @@ _mnum(f,s,r:=true){
 		__gsvalue.LastWindowId:=h:=(h=-1?IsWindow():h=-2?MouseGetPos(,, true)[3]:h=-3?__gsvalue.LastWindowId:h)
 	if IsByRef(c)
 		__gsvalue.LastControlId:=c:=(c=-1?ControlExist(h,ControlGetFocus(h)):c=-2?MouseGetPos(,,, true,2)[4]:c=-3?__gsvalue.LastControlId:ControlExist(h,c))
-}_vas(obj,ByRef txt){
-	for k,v in obj
-		if (v=txt)
-			return false
-	return true
-}_variant(ByRef var,type:=0,val:=0){
-	return (VarSetCapacity(var,8+2*A_PtrSize)+NumPut(type,var,0,"short")+NumPut(val,var,8,"ptr"))*0+&var
-}_vt(p,n){
-	return NumGet(NumGet(p+0,"ptr")+n*A_PtrSize,"ptr")
 }
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -2578,7 +2571,7 @@ GdipCreateBitmapFromFile(File, Index := 1, IconSizes := "256|128|64|48|32|16") {
 	if (Ext="exe") || (Ext="dll") {
 		Size := VarSetCapacity(ICONINFO, 16 + (2*A_PtrSize), 0)
 		Loop, Parse, % IconSizes, |
-		{ 	if !(hIcon:=ExtractIconEx(File, Index, A_LoopField, A_LoopField))
+		{ 	if !(hIcon:=LoadImage(File, Index, A_LoopField, A_LoopField))
 				continue
 			if !(DllCall("User32.dll\GetIconInfo", "Ptr", hIcon, "Ptr", &ICONINFO, "Int")) || !(GetObject(c:=NumGet(ICONINFO, 12 + (A_PtrSize-4) + 4), Size, ICONINFO) && c) {
 				DestroyIcon(hIcon), hIcon := ""
@@ -3345,7 +3338,7 @@ _getcolor(c) {
 	static Colors := {Aqua: "0x00FFFF", Black: "0x000000", Blue: "0x0000FF", Fuchsia: "0xFF00FF", Gray: "0x808080" ;nombres soportados
 		, Green: "0x008000", Lime: "0x00FF00", Maroon: "0x800000", Navy: "0x000080", Olive: "0x808000", Purple: "0x800080"
 		, Red: "0xFF0000", Silver: "0xC0C0C0", Teal: "0x008080", White: "0xFFFFFF", Yellow: "0xFFFF00"}
-	return (Colors[c]="")?c:Colors[c] ;si el color espesificado no esta en «Colors» devuelve el color sin modificar
+	return (Colors[c]="")?Hex(c, 6, 1):Colors[c] ;si el color espesificado no esta en «Colors» devuelve el color sin modificar
 }
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3552,6 +3545,11 @@ FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "
 
 
 
+
+
+
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
@@ -3649,7 +3647,7 @@ StrRight(String, Length := 1) {
 	return SubStr(String, -(Length-1))
 }
 
-;If [var] in [ .. ]
+;If [str_var] in [str]
 ;comprueba si el contenido de la variable coincide exactamente con los elementos espesificados
 ;Sintaxis: InVar( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
 InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := false) {
@@ -3659,7 +3657,7 @@ InVar(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := fals
 	return false
 }
 
-;If [var] contains [ .. ]
+;If [str_var] contains [str]
 ;comprueba si el contenido de la variable coincide exactamente o parcialmente con los elementos espesificados
 ;Sintaxis: Contains( [Var], [Que], [Delimitador], [omitir], [¿sensible a mayúsculas?] )
 Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := false) {
@@ -4362,17 +4360,19 @@ CreateProcess(ApplicationName := "", ByRef CommandLine := "", ProcessAttributes 
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
 
 ;lee datos de un área de memoria en un proceso determinado. toda la zona a leer debe ser accesible o la operación fallará
-;Sintaxis: ReadProcessMemory( [hProcess], [BaseAddress], [data (out)], [tamaño, en bytes], [NumberOfBytesRead] )
-;BaseAddress: un puntero a la dirección base en el proceso específico a leer
-;Data: un puntero a un búfer que recibe el contenido del espacio de direcciones del proceso especificado.
-;Tamaño: el número de bytes que se lee desde el proceso especificado
-;NumberOfBytesRead: recibe el número de bytes transferidos en el búfer especificado
-ReadProcessMemory(hProcess, BaseAddress, Buffer, Bytes := 0, ByRef NumberOfBytesRead := "") {
+;Sintaxis: ReadProcessMemory( [hProcess], [BaseAddress], [data (out)], [tamaño, en bytes], [NumberOfBytesRead (in_out)], [ReturnType] )
+;Parámetros:
+	;BaseAddress: un puntero a la dirección base en el proceso específico a leer
+	;Data: un puntero a un búfer que recibe el contenido del espacio de direcciones del proceso especificado.
+	;Tamaño: el número de bytes que se lee desde el proceso especificado
+	;NumberOfBytesRead:  recibe el número de bytes transferidos en el búfer especificado
+	;ReturnType: tipo de valor a devolver. defecto=UInt
+ReadProcessMemory(hProcess, BaseAddress, Buffer, Bytes := 0, ByRef NumberOfBytesRead := "", ReturnType := "UInt") {
 	BaseAddress := IsObject(BaseAddress)?BaseAddress:["UInt", BaseAddress], Error := ErrorLevel
 	if IsByRef(NumberOfBytesRead)
-		VarSetCapacity(NumberOfBytesRead, 16, 0)
+		VarSetCapacity(NumberOfBytesRead, NumberOfBytesRead?NumberOfBytesRead:16, 0)
 	Result := DllCall("Kernel32.dll\ReadProcessMemory", "Ptr", hProcess, BaseAddress[1], BaseAddress[2], "Ptr", Buffer, "UPtr"
-	, Bytes>0?Bytes:VarSetCapacity(Buffer), "UPtrP", IsByRef(NumberOfBytesRead)?&NumberOfBytesRead:0, "UInt")
+	, Bytes>0?Bytes:VarSetCapacity(Buffer), "UPtrP", IsByRef(NumberOfBytesRead)?&NumberOfBytesRead:0, ReturnType)
 	if IsByRef(NumberOfBytesRead)
 		NumberOfBytesRead := NumGet(NumberOfBytesRead, 0, "UPtrP")
 	return Result, ErrorLevel := Error
@@ -4800,16 +4800,19 @@ EnumPrinters() {
 	DllCall("Winspool.drv\EnumPrintersW", "UInt", 0x00000002, "Ptr", 0, "UInt", 1, "Ptr", 0, "UInt", 0, "UIntP", Size, "UIntP", 0)
 	, VarSetCapacity(PRINTER_INFO_1, Size * 2, 0)
 	, DllCall("Winspool.drv\EnumPrintersW", "UInt", 0x00000002, "Ptr", 0, "UInt", 1, "Ptr", &PRINTER_INFO_1, "UInt", Size, "UIntP", 0, "UIntP", Count)
-	Offset := A_PtrSize=4?-16:-28, List := []
-	Loop, % Count {
+	, Offset := A_PtrSize=4?-16:-28, List := []
+	Loop, % Count
 		Info := {}, Offset += A_PtrSize=4?16:28
 		, Info.Flags := NumGet(PRINTER_INFO_1, Offset, "UInt")
 		, Info.Description := StrGet(NumGet(PRINTER_INFO_1, Offset+A_PtrSize))
 		, Info.Name := StrGet(NumGet(PRINTER_INFO_1, Offset+(A_PtrSize*2)))
 		, Info.Comment := StrGet(NumGet(PRINTER_INFO_1, Offset+(A_PtrSize*3)))
 		, List.Push(Info)
-	} return List
+	return List
 }
+
+
+
 
 
 
@@ -5952,6 +5955,7 @@ CloseClipboard(Wait := 1000, Delay := 50) {
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUNCIONES
+;Nota: necesario abrir el portapapeles antes
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;vacía el portapapeles y libera los HANDLES a los datos en el portapapeles
 EmptyClipboard() {
@@ -6124,8 +6128,11 @@ RegisterClipboardFormat(Format) {
 
 
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: OBJETOS ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: ARRAY Y OBJETOS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;OBJETOS
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;Devuelve una matriz asociativa de objetos COM activos,donde cada tecla es el apodo, artículo o sufijo del objeto.
 ;Si se especifica un prefijo, sólo los objetos cuyos apodos del elemento que coincida con el prefijo dado son devueltos, y el prefijo se omite de las teclas devueltas.
 GetActiveObjects(Prefix := "", CaseSensitive := false) {
@@ -6213,7 +6220,7 @@ SelectObject(hDC, Object) {
 DeleteObject(Object*) {
 	Ok := 0, Error := ErrorLevel
 	Loop, % Object.MaxIndex()
-		Ok += !!DllCall("Gdi32.dll\DeleteObjectW", "Ptr", Object[A_Index], "UInt")
+		Ok := !!DllCall("Gdi32.dll\DeleteObject", "Ptr", Object[A_Index], "Int")
 	return Ok=Object.MaxIndex(), ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/dd183539(v=vs.85).aspx
 
@@ -6223,11 +6230,13 @@ DeleteObject(Object*) {
 	;ComVar[] --> recupera el valor
 	;ComVar[] := Val --> establece el valor.
 	;ComVar.ref --> recupera un objeto ByRef para pasar a una función COM
-ComVar() {
+ComVar(Value*) {
 	static base := {__Get: "ComVarGet", __Set: "ComVarSet", __Delete: "ComVarDel"}
 	static ComObjParam := A_AhkVersion<2?"ComObjParameter":"ComObject"
-	r := DllCall("OleAut32.dll\SafeArrayAccessData", "Ptr", ComObjValue(arr:=ComObjArray(0xC, 1)), "PtrP", data)
-	return {ref: %ComObjParam%(0x400C, data), _: arr, base: base}, ErrorLevel := r
+	arr := ComObjArray(17, 1) , oval := ComObjValue(arr), data := SafeArrayAccessData(oval)
+	if Value.MaxIndex()
+		arr[0] := Value[1]
+	return {ref: %ComObjParam%(0x400C, data), _: arr, base: base}
 } ComVarGet(cv, p*) {
 	if !(p.MaxIndex())
 		return cv._[0]
@@ -6235,19 +6244,154 @@ ComVar() {
 	if !(p.MaxIndex())
 		return cv._[0] := v
 } ComVarDel(cv) {
-	DllCall("OleAut32.dll\SafeArrayUnaccessData", "Ptr", ComObjValue(cv._))
+	SafeArrayUnaccessData(ComObjValue(cv._))
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3964
 
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;ARRAY
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;devolver la estructura de un Array/Objeto como String
+;Return: String
+Array_Print(Array, Depth := 5, IndentLevel := "    ") {
+   for k,v in Array {
+      List .= IndentLevel "[" k "]"
+      if (IsObject(v)) && (Depth>1)
+         List .= "`n" %A_ThisFunc%(v, Depth-1, IndentLevel)
+      else List .= A_Space "=>" A_Space v
+      List .= "`n"
+   } return RTrim(List)
+} ;https://autohotkey.com/boards/viewtopic.php?p=66474#p66474
+
+;devuelve el número de elementos en un Array u Objeto, sin importar el tipo.
+;Sintaxis: Array_Count( [Array], [Profundidad] )
+;Sintaxis 2: NumGet(&Array, 4*A_PtrSize)
+;Return: N / N>=0 E N
+Array_Count(Array, Depth := 1) {
+	Count := 0
+	for k, v in Array {
+		if (A_Index<=Depth) && IsObject(v)
+			Count += %A_ThisFunc%(v, Depth), Count -= Count>0
+		Count++
+	} return Count
+} ;https://autohotkey.com/boards/viewtopic.php?p=66474#p66474
+
+;If [object] in [values*]
+;comprueba si existe un valor espesificado en un Array u Objeto
+;Sintaxis: InArray( [array], [valor], [¿sensible a mayúsculas?] )
+;Return: 0|1
+InArray(Array, Value, CaseSensitive := false) {
+	if IsObject(Value) {
+		for k, v in Value
+			for k, a in Array
+				if ((CaseSensitive) && (a==v)) || (!(CaseSensitive) && (a=v))
+					return true
+	} else for k, v in Array
+		if ((CaseSensitive) && (v==Value)) || (!(CaseSensitive) && (v=Value))
+			return true
+	return false
+}
+
+;If [object] contains [values*]
+;comprueba si algún valor del Array u Objeto espesificado contiene el valor espesificado
+;Sintaxis: Array_Contains( [array], [valor], [¿sensible a mayúsculas?] )
+;Return: 0|1
+Array_Contains(Array, Value, CaseSensitive := false) {
+	if IsObject(Value) {
+		for k, v in Value
+			for k, a in Array
+				if InStr(a, v, !!CaseSensitive)
+					return true
+	} else for k, v in Array
+		if InStr(v, Value, !!CaseSensitive)
+			return true
+	return false
+} ;https://autohotkey.com/boards/viewtopic.php?p=66474#p66474
+
+;busca un valor en un Array y devuelve la posición. si es un objeto, devuelve el nombre de la clave
+;Sintaxis: Array_Find( [array], [valor] )
+;Return: Key Name/Index
+;ErrorLevel: 1 = no se encontró el valor
+Array_Find(Array, Value, CaseSensitive := false) {
+	if IsObject(Value) {
+		for k, v in Value
+			for k, a in Array
+				if ((CaseSensitive) && (a==v)) || (!(CaseSensitive) && (a=v))
+					return k, ErrorLevel := false
+	} else for k, v in Array
+		if ((CaseSensitive) && (v==Value)) || (!(CaseSensitive) && (v=Value))
+			return k, ErrorLevel := false
+	return "", ErrorLevel := true
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;MANIPULACIÓN DE ARRAY
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ms221145(v=vs.85).aspx
+;Parámetros:
+	;SafeArray: descriptior de un Array creado por SafeArrayCreate()
+	;ArrayData: puntero a los datos del Array
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Sintaxis: SafeArrayAccessData( [SafeArray] )
+;ErrorLevel: 0 = OK
+;Return: ArrayData
+SafeArrayAccessData(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayAccessData", "Ptr", SafeArray, "PtrP", ArrayData, "Int")
+	return ArrayData, ErrorLevel := Error ;S_OK=0
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221620(v=vs.85).aspx
+
+;Sintaxis: SafeArrayUnaccessData( [SafeArray] )
+;Return: 0|1
+;ErrorLevel: 0 = OK
+SafeArrayUnaccessData(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayUnaccessData", "Ptr", SafeArray, "Int")
+	return !Error, ErrorLevel := Error ;S_OK=0
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221203(v=vs.85).aspx
+
+;Sintaxis: SafeArrayCreate( [BaseType], [Dimensions], [VectorBounds], [InformationType] )
+;Return: SafeArray
+SafeArrayCreate(BaseType := 17, Dimensions := 1, VectorBounds := 0, InformationType := 0) {
+	if (InformationType)
+		return DllCall("OleAut32.dll\SafeArrayCreateEx", "UInt", BaseType, "UInt", Dimensions, "Ptr", VectorBounds, "PtrP", InformationType, "Ptr")
+	else return DllCall("OleAut32.dll\SafeArrayCreate", "UInt", BaseType, "UInt", Dimensions, "Ptr", VectorBounds, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221234(v=vs.85).aspx
+
+;destruir SafeArray
+;Return: 0|1
+;ErrorLevel: 0 = OK
+SafeArrayDestroy(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayDestroy", "Ptr", SafeArray, "Int")
+	return !Error, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221702(v=vs.85).aspx
 
 
+SafeArrayDestroyDescriptor(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayDestroyDescriptor", "Ptr", SafeArray, "Int")
+	return !Error, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221681(v=vs.85).aspx
 
+SafeArrayDestroyData(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayDestroyData", "Ptr", SafeArray, "Int")
+	return !Error, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221418(v=vs.85).aspx
 
+SafeArrayGetVartype(SafeArray) {
+	Error := DllCall("OleAut32.dll\SafeArrayGetVartype", "Ptr", SafeArray, "PtrP", BaseType, "Int")
+	return BaseType, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221539(v=vs.85).aspx
 
-
-
-
-
-
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;OTRAS FUNCIONES COMO REFERENCIA
+;Nota: estas funciones ya estan incorpotadas en AHK, es solo como referencia y en "Incorporado" se aclara como hacerlo.
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;hacer una copia de un array que, al modificarlo, no se ve afectado el original
+;Sintaxis: Array_Clone( [Array] )
+;Return: Array
+;Incorporado: Clone := Object.Clone()
+Array_Clone(Array) {
+	OutArray := []
+	for k, v in Array
+		OutArray.Push(v)
+	return OutArray
+}
 
 
 
@@ -7820,7 +7964,7 @@ LV_SearchEx(Items, Text := "", Col := -1, Max := -1, hWnd := "") {
 }
 
 ;buscar elemento en el control que contenga el texto expesificado y lo selecciona.
-;Sintaxis 1: LV_Search( [texto a buscar], [columnas separadas por coma, por defecto busca en todas], [hWnd control] )
+;Sintaxis 1: LV_Search( [texto a buscar], [columnas separadas por coma, por defecto busca en todas] )
 ;Return: 0 si no se encontraron items.
 ;Nota: usar SetTimer() para cuando haya muchos items.
 LV_Search(Text, Col := -1) {
@@ -8760,13 +8904,6 @@ MsgBox(Info*) {
 	Loop, Parse, % "Yes,No,Ok,Cancel,Abort,Ignore,Retry,Timeout,Continue,TryAgain", `,
 		IfMsgBox, %A_LoopField%
 			return ErrorLevel:=A_MsgBoxResult:=A_LoopField
-} MsgBoxEx(l*) {
-	static r := {3: "Abort", 2: "Cancel", 11: "Continue", 5: "Ignore", 7: "No", 1: "OK", 4: "Retry", 10: "TryAgain", 6: "Yes"} ;1: "Timeout"
-	if !(l.MaxIndex())
-		return r[DllCall("User32.dll\MessageBoxTimeoutW", "Ptr", 0, "Str", "Press OK to continue.", "Str", "*", "UInt", 0, "Short", 0, "UInt", l[4]=""?0xFFFFFFFF:l[4])]
-	if (l[1]!="") && (l[2]="") && (l[3]="")
-		return r[DllCall("User32.dll\MessageBoxTimeoutW", "Ptr", 0, "Str", l[3], "Str", "*", "UInt", 0, "Short", 0, "UInt", l[4]=""?0xFFFFFFFF:l[4])]
-	return r[DllCall("User32.dll\MessageBoxTimeoutW", "Ptr", 0, "Str", l[3], "Str", l[2], "UInt", l[1], "Short", 0, "UInt", l[4]=""?0xFFFFFFFF:l[4])]
 }
 
 ;Sintaxis: ToolTip( [texto], [xpos], [ypos], [tiempo fuera, en segundos] )
@@ -8855,21 +8992,11 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 ;color para los controles
 ;conversor de colores: http://www.yellowpipe.com/yis/tools/hex-to-rgb/color-converter.php
 ;Sintaxis: GuiControlColor( [control], [color del texto], [color de fondo] )
-GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Force := 0 ) {
+GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Force := false) {
 	if (Force)
 		CtlColors.Detach(ControlId)
 	CtlColors.Change(ControlId, BackgroundColor, TextColor)
 } 
-
-GuiControlGetHwnd(ControlId) {
-	GuiControlGet, hWnd, HWND, %ControlId%
-	return hWnd ? hWnd : ControlId
-}
-
-GuiControlSetFont(hWnd, Type, Font) {
-   Gui, Font, %Type%, %Font%
-   GuiControl, Font, %hWnd%
-}
 
 ;dialogo Abrir Con...
 ;Sintaxis: OpenWithDialog( [owner window hwnd], [archivo] )
@@ -8947,9 +9074,86 @@ OpenWithDialog(hWnd, Filename) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: LISTA DE IMÁGENES (ImageList), IMÁGENES & ICONOS ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: LISTA DE IMÁGENES (ImageList), IMÁGENES & ICONOS & BITMAP & PIXEL ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;BITMAP
+;Link: https://msdn.microsoft.com/en-us/library/dd183385(v=vs.85).aspx
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Sintaxis: CreateBitmap( [ancho], [alto], [Planes], [BitsPerPel], [&lpvBits] )
+;Return: hBitmap
+CreateBitmap(Width := 0, Height := 0, Planes := 1, BitsPerPel := 24, lpvBits := 0) {
+	return DllCall("Gdi32.dll\CreateBitmap", "Int", Width, "Int", Height, "UInt", Planes, "UInt", BitsPerPel, "Ptr", lpvBits, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/dd183485(v=vs.85).aspx
+
+;Sintaxis: CreateCompatibleBitmap( [hDC], [ancho], [alto] )
+;Return: hcBitmap (DDB)
+CreateCompatibleBitmap(hDC := 0, Width := 0, Height := 0) {
+	return DllCall("Gdi32.dll\CreateCompatibleBitmap", "Ptr", hDC, "Int", Width, "Int", Height, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/dd183488(v=vs.85).aspx
+
+;Sintaxis: SetBitmapBits( [hBitmap], [Bytes/Color], [&BitsColorData] )
+;Return: Bytes = OK. 0 = ERROR
+SetBitmapBits(hBitmap, Bytes, BitsColorData := 0) {
+	if (BitsColorData=0)
+		VarSetCapacity(l, 4, 0), Numput(_getcolor(Bytes), l, 0, "UInt"), BitsColorData := &l, Bytes := 4
+	return DllCall("Gdi32.dll\SetBitmapBits", "Ptr", hBitmap, "UInt", Bytes, "Ptr", BitsColorData, "UInt")
+} ;https://msdn.microsoft.com/en-us/library/dd162962(v=vs.85).aspx
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;PIXEL
+;Parámetros:
+	;Color: espesificar el color RGB o el Nombre. ver _getcolor() para una lista con los nombres soportados
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Establecer color para un Picture Control
+;Sintaxis: SetPixelColor( [hWnd], [color] )
+;Return: hBitmap
+;Nota: usar DeleteObject(hBitmap) cuando ya no lo necesite (Ej. cuando elimine el control) o cuando va a sobreescribir el color.
+;Ejemplo:
+	;Gui, +AlwaysOnTop +HWNDhGui
+	;Loop, Parse, % "Aqua|Black|Blue|Fuchsia|Gray|Green|Lime|Maroon|Purple|Red|Silver|Teal|White|Yellow", |
+	;{ 	Gui, Add, Picture, % "x" ((A_Index-1)*10) " y0 w10 h95 HWNDhWnd"
+	;	%A_LoopField% := SetPixelColor(hWnd, A_LoopField)
+	;} Gui, Show
+	;Sleep, 3000
+	;Loop, Parse, % "Aqua|Black|Blue|Fuchsia|Gray|Green|Lime|Maroon|Purple|Red|Silver|Teal|White|Yellow", |
+	;{	DeleteObject(%A_LoopField%)
+	;	WinRedraw(hGui)
+	;	Sleep, 500
+	;}
+	;GuiClose:
+	;ExitApp
+SetPixelColor(hWnd, Color) {
+	if (WinGetClass(hWnd)="Static")
+		ControlSetStyle(0, hWnd, "+0x4E")	
+	hBitmap := CreateBitmap(1, 1)
+	, hBitmap := CopyImage(hBitmap,, 0, 0, 0x2008)
+	, SetBitmapBits(hBitmap, Color)
+	, SendMessage(hWnd, 0x0172,,,, hBitmap) ;0x0172 = STM_SETIMAGE
+	if (ErrorLevel)
+		return false, DeleteObject(hBitmap)
+	return hBitmap
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;LISTA DE IMÁGENES
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -9042,24 +9246,41 @@ ImageConvert(Image, Output := "", Width := "", Height := "", PreserveAspectRatio
 	return Ok, GdiplusShutdown(, hModule), ErrorLevel := !Ok
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&p=49878&sid=8974c43be898318cea6b8dc509f2e6df#p49878
 
+;Sintaxis: CopyImage( [hImage], [0=BITMAP, 2=CURSOR, 3=ICONO], [ancho], [alto], [opciones] )
+;Parámetros:
+	;Opciones: 
+		;0x00000008 = eliminar imagen original despues de copiar
+		;0x00004000 = LR_COPYFROMRESOURCE
+		;0x00000004 = LR_COPYRETURNORG
+		;0x00002000 = LR_CREATEDIBSECTION
+		;0x00000040 = LR_DEFAULTSIZE
+		;0x00000001 = LR_MONOCHROME
+;Return: hImage
+CopyImage(hImage, Type := 0, Width := 32, Height := 32, Flags := 0x00002000) {
+	return DllCall("User32.dll\CopyImage", "Ptr", hImage, "UInt", Type, "Int", Width, "Int", Height, "UInt", Flags, "Ptr")
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;ICONOS
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;extraer icono
-;Sintaxis 1: ExtractIcon( [archivo], [índice | 0 para obtener el número de iconos] )
-;Sintaxis 2: ExtractIconEx( [archivo], [indice], [ancho], [alto] )
-ExtractIcon(Icon, Index := 1) {
-	if (Index=-1)
-		return r:=DllCall("User32.dll\DestroyIcon", "UPtr", Icon), ErrorLevel := !r
-	if !(hIcon:=DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Str", Icon, "UInt", Index-1))
-		hIcon := ExtractIconEx(Icon, Index)
-	return hIcon, ErrorLevel := !hIcon
-} ExtractIconEx(Icon, Index := 1, Width := 16, Height := 16) {
-	r := DllCall("User32.dll\PrivateExtractIconsW", "Str", Icon, "Int", Index-1, "Int", Width, "Int", Height, "UIntP", hIcon, "UInt", 0, "UInt", 1, "UInt", 0)
-	return hIcon, ErrorLevel := !r || (r=0xFFFFFFFF)
-} ExtractIcon2(Icon, Index := 1, LargeIcons := false) {
-	ImageList := IL_Create(1, 1, !!LargeIcons), IL_Add(ImageList, Icon, Index)
-	return IL_GetIcon(ImageList, Index), IL_Destroy(ImageList)
+;obtener HANDLE a una imagen
+;Sintaxis: LoadImage( [Filename], [Index], [Width], [Height], [ImageType] )
+;Parámetros:
+	;Filename: espesificar la ruta a la imagen, puede ser icono, bitmap, cursor, exe, dll ...
+	;Index: espesificar el indice. espesificar 0 para obtener el número de imagenes en el archivo.
+	;Width: espesificar el ancho nuevo. dejar en 0 para usar el original.
+	;Height: espesificar el alto nuevo. dejar en 0 para usar el original.
+	;ImageType: devuelve uno de los siguientes valores que permite identificar el tipo de imagen.
+		;0 = hBitmap
+		;1 = hIcon
+		;2 = Cursor
+;Return: hIcon | hBitmap
+;Nota: destruir el HANDLE cuando ya no lo necesite con DestroyIcon()
+LoadImage(Filename, Index := 1, Width := 0, Height := 0, ByRef ImageType := "") {
+	if (Index=0)
+		return DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Ptr", &Filename, "UInt", -1)
+	Index := (Index+0)=""?1:Abs(Index)
+	return LoadPicture(Filename, "GDI+ Icon" Index " w" Width " h" Height, ImageType)
 }
 
 ;eliminar icono
@@ -9069,13 +9290,6 @@ DestroyIcon(hIcon*) {
 		Ok += !!DllCall("User32.dll\DestroyIcon", "UPtr", hIcon[A_Index], "Int")
 	return Ok=hIcon.MaxIndex(), ErrorLevel := Error
 }
-
-;extraer icono pequeño/grande
-;Sintaxis: DefExtractIcon( [archivo], [indice], [icono pequeño (out)], [icono grande (out)] )
-DefExtractIcon(IconFile, Index := 1, ByRef iconSmall := "", ByRef iconLarge := "") {
-	r:=DllCall("Shell32.dll\SHDefExtractIconW", "Ptr", &IconFile, "Int", Index-1, "UInt", 0, "PtrP", iconSmall, "PtrP", iconLarge, "UInt", 0)
-	return !r, ErrorLevel := r
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762149(v=vs.85).aspx
 
 ;duplicar icono
 DuplicateIcon(hIcon) {
@@ -9088,7 +9302,21 @@ DrawIcon(hDC, Left := 0, Top := 0, hIcon := 0, Width := 32, Height := 32, istepI
 	, "Int", Height, "UInt", istepIfAniCur, "Ptr", hbrFlickerFreeDraw, "UInt", Flags, "Int")
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms648065(v=vs.85).aspx
 
+;----------------------------
 
+;extraer icono
+;Sintaxis 1: ExtractIcon( [archivo], [índice | 0 para obtener el número de iconos] )
+;Sintaxis 2: ExtractIconEx( [archivo], [indice], [ancho], [alto] )
+ExtractIcon(Icon, Index := 1) {
+	if (Index=-1)
+		return r:=DllCall("User32.dll\DestroyIcon", "UPtr", Icon), ErrorLevel := !r
+	if !(hIcon:=DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Str", Icon, "UInt", Index-1))
+		hIcon := ExtractIconEx(Icon, Index)
+	return hIcon, ErrorLevel := !hIcon
+} ExtractIconEx(Icon, Index := 1, Width := 16, Height := 16) {
+	r := DllCall("User32.dll\PrivateExtractIconsW", "Str", Icon, "Int", Index-1, "Int", Width, "Int", Height, "UIntP", hIcon, "UInt", 0, "UInt", 1, "UInt", 0)
+	return hIcon, ErrorLevel := !r || (r=0xFFFFFFFF)
+}
 
 
 
@@ -9208,8 +9436,11 @@ ControlGetFocus(hWnd) {
 ;Sintaxis: ControlExist( [hWnd], [control] )
 ;Nota: devuelve el id del control.
 ControlExist(hWnd, Control) {
+	dhw := A_DetectHiddenWindows
+	DetectHiddenWindows, On
 	_gethwnd(hWnd)
 	ControlGet, ControlId, hWnd,, %Control%, ahk_id %hWnd%
+	DetectHiddenWindows, %dhw%
 	return ControlId?ControlId:Control
 }
 
@@ -9351,11 +9582,37 @@ ControlColor(hWnd, BackgroundColor := "White", TextColor := "") {
 	} return false, ErrorLevel := true
 }
 
+;obtener estilo del control
+;Sintaxis: ControlGetStyle( [hWnd], [control] )
+ControlGetStyle(hWnd, Control) {
+	_gethWnd(hWnd, Control)
+	ControlGet, OutputVar, Style,,, ahk_id %Control%
+	return OutputVar
+}
 
+;obtener estilo extendido del control
+;Sintaxis: ControlGetExStyle( [hWnd], [control] )
+ControlGetExStyle(hWnd, Control) {
+	_gethWnd(hWnd, Control)
+	ControlGet, OutputVar, ExStyle,,, ahk_id %Control%
+	return OutputVar
+}
 
+;establecer estilo al control
+;Sintaxis: ControlSetStyle( [hWnd], [control], [-+^estilo] )
+ControlSetStyle(hWnd, Control, Style) {
+	_gethWnd(hWnd, Control)
+	Control, Style, %Style%,, ahk_id %Control%
+	return !ErrorLevel
+}
 
-
-
+;establecer estilo extendido al control
+;Sintaxis: ControlSetExStyle( [hWnd], [control], [-+^estilo] )
+ControlSetExStyle(hWnd, Control, ExStyle) {
+	_gethWnd(hWnd, Control)
+	Control, ExStyle, %ExStyle%,, ahk_id %Control%
+	return !ErrorLevel
+}
 
 
 
@@ -9615,6 +9872,15 @@ MouseGetText(x := "", y := "", Encoding := "UTF-16") {
 		DllCall(_vt(array,4),"ptr",array,"int",A_Index-1,"ptr*",newElement), DllCall(_vt(newElement,23),"ptr",newElement,"ptr*",name)
 		, e.=StrGet(name,"utf-16"), ObjRelease(newElement)
 	return e, ObjRelease(array), ObjRelease(parent)
+} _vas(obj,ByRef txt) {
+	for k,v in obj
+		if (v=txt)
+			return false
+	return true
+}_variant(ByRef var,type:=0,val:=0) {
+	return (VarSetCapacity(var,8+2*A_PtrSize)+NumPut(type,var,0,"short")+NumPut(val,var,8,"ptr"))*0+&var
+}_vt(p,n) {
+	return NumGet(NumGet(p+0,"ptr")+n*A_PtrSize,"ptr")
 } ;http://www.autohotkey.com/board/topic/94619-ahk-l-screen-reader-a-tool-to-get-text-anywhere/
 
 ;muestra/oculta el cursor
@@ -11218,19 +11484,28 @@ WinGetMenu(hWnd) {
 	;Nota: espesificar el númeo pero negativo para restaurar
 WinSetTitle(hWnd, NewTitle := "") {
 	_gethwnd(hWnd)
-	return Ok:=DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Str", NewTitle, "Int"), ErrorLevel := !Ok
+	, Ok := DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Ptr", &NewTitle, "Int")
+	return Ok, ErrorLevel := !Ok
 }
 
 ;cambia el icono de la ventana
-;Sintaxis: WinSetIcon( [ID], [Icono/DLL/Ejecutable], [Índice] )
+;Sintaxis: WinSetIcon( [ID], [Icono], [Índice] )
+;Nota: usar DestroyIcon(hPicture) cuando ya no lo necesite.
+;ErrorLevel: 
+	;0 = OK
+	;1 = ERROR
+	;2 = no se ha podido obtener un HANDLE a la imagen
+;Return: hPicture
 WinSetIcon(hWnd, Icon, Index := 1) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632643%28v=vs.85%29.aspx
-	if !(hIcon := ExtractIcon(Icon, Index))
+	hImage := LoadImage(Icon, Index)
+	if !(hImage)
 		return false, ErrorLevel := 2
 	_gethwnd(hWnd)
-	, SendMessage(hWnd, 0x0080,,,, hIcon), SendMessage(hWnd, 0x0080, "UInt", 1,, hIcon)
-	if ErrorLevel
-		return false, DestroyIcon(hIcon), ErrorLevel := true
-	return true, ErrorLevel := false ;WM_SETICON := 0x0080, ICON_SMALL := 0, ICON_BIG := 1
+	, SendMessage(hWnd, 0x0080, "UInt", 0,, hImage) ;WM_SETICON = 0x0080 | ICON_SMALL := 0
+	, SendMessage(hWnd, 0x0080, "UInt", 1,, hImage) ;WM_SETICON = 0x0080 | ICON_BIG := 1
+	if (ErrorLevel)
+		return false, ErrorLevel := true, DestroyIcon(hImage)
+	return hImage, ErrorLevel := false
 }
 
 ;permitir/bloquear el redibujado de la ventana
@@ -11443,16 +11718,20 @@ WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
 
 
 
+
+
+
+
 /*#############################################################################################################################################
  ::::::::::::::::::::::::::::::::::::::::::::: MENU ::::::::::::::::::::::::::::::::::
 PARÁMETROS:
 	• hWnd = ID de la ventana
-	• hMenu = ID del menu (para obtener el ID del menu por nombre, usar GetMenuByName)
+	• hMenu = ID del menu. para obtener el ID del menu por nombre, usar MenuGetHandle()
 	• Menu = nombre del menu
 EJEMPLO:
 	Menu, MyMenu, Add, Item 1: Hola, close
-	Menu, MyMenu, Add, % "ID: " GetMenuByName("MyMenu"), close
-	MenuCheckRadioItem(GetMenuByName("MyMenu"), 2)
+	Menu, MyMenu, Add, % "ID: " MenuGetHandle("MyMenu"), close
+	MenuCheckRadioItem(MenuGetHandle("MyMenu"), 2)
 	Menu, MyMenu, Show
 	return
 	close:
@@ -11543,24 +11822,6 @@ MenuGetItemList(hWnd, hMenu := 0, Prefix := "") { ;http://ahkscript.org/boards/v
 			continue
 		} List .= ItemId "`t" Prefix RegExReplace( lpString, "`t.*" ) "`n"
 	} return RTrim( List, "`n" )
-}
-
-;obtener el ID del menu por nombre
-;Sintaxis: GetMenuByName( [menu] )
-GetMenuByName(Menu) {
-	static hMenu
-	If !(hMenu) {
-		Menu, %A_ThisFunc%Menu, Add
-		Menu, %A_ThisFunc%Menu, DeleteAll
-		Gui, %A_ThisFunc%GUI:+HWNDhWnd
-		Gui, %A_ThisFunc%GUI:Menu, %A_ThisFunc%Menu
-		hMenu := WinGetMenu(hWnd)
-		Gui, %A_ThisFunc%GUI:Menu
-		Gui, %A_ThisFunc%GUI:Destroy
-	} Menu, %A_ThisFunc%Menu, Add, :%Menu%
-	hSubMenu := MenuGetSubMenu(hMenu)
-	Menu, %A_ThisFunc%Menu, Delete, :%Menu%
-	return hSubMenu
 }
 
 ;obtener el ID del submenu del menu espesificado
@@ -12440,8 +12701,6 @@ DriveSetLabel(Drive, VolumeLabel := "") {
 	return r:=DllCall("Kernel32.dll\SetVolumeLabelW", "Str", SubStr(Trim(Drive), 1, 1) ":", "Str", VolumeLabel), ErrorLevel := !r
 }
 
- ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
  ;obtener tipo de unidad: Unknown, Removable, Fixed, Network, CDROM, RAMDisk
 ;Sintaxis: DriveGetType( [Unidad] )
 ;Tipos: Unknown | Removable | Fixed | Network | CDROM | RAMDisk
@@ -12495,8 +12754,6 @@ DriveGetInfoEx(Drive, ByRef VolumeName := "", ByRef FileSystem := "", ByRef Type
 	return true, ErrorLevel := false
 } ;https://msdn.microsoft.com/en-us/library/ts2t8ybh(v=vs.84).aspx
 
- ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 ;recupera la cantidad de espacio libre en Bytes
 ;Sintaxis: DriveSpaceFree( [unidad], [KB|MB|GB] )
 DriveSpaceFree(Drive, Units := 0) {
@@ -12519,7 +12776,7 @@ DriveEnum(Type := "") {
 
 ;expulsar/retraer unidad de CD/DVD. expulsar USB.
 ;Sintaxis: DriveEject( [unidad], [0|1] )
-;NOTA: el script no avanza hasta que la unidad se cierre/expulse.
+;NOTA: la funcion espera hasta que la unidad se cierre/expulse.
 DriveEject(Drive, Close := false) {
 	Drive := SubStr(Drive, 1, 1)
 	if ((IpType:=DriveGetType(Drive))="CDROM") || !(IpType) {
@@ -12527,9 +12784,9 @@ DriveEject(Drive, Close := false) {
 			return false, ErrorLevel := true
 		Drive, Eject, %Drive%:, % !!Close
 		return !ErrorLevel
-	} hDrive := DllCall("Kernel32.dll\CreateFileW", "Str", "\\.\" Drive ":", "UInt", 0, "UInt", 0, "UInt", 0, "UInt", 3, "UInt", 0, "Ptr", 0)
+	} hDrive := CreateFile("\\.\" Drive ":", 0x80000000+0x40000000, 0,, 3)
 	, Size := VarSetcapacity(STORAGE_DEVICE_NUMBER, 8 + A_PtrSize, 0), nVT := true
-	, IpR := DllCall("Kernel32.dll\DeviceIoControl", "Ptr", hDrive, "UInt", 0x2D1080, "Ptr", 0, "UInt", 0, "Ptr", &STORAGE_DEVICE_NUMBER, "UInt", Size, "UIntP", 0, "Ptr", 0)
+	, DeviceIoControl(hDrive, 0x2D1080,,, &STORAGE_DEVICE_NUMBER, Size)
 	, CloseHandle(hDrive), IpType := NumGet(STORAGE_DEVICE_NUMBER, "UInt")
 	, sPHDRV := (IpType=0x00000007)?"\\\\.\\PHYSICALDRIVE" NumGet(STORAGE_DEVICE_NUMBER, 4, "UInt"):""
 	, queryEnum := ComObjGet("winmgmts:").ExecQuery("Select * from Win32_DiskDrive WHERE DeviceID='" sPHDRV "' AND InterfaceType='USB'")._NewEnum()
@@ -12537,19 +12794,44 @@ DriveEject(Drive, Close := false) {
 		return false, ErrorLevel := true
 	if !(GetModuleHandle("SetupAPI.dll"))
 		hModule := LoadLibrary("SetupAPI.dll")
-	DllCall("SetupAPI.dll\CM_Locate_DevNode", "PtrP", nDID, "Str", Drive.PNPDeviceID, "UInt", 0), DllCall("SetupAPI.dll\CM_Get_Parent", "PtrP", nDID, "UInt", nDID, "UInt", 0)
+	nDID := CM_GetParent(CM_LocateDevNode(Drive.PNPDeviceID))
 	while % (nDID && nVT && (A_Index<4)) 
-		DllCall("SetupAPI.dll\CM_Request_Device_Eject", "UInt", nDID, "PtrP", nVT,  "Ptr", 0, "UInt", 0, "UInt", 0)
+		CM_RequestDeviceEject(nDID, nVT)
 	if (hModule)
 		FreeLibrary(hModule) 
 	return !nVT, ErrorLevel := nVT
 } ;http://ahkscript.org/boards/viewtopic.php?f=6&t=4491
 
+;enumera todas las unidades de disco fisico conectadas al equipo (no particiones, estas son incluidas en la información)
+DiskDriveEnum(Options := "") {
+	List := []
+	for this in ComObjGet("winmgmts:\\.\root\CIMV2").ExecQuery("SELECT * FROM Win32_DiskDrive" Options) {
+		Info := {}
+		Loop, Parse, % "Availability|BytesPerSector|Capabilities|CapabilityDescriptions|Caption|CompressionMethod|ConfigManagerErrorCode|ConfigManagerUserConfig|CreationClassName|"
+		. "DefaultBlockSize|Description|DeviceID|ErrorCleared|ErrorDescription|ErrorMethodology|FirmwareRevision|Index|InstallDate|InterfaceType|LastErrorCode|"
+		. "Manufacturer|MaxBlockSize|MaxMediaSize|MediaLoaded|MediaType|MinBlockSize|Model|Name|NeedsCleaning|NumberOfMediaSupported|Partitions|"
+		. "PNPDeviceID|PowerManagementCapabilities|PowerManagementSupported|SCSIBus|SCSILogicalUnit|SCSIPort|SCSITargetId|SectorsPerTrack|"
+		. "SerialNumber|Signature|Size|Status|StatusInfo|SystemCreationClassName|SystemName|TotalCylinders|TotalHeads|TotalSectors|TotalTracks|TracksPerCylinder", |
+			Info[A_LoopField] := this[A_LoopField]
+		List.Push(Info)
+	} return List
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa394132(v=vs.85).aspx
+
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;FUNCIONES PARA USO INTERNO
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;envía un código de control directamente a un controlador de dispositivo especificado, haciendo que el dispositivo correspondiente para realizar la operación correspondiente
+DeviceIoControl(hDevice, IoControlCode, InBuffer := 0, InBufferSize := 0, ByRef OutBuffer := 0, OutBufferSize := 0, ByRef OutBytesReturned := 0, ByRef InOutOverlapped := 0) {
+	Ok := DllCall("Kernel32.dll\DeviceIoControl", "Ptr", hDevice, "UInt", IoControlCode
+		, "Ptr", InBuffer, "UInt", InBufferSize
+		, "Ptr", OutBuffer, "UInt", OutBufferSize, "UIntP"
+		, OutBytesReturned, "Ptr", InOutOverlapped, "Int")
+	return Ok, ErrorLevel := !Ok
+}
 
 
 
-
-
+  
 
 
 
@@ -12606,6 +12888,7 @@ DriveEject(Drive, Close := false) {
 	;hMonitor: identificador del monitor, 0 para el monitor primario
 	;Monitor_Name: nombreN del monitor o 0 para el monitor primario (defecto). se puede obtener con GetMonitorInfo(hMonitor).Name
 	;Monitor: espesificar hMonitor, Monitor_Name o 0 para usar el monitor primario (defecto)
+	;nombreN / nombre: nombre del monitor con el número que lo identifica al final. 
 ;Link: https://msdn.microsoft.com/en-us/library/dd145072(v=vs.85).aspx
 ;Constantes: https://www.omniref.com/ruby/gems/win-user32-ruby/0.1.1/symbols/WinAPISys::MONITOR_DEFAULTTOPRIMARY
 ;Class Monitor: https://autohotkey.com/boards/viewtopic.php?t=7854
@@ -12700,6 +12983,7 @@ MonitorFromRect(RECT) {
 
 ;obtener el monitor primario
 ;Ejemplo: MsgBox % GetMonitorInfo(GetPrimaryDisplayMonitor()).Name ;obtener nombreN del monitor principal
+;Return: hMonitor
 GetPrimaryDisplayMonitor() {
 	return DllCall("User32.dll\MonitorFromWindow", "Ptr", 0, "UInt", 0x00000001, "Ptr")
 }
@@ -12709,7 +12993,7 @@ GetPrimaryDisplayMonitor() {
 ;Sintaxis: EnumDisplayMonitors( [hDC, RECT] )
 ;Return: 
 	;0 = ERROR
-	;[] = OK
+	;[{hMonitor, hDC, pRECT}] = OK
 ;ErrorLevel: 0|1
 ;Ejemplo:
 	;for k, v in EnumDisplayMonitors()
@@ -12813,12 +13097,16 @@ GetMonitorCapabilities(hMonitor, ByRef MonitorCapabilities := "", ByRef Supporte
 ;FUNCIONES PARA USO INTERNO
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;obtener hDC desde hMonitor, Monitor_Name o 0=MONITOR PRIMARIO
+;Notas: 
+	;usar DeleteDC() para eliminar hDC cuando ya no se necesite
+	;para obtener hDC se necesita el nombreN del monitor, por lo cual si se espesifica el nombre, lo usa sin llamar a otras funciones.
 GetMonitorDC(hMonitor := 0) {
 	Monitor_Name := (hMonitor+0)=""?hMonitor:(hMonitor?GetMonitorInfo(hMonitor).Name:"DISPLAY")
 	return CreateDC(Monitor_Name)
 }
 
-;obtener nombre desde hMonitor, Monitor_Name, 0=MONITOR PRIMARIO
+;obtener nombreN desde hMonitor, Monitor_Name, 0=MONITOR PRIMARIO
+;Nota: si se espesifica el nombre del monitor, lo devuelve sin llamar a otras funciones
 GetMonitorName(hMonitor) {
 	Monitor_Name := (hMonitor+0)=""?hMonitor:GetMonitorInfo(hMonitor?hMonitor:GetPrimaryDisplayMonitor()).Name
 	return Monitor_Name
@@ -12832,6 +13120,197 @@ EnumDisplaySettings(Monitor_Name := 0, ModeNum := -1, ByRef DEV_MODE := "") {
 	, NumPut(Size, DEV_MODE, 4 + 32, "UInt")
 	return DllCall("User32.dll\EnumDisplaySettingsW", "Ptr", &Monitor_Name, "UInt", ModeNum, "Ptr", &DEV_MODE, "Int") 
 } ;https://msdn.microsoft.com/en-us/library/dd162611(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: ADMINISTRACIÓN DE CONFIGURACIÓN PLUG AND PLAY (PNP) ::::::::::::::::::::::::::::::::::
+;Link: https://msdn.microsoft.com/en-us/library/windows/hardware/ff549794(v=vs.85).aspx
+;Parámetros:
+	;hDevInst: instancia al dispositivo (HANDLE)
+	;VetoType: tipo de error, si lo hubo. https://msdn.microsoft.com/en-us/library/windows/hardware/ff549728(v=vs.85).aspx
+	;VetoName: recibe una String que representa al error.
+;Constantes:
+	;CR_SUCCESS = 0x00000000
+;#############################################################################################################################################
+;obtiene una instancia de dispositivo (HANDLE) para el nodo del dispositivo que está asociado con un ID espesífico de la instancia de un dispositivo en la mquina local.
+;Sintaxis: CM_LocateDevNode( [pDeviceID], [Flags], [hMachine] )
+;Parámetros:
+	;pDeviceID: String que reprecenta el id de la instancia del dispositivo. si no se espesifica, suministra un ID para el dispositivo en la raíz del árbol de dispositivos.
+	;Flags: si se espesificó un ID, espesificar el modo en que se suministra.
+		;0 = CM_LOCATE_DEVNODE_NORMAL
+		;1 = CM_LOCATE_DEVNODE_PHANTOM
+		;2 = CM_LOCATE_DEVNODE_CANCELREMOVE
+		;4 = CM_LOCATE_DEVNODE_NOVALIDATION
+		;7 = CM_LOCATE_DEVNODE_BITS
+;Return: hDevInst
+;ErrorLevel: 0 = OK
+CM_LocateDevNode(pDeviceID := 0, Flags := 0, hMachine := 0) {
+	Error := DllCall("SetupAPI.dll\CM_Locate_DevNode_ExW", "PtrP", hDevInst, "Ptr", &pDeviceID, "UInt", Flags, "Ptr", hMachine, "Int")
+	return hDevInst, ErrorLevel := Error ;CR_SUCCESS?
+} ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff538751(v=vs.85).aspx
+
+;prepara una instancia de un dispositivo local para ser removido de forma segura, si la unidad es removible. si la unidad puede ser fisicamente ejecutada, asi será.
+;Sintaxis: CM_RequestDeviceEject( [hDevInst], [VetoType], [VetoName], [Flags (sin uso = 0)], [hMachine] )
+;Return: 0|1
+;ErrorLevel: 0 = OK 
+CM_RequestDeviceEject(hDevInst, ByRef VetoType := "", ByRef VetoName := "", Flags := 0, hMachine := 0) {
+	if IsByRef(VetoName)
+		VarSetCapacity(VetoName, 260 * 2, 0)
+		, Error := DllCall("SetupAPI.dll\CM_Request_Device_Eject_ExW", "Ptr", hDevInst, "PtrP", VetoType, "Str", VetoName, "UInt", 260, "UInt", Flags, "Ptr", hMachine, "Int")
+	else Error := DllCall("SetupAPI.dll\CM_Request_Device_Eject_ExW", "Ptr", hDevInst, "PtrP", VetoType, "Ptr", 0, "UInt", 0, "UInt", Flags, "Ptr", hMachine, "Int")
+	return !Error, ErrorLevel := Error ;CR_SUCCESS
+} ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff539807(v=vs.85).aspx
+
+;obtiene una instancia de dispositivo (HANDLE) al nodo padre de un nodo de dispositivo especificado en un arbol de quipos locales o remotos
+;Sintaxis: hDevInst( [hDevInst], [Flags (sin uso = 0)], [hMachine] )
+;Return: hDevInst
+;ErrorLevel: 0 = OK
+CM_GetParent(hDevInst, Flags := 0, hMachine := 0) {
+	Error := DllCall("SetupAPI.dll\CM_Get_Parent", "PtrP", ohDevInst, "Ptr", hDevInst, "UInt", Flags, "Ptr", hMachine, "Int")
+	return ohDevInst, ErrorLevel := Error ;CR_SUCCESS?
+} ;https://msdn.microsoft.com/en-us/library/windows/hardware/ff538615(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12974,7 +13453,7 @@ return
 ;FUNCIONES
 ;--------------------------------------
 ;otra opcion al InputBox
-#Include *i <InputBoxEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
+#Include *i <InputBoxEx> ;https://autohotkey.com/boards/viewtopic.php?f=42&t=5827
 ;otra opcion al TrayTip
 #Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 ;otra opcion al ToolTip
