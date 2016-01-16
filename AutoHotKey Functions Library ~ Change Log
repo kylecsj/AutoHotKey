@@ -1,4 +1,102 @@
 ###############################################################
+ACTUALIZACION 16/01/2016 - AHK1.1.23.00 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• LoadImage()
+	• ControlGetStyle()
+	• ControlGetExStyle()
+	• ControlSetStyle()
+	• ControlSetExStyle()
+	• SetPixelColor()
+	• SafeArrayGetVartype()
+	• SafeArrayDestroyDescriptor()
+	• SafeArrayDestroyData()
+	• SafeArrayDestroy()
+	• SafeArrayCreate()
+	• SafeArrayUnaccessData()
+	• SafeArrayAccessData()
+	• Array_Find()
+	• Array_Contains()
+	• InArray()
+	• Array_Count()
+	• Array_Print()
+	• DiskDriveEnum()
+	• CM_GetParent()
+	• CM_LocateDevNode()
+	• CM_RequestDeviceEject()
+	• CreateCompatibleBitmap()
+	• CreateBitmap()
+	• CopyImage()
+	• SetBitmapBits()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• DeviceIoControl(). I
+	• Array_Clone(). R
+
+Mejoras:
+	• Añadido "BITMAP & PIXEL" funciones. fusionado con "LISTA DE IMÁGENES (ImageList), IMÁGENES & ICONOS"
+	• Añadido "Array y Objetos" funciones. fusionado con "Objetos" funciones
+	• ReadProcessMemory(). agregado ReturnType
+	
+Correcciones:
+	• ControlExist(). corrección para que trabaje en ventanas ocultas.
+	• DeleteObject()
+	
+Notas:
+	• [IMPORTANTE!] actualizado algunas funciones, ahora requiere AutoHotKey 1.1.23.00+
+	• añadido ADMINISTRACIÓN DE CONFIGURACIÓN PLUG AND PLAY (PNP) funciones
+	• mejoras y cambios en las funciones, requiere AHK1.1.23.00:
+		;InputBoxEx --> https://autohotkey.com/boards/viewtopic.php?f=42&t=5827
+		;ChooseIconEx --> https://autohotkey.com/boards/viewtopic.php?f=42&t=10802
+
+Funciones Eliminadas:
+	• GetMenuByName(). usar MenuGetHandle(). AHK1.1.23.00+
+	• DefExtractIcon()
+	• ExtractIcon2()
+	• GuiControlSetFont()
+	• GuiControlGetHwnd()
+	• MsgBoxEx()
+
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• GdipCreateBitmapFromFile(). AHK1.1.23.00+
+	• WinSetIcon(). AHK1.1.23.00+
+	• _getcolor()
+	• DriveEject()
+	• WinSetTitle()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 10/01/2016 - AHK1.1.22.09
 ###############################################################
 Funciones Agregadas:
