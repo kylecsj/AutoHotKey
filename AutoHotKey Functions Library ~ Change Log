@@ -1,4 +1,99 @@
 ###############################################################
+ACTUALIZACION 19/01/2016 - AHK1.1.23.00 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• RegExistValue()
+	• AddStartupApp()
+	• EnumerateStartupApps()
+	• GetFileVersionInfoEx()
+	• GetFileVersionInfo()
+	• VerLanguageName()
+	• WTSEnumerateProcesses()
+	• CreateSolidBrush()
+	• CoTaskMemRealloc()
+	• CoTaskMemAlloc()
+	• CoTaskMemFree()
+	• EnumServicesStatus()
+	• EnumDependentServices()
+	• ChangeServiceConfig()
+	• QueryServiceConfig()
+	• ReadLocalizedString()
+	• LoadString()
+	• QueryServiceConfig2()
+	• ChangeServiceConfig2()
+	• StartService()
+	• CloseServiceHandle()
+	• DeleteService()
+	• ControlService()
+	• GetServiceDisplayName()
+	• GetServiceDisplayName()
+	• GetServiceKeyName()
+	• OpenService()
+	• OpenSCManager()
+	• _randcolor()
+
+Correcciones:
+	• ProcessQueryPrivileges()
+	• ProcessAdjustPrivileges()
+	• Shutdown(). afectado por ProcessAdjustPrivileges() que no habilitaba el privilegio requerido SeShutdownPrivilege, reescrito y mejoras.
+	
+Notas:
+	• añadido "INFORMACIÓN DE VERSIÓN" funciones, incluido con "SISTEMA & CONFIGURACIÓN" funciones.
+	• agregadas "SERVICIOS DE ESCRITORIO REMOTO" funciones
+	• agregadas "PINCEL" funciones.
+	• varias funciones con SERVICIOS reescritas, pero modificadas para trabajar con el HANDLE, haciendo mas rápido cuando se necesita obtener o modificar varios tipos de información.
+		--> en replazo a EnumServices(), usar EnumServicesStatus(), es mucho mas rápido, aunque la información es un poco mas limitada.
+	
+Funciones Eliminadas:
+	• HexToInt()
+	• FileGetInfo(). usar GetFileVersionInfo() o GetFileVersionInfoEx().
+	• ShutdownEx()
+	• ServiceStatus(). usar QueryServiceStatusEx().
+	• ServiceSet(). usar ChangeServiceConfig().
+	• ServiceInfo(). usar QueryServiceConfig().
+	• ServiceOpen(). usar OpenSCManager() junto con OpenService().
+	• ServiceStart(). usar StartService().
+	• ServiceDelete(). usar DeleteService()
+	• ServicePause(), ServiceContinue() y ServiceStop(). usar ControlService().
+	• ServiceGetDescription(). usar QueryServiceConfig2().
+	• ServiceSetDescription(). usar ChangeServiceConfig2().
+
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• ServiceExist()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 16/01/2016 - AHK1.1.23.00 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
