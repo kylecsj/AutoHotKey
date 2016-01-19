@@ -16,7 +16,7 @@ Funciones:
 	• Registro
 	• Control
 	• Mouse & Teclado
-	• Sistema y Configuración
+	• Sistema & Configuración & Información de Versión
 	• Ventanas
 	• Servicios
 	• Unidades
@@ -30,7 +30,8 @@ Funciones:
 	• Escritorio & Explorador & Menu Inicio & Papelera De Reciclaje
 	• Estructuras
 	• Notificaciones
-	• Fuentes & Colores & Recursos & DLL
+	• Fuentes & Colores & Pincel
+	• Recursos & DLL
 	• Nombres y Rutas de Archivos
 	• Tareas programadas
 	• Administración de memoria
@@ -44,13 +45,15 @@ Funciones:
 	• Administración De Configuración Plug and Play (PnP)
 	• Array y Objetos
 	• Lista de Imágenes, Imágenes, Bitmap, Iconos, Pixel
+	• Servicios de Escritorio Remoto
+	• Programas de Inicio Automático
 	• Otros (funciones variadas)
 Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variables, IVirtualDesktopManager:=1):
 	• IVirtualDesktopManager
 	• __gsvalue
 Link (reporta problemas o sugerencias para nuevas funciones): http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.23.00+
-Actualizado: AHK1.1.23.00 U32 & U64 || sábado, 16 de enero de 2016
+Actualizado: AHK1.1.23.00 U32 & U64 || martes, 19 de enero de 2016
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -58,6 +61,7 @@ Notas:
 	• algunas funciones no soportan todos los SO espesificados arriba, esto es indicado en la funcion, Ej: WIN_V+
 	• para obtener la descripción de A_LastError, usar GetLastError(description_out).
 	• algunas funciones posiblemente no funcionen correctamente en la version de 64-Bits de AHK, reportar problemas.
+	• algunas funciones requieren privilegios elevados en WIN_V+ (ejecutar como administrador), Ej. DriveFormat().
 Codificación: UTF-8 BOM
 Windows System Error Codes (exit codes) Description: http://www.symantec.com/connect/articles/windows-system-error-codes-exit-codes-description
 Windows Data Types For AHK: https://github.com/flipeador/AutoHotKey/blob/master/Windows%20Data%20Types%20for%20AHK
@@ -376,32 +380,9 @@ FileGetShortcut(ShortcutFile, ByRef OutTarget := "", ByRef OutDir := "", ByRef O
 	return ErrorLevel?ShortcutFile:(OutTarget?OutTarget:ShortcutFile)
 }
 
-;obtiene informacion sobre un archivo
-;Sintaxis: FileGetInfo( [archivo], [tipo de informacion] )
-;EJEMPLOS:
-	;MsgBox % FileGetInfo( comspec ).CompanyName
-	;MsgBox % FileGetInfo( comspec, "FileDescription" )
-FileGetInfo(FileName, InfoType := "") {
-	static InfoList := ["Comments","InternalName","ProductName","CompanyName","LegalCopyright","ProductVersion"
-		,"FileDescription","LegalTrademarks","PrivateBuild","FileVersion","OriginalFilename","SpecialBuild"]
-	InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeW", "Str", FileName, "Ptr", 0)
-	if (ErrorLevel)
-		InfoSize := DllCall("Version.dll\GetFileVersionInfoSizeExW", "UInt", 0x01, "Str", FileName, "Ptr", 0)
-	VarSetCapacity(InfoData, InfoSize * 2, 0)
-	, DllCall("Version.dll\GetFileVersionInfoW", "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
-	if (ErrorLevel)
-		DllCall("Version.dll\GetFileVersionInfoExW", "UInt", 0x01, "Str", FileName, "UInt", 0, "UInt", InfoSize, "Ptr", &InfoData)
-	DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\VarFileInfo\Translation", "PtrP", aInfoData, "PtrP", InfoSize+1)
-	, Lang := NumGet(aInfoData+0, "UShort"), CodePage := NumGet(aInfoData+2, "UShort"), Lang_CodePage := Format("{:04X}{:04X}", Lang, CodePage)
-	if InfoType {
-		DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
-		return StrGet(aInfoData, InfoSize)
-	} FileInfo := {}
-	for Index, InfoType in InfoList
-		if DllCall("Version.dll\VerQueryValueW", "Ptr", &InfoData, "Str", "\StringFileInfo\" Lang_CodePage "\" InfoType, "PtrP", aInfoData, "PtrP", InfoSize)
-			FileInfo[InfoType] := StrGet(aInfoData, InfoSize)
-	return FileInfo
-} FileGetInfo2(Filename, ValidatePath := 0) {
+;obtiene información del archivo
+;Nota: usar GetFileVersionInfo() para obtener información mas rápido
+FileGetInfo2(Filename, ValidatePath := 0) {
 	Filename := ValidatePath ? GetValidPathName(Filename) : Filename
 	if !IsFile( Filename )
 		return "", ErrorLevel := 1
@@ -473,7 +454,7 @@ FileSetAttrib(Attributes, FilePattern, Mode := "FD", Recurse := "") {
 ;Modo de inicio: 1 = normal | 2 = maximizado | 3 = minimizado
 ;Nota: espesificar A_Tab ("	") en el 4to parametro (descripcion) para establecer la descripcion por defecto del archivo.
 FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Description := "", IconFile := "", ShortcutKey := "", IconNumber := 1, RunState := 1) {
-	Description := Description=A_Tab?FileGetInfo(Target, "FileDescription"):Description
+	Description := Description=A_Tab?GetFileVersionInfo(Target).FileDescription:Description
 	FileCreateShortcut, %Target%, %ShortcutFile%, %WorkingDir%, %Args%, %Description%, %IconFile%, %ShortcutKey%, %IconNumber%, %RunState%
 	return !ErrorLevel
 }
@@ -1043,7 +1024,7 @@ RunProcess(Param, CreationFlags := 0, WorkingDir := 0, Encoding := "CP437", ByRe
 	, this := CreateProcess(, Param,,,, CreationFlags,, WorkingDir, &STARTUPINFO), CloseHandle(hWritePipe), Size := VarSetCapacity(Buff, 4095)
 	if (WaitClose)
 		while ReadFile(hReadPipe, &Buff, Size, Bytes)
-			OutputVar .= StrGet(& Buff, Bytes, Encoding)
+			OutputVar .= StrGet(&Buff, Bytes, Encoding)
 	return OutputVar, ExitCode := GetExitCodeProcess(this.handle), CloseHandle(this.handle, hReadPipe), ErrorLevel := !this.handle
 }
 
@@ -1087,7 +1068,7 @@ Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 }
 
 ;ejecuta un comando en la consola y devuelve el resultado
-;Sintaxis: CMD( [cmd], [codificación], [código de salida (out)], [¿agregar directorio a la carpeta del sistema al inicio?]] )
+;Sintaxis: CMD( [cmd], [codificación], [código de salida (out)] )
 ;Ejemplo: MsgBox % CMD("dir " A_WinDir, "CP437")
 ;Nota: el directorio de trabajo por defecto es C:\Windows\System32
 CMD(Script, Encoding := "CP437", ByRef ExitCode := "") {
@@ -1898,23 +1879,24 @@ IsPrime(N) {
 ;----------------------------------------------------------------------------------------------------------------
 
 ;convertir a hexadecimal
-;Sintaxis: Hex( [número], [max num], [¿mayúscula?], [prefijo] )
-Hex(Int, Length := 0, May := false, Prefix := "0x") {
-	return Format(Prefix "{:" ((Length>0)?0 LTrim(Length,0):"") (May?"X":"x") "}", Int)
+;Sintaxis: Hex( [num], [max], [may], [prefix] )
+;Parámetros:
+	;Num: espesificar el número a convertir
+	;Max: espesificar la longitúd que debe tener, se rellena con ceros.
+	;May: espesificar 1 para usar mayúsculas.
+	;Prefix: prefijo a añadir antes del número, por defecto usa "0x".
+Hex(Number, Length := 0, May := false, Prefix := "0x") {
+	return Format(Prefix "{:" ((Length>0)?0 LTrim(Length,0):"") (May?"X":"x") "}", Number)
 }
 
-;convertir a Unsigned Integer
-;Sintaxis: Int( [número], [¿Signed?] )
-Int(hex, Signed := false) {
-	return Format("{:" (Signed?"d":"u") "}", hex)
-} HexToInt(hex, Signed := false) {
-	return Format("{:" (Signed?"d":"u") "}", hex)
+Int(Number, Signed := false) {
+	return Format("{:" (Signed?"d":"u") "}", Number)
 }
 
 ;convertir a Float
 ;Sintaxis: Float( [valor], [max.decimales] )
-Float(num, Type := "0.2") {
-	return Format("{:" Type (RegExReplace(Type, "[^fegaEGA]")?"":"f") "}", num)
+Float(Number, Type := "0.2") {
+	return Format("{:" Type (RegExReplace(Type, "[^fegaEGA]")?"":"f") "}", Number)
 }
 
 ;convertir a RGB | extraer rojo, verde, azul
@@ -2908,7 +2890,27 @@ VirtualFree(hProcess := 0, Address := 0, Bytes := 0, AllocationType := 0x8000) {
 	return DllCall("Kernel32.dll\VirtualFreeEx", "Ptr", hProcess, "UInt", Address, "UPtr", Bytes, "UInt", AllocationType, "UInt"), ErrorLevel := Error
 }
 
+;libera un bloque de memoria de una tarea asignada previamente a través de una llamada a la función CoTaskMemAlloc() o CoTaskMemAlloc().
+;Sintaxis: CoTaskMemFree( [hMem] )
+CoTaskMemFree(hMem) {
+	Error := ErrorLevel
+	for k, v in hMem
+		DllCall("Ole32.dll\CoTaskMemFree", "Ptr", v)
+	return "", ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms680722(v=vs.85).aspx
 
+;asigna un bloque de memoria de trabajo
+;Sintaxis: CoTaskMemAlloc( [tamaño del bloque de memoria, en bytes] )
+;Return: hMem
+CoTaskMemAlloc(Bytes) {
+	return DllCall("Ole32.dll\CoTaskMemAlloc", "UPtr", Bytes, "UPtr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms692727(v=vs.85).aspx
+
+;cambia el tamaño de un bloque previamente asignado de memoria de trabajo.
+;Sintaxis: CoTaskMemRealloc( [hMem], [nuevo tamaño para el bloque de memoria, en bytes] )
+CoTaskMemRealloc(hMem, Bytes) {
+	return DllCall("Ole32.dll\CoTaskMemRealloc", "Ptr", hMem, "UPtr", Bytes, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms687280(v=vs.85).aspx
 
 
 
@@ -3101,7 +3103,7 @@ UpdateLayeredWindow(hWnd, hDC, x := "", y := "", Width := "", Height := "", Alph
 
 
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: FUENTES & COLORES & RECURSOS & DLL ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: RECURSOS & DLL ::::::::::::::::::::::::::::::::::
 ;Recursos: https://msdn.microsoft.com/en-us/library/windows/desktop/ff468901(v=vs.85).aspx
 	;Parámetros:
 		;hModule = LoadLibrary("C:\File.exe", 0x2)
@@ -3111,6 +3113,9 @@ UpdateLayeredWindow(hWnd, hDC, x := "", y := "", Width := "", Height := "", Alph
 		;Info/data/lpResLock = LockResource() / Binary DATA
 	;Ejemplo de uso: https://msdn.microsoft.com/en-us/library/windows/desktop/ms648008(v=vs.85).aspx#_win32_Updating_Resources
 ;#############################################################################################################################################
+;-------------------------------------------------------------------------------------------------------------------------------------------------
+;RECURSOS
+;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;recupera un HANDLE que puede ser utilizado por la función UpdateResource para agregar, eliminar o reemplazar los recursos en un módulo binario.
 ;Sintaxis: BeginUpdateResource( [archivo], [¿eliminar recursos existentes?] )
 ;Return: HANDLE
@@ -3305,6 +3310,80 @@ Dll_InsertIcons(DllFile, Data, Overwrite := false, Recurse := false) {
 	} return false, ErrorLevel := true
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: FUENTES & COLORES & PINCEL ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;COLORES
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3317,7 +3396,7 @@ Dll_InsertIcons(DllFile, Data, Overwrite := false, Recurse := false) {
 ;EJEMPLO: MsgBox % "Color: " ColorSelect(, "Red", true)
 ColorSelect(hWnd := 0, Color := "", ShowAll := "") {
 	static File := A_AppData "\usercolorpalette.ini"
-	Color := RGBToInt(_getcolor(Color)), VarSetCapacity(CUSTOM, 16*A_PtrSize, 0)
+	Color := _getcolor(Color, true), VarSetCapacity(CUSTOM, 16*A_PtrSize, 0)
 	Loop, 16 ;obtener colores
 		NumPut(IniRead(File, "Color", A_Index, false), CUSTOM, (A_Index-1)*4, "UInt")
 	lStructSize := VarSetCapacity(CHOOSECOLOR, 9*A_PtrSize, 0)
@@ -3334,11 +3413,27 @@ ColorSelect(hWnd := 0, Color := "", ShowAll := "") {
 ;obtiene el color RGB mediante el nombre
 ;Sintaxis: _getcolor( [color] )
 ;Nota: si el color no se encuentra, no lo modifica
-_getcolor(c) {
+_getcolor(RGB, BGR := false) {
 	static Colors := {Aqua: "0x00FFFF", Black: "0x000000", Blue: "0x0000FF", Fuchsia: "0xFF00FF", Gray: "0x808080" ;nombres soportados
 		, Green: "0x008000", Lime: "0x00FF00", Maroon: "0x800000", Navy: "0x000080", Olive: "0x808000", Purple: "0x800080"
 		, Red: "0xFF0000", Silver: "0xC0C0C0", Teal: "0x008080", White: "0xFFFFFF", Yellow: "0xFFFF00"}
-	return (Colors[c]="")?Hex(c, 6, 1):Colors[c] ;si el color espesificado no esta en «Colors» devuelve el color sin modificar
+	Color := (Colors[RGB]="")?Hex(RGB, 6, true):Colors[RGB] ;si el color espesificado no esta en «Colors» devuelve el color sin modificar
+	return BGR?RGBToBGR(Color):Color
+}
+
+;genera un color RGB aleatorio
+;Ejemplo:
+	;Gui, Add, Pic, HWNDh w50 h300 gChange
+	;Gui, Show
+	;SetTimer, Change, 250
+	;return
+	;GuiClose:
+	;ExitApp
+	;Change:
+	;SetPixelColor(h, _randcolor())
+	;return
+_randcolor() {
+	return Hex((Random(0, 255)<<16) + (Random(0, 255)<<8) + Random(0, 255), 6, true)
 }
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3423,7 +3518,7 @@ FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRe
 	;	. "`nSubrayado: " FontInfo[5] "`nTachado: " FontInfo[6] "`n`nErrorLevel: " ErrorLevel
 FontSelect(hWnd := 0, FontName := "", Options := "", Flags := 0x10100) {
 	FontName := FontName?FontName:FontQuery()[1]
-	, Color := RGBToInt(_getcolor(Options[1]))
+	, Color := _getcolor(Options[1], true)
 	, Size := StrSplit(Options[2], ",", A_Space A_Tab)
 	, MinSize := Size[2], MaxSize := Size[3]
 	, Size := Size[1]=""?FontQuery()[2]:Size[1]
@@ -3484,6 +3579,110 @@ FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "
 	return Ok, ErrorLevel := Error
 }
 
+;-------------------------------------------------------------------------------------------------------------------------------------------------
+;PINCEL (BRUSH FUNCTIONS)
+;Parámetros:
+	;Color: espesificar un nombre o color RGB.
+;Link: https://msdn.microsoft.com/en-us/library/dd183395(v=vs.85).aspx
+;-------------------------------------------------------------------------------------------------------------------------------------------------
+;crea un pincel lógico que tiene el color sólido especificado.
+;Sintaxis: CreateSolidBrush( [color] )
+CreateSolidBrush(RGB) {
+	return DllCall("Gdi32.dll\CreateSolidBrush", "UInt", _getcolor(RGB, true), "UPtr")
+} ;https://msdn.microsoft.com/en-us/library/dd183518(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: SERVICIOS DE ESCRITORIO REMOTO ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;hServer: HANDLE al Servidor Host de sesión, por devecto usa el actual.
+	;SessionID: identificador de la sesión de usuario, por defecto usa todas las sesiones.
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/aa383464(v=vs.85).aspx
+;#############################################################################################################################################
+;recupera información sobre los procesos activos en el servidor de escritorio remoto de sesión o servidor de escritorio virtual de sesión.
+;Sintaxis: WTSEnumerateProcesses( [hServer], [SessionID] )
+;Nota: la persona que llama debe ser miembro del grupo Administradores para enumerar los procesos que se ejecutan en otra sesión de usuario.
+/*WTSEnumerateProcesses(hServer := 0, SessionID := 0xFFFFFFFE) {  :::::::::: COMENTADO DEVIDO A PROBLEMAS CON StrGet EN WIN_10
+	if !DllCall("Wtsapi32.dll\WTSEnumerateProcessesExW", "Ptr", hServer, "UIntP", 1, "UInt", SessionID, "PtrP", WTS_PROCESS_INFO_EX, "UIntP", Count, "Int")
+		return false
+	Loop, % (Count) {
+		n := NumGet(WTS_PROCESS_INFO_EX, 4, "UInt")
+		MsgBox % StrGet(n) ;? AHK CRASH
+	}
+}
+
+WTSEnumerateSessionsEx(hServer := 0, SessionID := 0xFFFFFFFE) {
+	if !DllCall("Wtsapi32.dll\WTSEnumerateSessionsExW", "Ptr", hServer, "UIntP", 1, "UInt", 0, "PtrP", PWTS_SESSION_INFO_1, "UIntP", Count, "Int")
+		return false
+	Loop, % (Count) {
+	
+		MsgBox % StrGet(NumGet(PWTS_SESSION_INFO_1, 12, "UInt")) ;? AHK CRASH
+		
+	}
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ee621014(v=vs.85).aspx
+
+WTSEnumerateProcesses()
+ExitApp
+*/
 
 
 
@@ -3551,8 +3750,200 @@ FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "
 
 
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: STRING ::::::::::::::::::::::::::::::::::
+; :::::::::::::::::::::::::::::::::::::::::::::PROGRAMAS DE INICIO AUTOMÁTICO ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;Type: Reg = agregar entrada en el registro
+	;User: ALL = todos los usuarios
+	;Mode: 1 = ejecutar solo una vez en el próximo inicio
 ;#############################################################################################################################################
+;enumera todos los programas de inicio automático
+;Return: Array( {Command, Item, hKey, Key, Filename, Type, Backup, Disabled, Info} )
+	;Command = ruta al programa y parámetros
+	;Item = nombre
+	;hKey = clave / [unidad:]
+	;Key = subclave / [directorio]
+	;Info = información adicional del archivo. ver GetFileVersionInfo.
+	;Filename = archivo, sin parámetros, si existe. 
+	;Backup = copia de seguridad del acceso directo 
+	;----------------------------------------------------------------------------------------------------
+	;Type = identifica el tipo de inicio, puede ser Startup, o Reg.
+	;Disabled = 1 si el programa está deshabilitado.
+	;User = Current | ALL
+;Ejemplo:
+	;for k, v in EnumerateStartupApps()
+		;MsgBox % "Clave: " v.hKey "\" v.Key "`nNombre: " v.Item "`nParámetros: " v.Command "`nArchivo: " v.Filename
+			;. "`nDeshabilitado: " v.Disabled "`nDescripción: " v.Info.FileDescription "`nTipo: " v.Type "`nUsuario: " v.User
+EnumerateStartupApps() {
+	List := []
+	Loop, Reg, HKLM\Software\Microsoft\Shared Tools\MSConfig\StartupReg, K ;buscar programas deshabilitados del registro
+	{ 	Info := {}, Info.Disabled := true, Info.Type := "Reg"
+		Loop, Parse, % "Command|Item|hKey|Key", |
+			Info[A_LoopField] := RegRead(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, A_LoopField)
+		Info.Info := GetFileVersionInfo(Info.Filename:=GetValidPathName(Info.Command)), Info.User := Info.hKey="HKLM"?"ALL":"Current"
+		List.Push(Info)
+	} for k, v in ["Policies\Explorer\Run", "RunServicesOnce", "RunServices", "RunOnceEx", "RunOnce\Setup", "RunOnce", "RunEx", "Run"] { ;buscar programas de inicio automático en el registro
+		Loop, Parse, % "HKCU|HKLM", |
+		{	Loop, Reg, %A_LoopField%\Software\Microsoft\Windows\CurrentVersion\%v%, V
+			{	Info := {}, Info.Type := "Reg", Info.Disabled := false
+				, Info.Command := RegRead(A_LoopRegKey "\" A_LoopRegSubkey, A_LoopRegName)
+				, Info.Info := GetFileVersionInfo(Info.Filename:=GetValidPathName(Info.Command))
+				, SplitPath(Info.Filename, Filename), Info.Item := Filename, Info.hKey := A_LoopRegKey
+				, Info.Key := A_LoopRegSubkey "\" A_LoopRegName, List.Push(Info)
+	}	}	} Loop, Reg, HKLM\Software\Microsoft\Shared Tools\MSConfig\StartupFolder, K ;buscar programas deshabilitados de la carpeta inicio
+	{ 	Info := {}, Info.Disabled := true, Info.Type := "Startup"
+		, Info.Backup := RegRead(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, "Backup")
+		, Info.Item := RegRead(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, "Item")
+		, Info.Command := RegRead(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, "Command")
+		, SplitKey(RegRead(A_LoopRegKey "\" A_LoopRegSubkey "\" A_LoopRegName, "Path"), hKey, Key)
+		, Info.hKey := hKey, Info.Key := Key, Info.User := Info.hKey="HKLM"?"ALL":"Current"
+		, Info.Info := GetFileVersionInfo(Info.Filename:=GetValidPathName(Info.Command))
+		List.Push(Info)
+	} Loop, Files, %A_Startup%\*.*, F ;buscar programas de inicio automático en la carpeta inicio
+	{	SplitPath, A_LoopFileFullPath, Filename, Dir, Ext, Name, Drive
+		if (Ext="lnk")
+			FileGetShortcut, %A_LoopFileFullPath%, Target, Directory, Args, Desc, Icon, IconN, RunState
+		else if (Ext="exe")
+			Target := A_LoopFileFullPath
+		else continue
+		Info := {}, Info.hKey := SubStr(Drive, 1, 2), Info.Key := SubStr(Dir, 4), Info.Item := Filename, Info.Command := Target
+		, Info.Info := GetFileVersionInfo(Info.Filename:=GetValidPathName(Info.Command)), Info.RunState := RunState
+		, Info.Directory := Directory, Info.Args := Args, Info.Description := Desc, Info.Icon := [Icon, IconN]
+		, Info.Disabled := false, Info.Type := "Startup", Info.User := "Current", List.Push(Info)
+	} return List
+}
+
+;añadir programa al inicio automático
+;Sintaxis: AddStartupApp( [ruta], [type], [user], [mode] )
+;Nota: usar comillas para pasar argumentos. "c:\ruta\file.ext" /f
+AddStartupApp(Filename, Type := "Startup", User := "Current", Mode := 0) {
+	if (Mode=1) || (Type="Reg") {
+		SplitPath, Filename,,,, Name
+		Key := (User="ALL"?"HKLM":"HKCU") "\Software\Microsoft\Windows\CurrentVersion\" (Mode?"RunOnce":"Run"), l := Name
+		Loop {
+			if !RegExistValue(Key, Name)
+				break
+			Name := l A_Index
+		} return RegWrite(, Key, Name, Filename)
+	} if InStr(Filename, Chr(34))
+		Filename := SubStr(Filename, InStr(Filename, Chr(34))+1)
+		, Args := Trim(SubStr(Filename, InStr(Filename, Chr(34))+1))
+		, Filename := SubStr(Filename, 1, InStr(Filename, Chr(34))-1)
+	SplitPath, Filename,, WorkingDir,, Name
+	l := Name
+	Loop {
+		if !FileExist(A_Startup "\" Name ".lnk")
+			break
+		Name := l A_Index
+	} return FileCreateShortcut(Filename, A_Startup "\" Name ".lnk", WorkingDir, Args, GetFileVersionInfo(Filename).FileDescription)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
+; ::::::::::::::::::::::::::::::::::::::::::::: STRING (CADENA DE CARÁCTERES) ::::::::::::::::::::::::::::::::::
+;#############################################################################################################################################
+;obtiene una cadena localizada (Localized String).
+;Sintaxis: ReadLocalizedString( [DllName], [StrID], [Bytes] )
+;Parámetros:
+	;DllName: espesificar la ruta al archivo .DLL.
+	;StrID: espesificar el ID de la cadena a obtener.
+	;Bytes: espesificar los Bytes máximos para la cadena
+;Notas:
+	;una Cadena Localizada tiene el siguiente formato: "@[path\]dllname,-strID".
+	;también puede espesificar "@[path\]dllname,-strID" en DllName y dejar StrID en 0.
+	;las cadenas localizadas se pueden encontrar en valores en el registro.
+;Ejemplo: MsgBox % ReadLocalizedString("mswsock.dll", 60100)  "`n`n`n" ReadLocalizedString("@%SystemRoot%\System32\mswsock.dll,-60100") 
+;Return: STRING
+;ErrorLevel: 0|1
+ReadLocalizedString(DllName, StrID := 0, Bytes := 512) {
+	if !(StrID) {
+		DllName := LTrim(Trim(DllName), "@")
+		, StrID := SubStr(DllName, InStr(DllName, ",")+1)
+		, DllName := StrReplace(SubStr(DllName, 1, InStr(DllName, ",")-1), "%SystemRoot%", A_WinDir)
+	} hModule := LoadLibrary(DllName, 0x00000002)
+	return LoadString(hModule, StrID, Bytes), FreeLibrary(hModule)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647486.aspx
+
+;carga un recurso de cadena desde el archivo ejecutable asociado con un módulo especificado.
+;Sintaxis: LoadString( [hModule], [ID], [Bytes] )
+;Parámetros:
+	;hModule: usar LoadLibrary()
+	;ID: espesificar el id donde está localizada la cadena a obtener.
+	;Bytes: espesificar los Bytes máximos para la cadena
+;Return: STRING
+;ErrorLevel: 0|1
+LoadString(hModule, uID, Bytes := 512) {
+	VarSetCapacity(OutputVar, Bytes * 2, 0)
+	, Ok := DllCall("User32.dll\LoadStringW", "Ptr", hModule, "UInt", Abs(uID), "Str", OutputVar, "Int", Bytes, "Int")
+	return OutputVar, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647486.aspx
+
 ;convertir String a CLSID
 ;Sintaxis: CLSIDFromString( ["{string}"], [CLSID (out)] )
 CLSIDFromString(Str, ByRef CLSID) {
@@ -3757,7 +4148,7 @@ ReplaceLiteralVar(String, FileName := false) {
 		, String := StrReplace(String, "%FileVersion%", _1)
 		if Contains(String, _2:="%Comments%,%InternalName%,%ProductName%,%CompanyName%,%LegalCopyright%,%FileDescription%,"
 			. "%ProductVersion%,%LegalTrademarks%,%PrivateBuild%,%FileVersion%,%OriginalFilename%,%SpecialBuild%") {
-			VerInfo := FileGetInfo(FileName)
+			VerInfo := GetFileVersionInfo(FileName)
 			Loop, Parse, % _2, `,
 				String := StrReplace(String, A_LoopField, VerInfo[StrReplace(A_LoopField, "%")])
 	}} return String
@@ -4199,20 +4590,16 @@ ProcessGetWorkingSetSize(ProcessName, ByRef Min := "", ByRef Max := "") {
 ProcessAdjustPrivileges(ProcessName, Privileges := "", State := "Enable", DisableAllPrivileges := false) {
 	static States := {Enable: 0x00000002, Disable: 0x00000000, Delete: 0x00000004}
 	ProcessId := _getpid(ProcessName), Privileges := IsObject(Privileges)?Privileges:StrSplit(Privileges, ",", A_Space A_Tab)
-	, hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x00000028), c := 4
-	, VarSetCapacity(TOKEN_PRIVILEGES, 16*Privileges.MaxIndex(), 0), NumPut(Privileges.MaxIndex(), TOKEN_PRIVILEGES, 0, "UInt")
+	, hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x00000028), Offset := 0
+	, VarSetCapacity(TOKEN_PRIVILEGES, 4 + (12*Privileges.MaxIndex()), 0), NumPut(Privileges.MaxIndex(), TOKEN_PRIVILEGES, 0, "UInt")
 	for Index, Info in Privileges {
-		NumPut(LookupPrivilegeValue(IsObject(Info)?Info[1]:Info), TOKEN_PRIVILEGES, c, "Ptr")
-		, NumPut(States[IsObject(Info)?Info[2]:State], TOKEN_PRIVILEGES, (c:=(c+12))-4, "UInt"), c := c+4
+		NumPut(LookupPrivilegeValue(IsObject(Info)?Info[1]:Info), TOKEN_PRIVILEGES, Offset+4, "Int64")
+		, NumPut(States[IsObject(Info)?Info[2]:State], TOKEN_PRIVILEGES, Offset+12, "UInt")
+		Offset += 12
 	} DllCall("Advapi32.dll\AdjustTokenPrivileges", "Ptr", hToken, "Int", !!DisableAllPrivileges, "Ptr", &TOKEN_PRIVILEGES, "UInt", 0, "Ptr", 0, "Ptr", 0)
 	return !(r:=A_LastError), ErrorLevel := r, CloseHandle(hToken, hProcess) ;AdjustTokenPrivileges --> A_LastError --> ERROR_SUCCESS = 0
 } ;https://msdn.microsoft.com/en-us/library/aa375202(VS.85).aspx | https://msdn.microsoft.com/en-us/library/aa379306(v=vs.85).aspx
 
-/* NOTA: NO DEVUELVE EL ESTADO DEL PRIVILEGIO CORRECTAMENTE!
-;winnt.h (constantes) = https://source.winehq.org/source/include/winnt.h
-;LUID STRUCTURE  =https://msdn.microsoft.com/en-us/library/aa379261(v=vs.85).aspx
-;LUID_AND_ATTRIBUTES structure = https://msdn.microsoft.com/en-us/library/aa379263(v=vs.85).aspx
-;TOKEN_PRIVILEGES = https://msdn.microsoft.com/en-us/library/aa379630(v=vs.85).aspx
 ;obtener privilegios del proceso
 ;Sintaxis: ProcessQueryPrivileges( [ID] )
 ;Return: [{Nombre, Estado}]
@@ -4223,28 +4610,19 @@ ProcessAdjustPrivileges(ProcessName, Privileges := "", State := "Enable", Disabl
 		;Default = habilitado por defecto
 		;Access = el privilegio se utilizó para obtener acceso a un objeto o servicio
 ;Ejemplo:
-	;for k, v in p:=ProcessQueryPrivileges("notepad.exe")
-	;	MsgBox % "#" k " ~ " p.MaxIndex() " ------------`nPrivilegio: " v[1] "`nEstado: " v[2]
+	;for k, v in p:=ProcessQueryPrivileges("chrome.exe")
+	;	MsgBox % "#" k " ~ " p.MaxIndex() " ------------`nPrivilegio: " v.Name "`nEstado: " v.State
 ProcessQueryPrivileges(ProcessName) {
-	static States := {0x00000002: "Enabled", 0x00000000: "Disabled", 0x00000001: "Default", 0x80000000: "Access"}
+	static States := {0x00000002: "Enabled", 0x00000000: "Disabled", 0x00000001: "Default", 0x80000000: "Access", 0x00000003: "Default"}
 	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400), hToken := OpenProcessToken(hProcess, 0x0008)
-	, Ok := GetTokenInformation(hToken, 3, TOKEN_PRIVILEGES), Array := [], Offset := 4
+	, Ok := GetTokenInformation(hToken, 3, TOKEN_PRIVILEGES), List := [], Offset := 0
 	Loop, % NumGet(TOKEN_PRIVILEGES, 0, "UInt") {
 		PrivilegeInfo := {}
-		PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset, "Int64P"))
-		if !(PrivilegeInfo.Name)
-			PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset:=A_PtrSize, "Int64P"))
-		if !(PrivilegeInfo.Name)
-			continue
-		PrivilegeInfo.State := NumGet(TOKEN_PRIVILEGES, Offset + 8, "UInt") ;*! ESTADO?
-		Offset += 12
-		;, PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset, "Int64P"))
-		;, PrivilegeInfo.State := NumGet(TOKEN_PRIVILEGES, Offset + 8, "UInt")
-		Array.Push(PrivilegeInfo)
-	}
-	return Array, CloseHandle(hToken, hProcess), ErrorLevel := !Ok
+		, PrivilegeInfo.Name := LookupPrivilegeName(NumGet(TOKEN_PRIVILEGES, Offset+4, "Int64"))
+		, PrivilegeInfo.State := States[NumGet(TOKEN_PRIVILEGES, Offset+12, "UInt")]
+		, List.Push(PrivilegeInfo), Offset += 12
+	} return List, CloseHandle(hToken, hProcess), ErrorLevel := !Ok
 }
-*/
 
 ;determina si el proceso tiene privilegios elevados
 ;Sintaxis: ProcessElevation( [ID] )
@@ -5113,6 +5491,8 @@ GetExplorerWindowPath(hWnd := -1) {
 					if (this.LocationName="")
 						return false, ErrorLevel := true
 					;Loop, Files, %A_AppData%\Microsoft\Windows\Libraries\*.*, F
+					;HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace
+					;HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions
 					return this.LocationName, ErrorLevel := this.LocationName=""?2:3
 				} return RTrim(StrReplace(UriDecode(LTrim(LTrim(Trim(this.LocationURL), "ftp:///"), "file:///")), "/", "\"), "\")
 	}	}	} return false, ErrorLevel := 4
@@ -6594,7 +6974,7 @@ GetModuleHandle(DllFile, Flags := 0x00000002) { ;GetModuleHandle( [dll] )
 } GetProcAddress(hModule, Function) { ;GetProcAddress( [hModule --> GetModuleHandle()/LoadLibrary()], [func] )
 	Error := ErrorLevel
 	return DllCall("Kernel32.dll\GetProcAddress", "Ptr", hModule, "AStr", Function, "Ptr"), ErrorLevel := Error
-} LoadLibrary(DllFile, Flags := 0x000000) { ;LoadLibrary( [dll] )
+} LoadLibrary(DllFile, Flags := 0x000000) { ;LoadLibrary( [file] )
 	Error := ErrorLevel
 	return DllCall("Kernel32.dll\LoadLibraryExW", "Str", DllFile, "UInt", 0, "UInt", Flags, "Ptr"), ErrorLevel := Error
 } FreeLibrary(hModule) {
@@ -6602,11 +6982,8 @@ GetModuleHandle(DllFile, Flags := 0x00000002) { ;GetModuleHandle( [dll] )
 	return DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule), ErrorLevel := Error
 }
 
-;Sintaxis: SetTimer( [Etiqueta], [Período], [Prioridad -2147483648~2147483647] )
-SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0, Wait := true) {
-	if !(Wait)
-		SetTimer, %Label%, -1, %ThreadPriority%
-	SetTimer, %Label%, %PeriodOnOffDelete%, %ThreadPriority%
+SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0) {
+	SetTimer, % Label, % PeriodOnOffDelete, % ThreadPriority
 }
 
 ;saltar a la etiqueta, hotkey o hotstring espesificada.
@@ -6952,6 +7329,19 @@ RegExistKey(Key, Recurse := false) {
 	SplitPath, Key, KeyName, BKey
 	Loop, Reg, %BKey%, % Recurse?"KR":"K"
 		if (A_LoopRegName=KeyName)
+			return true, ErrorLevel := false
+	return false, ErrorLevel := true
+}
+
+;comprueba si existe un valor en la clave espesificada
+;Sintaxis: RegExistValue( [clave], [valor] )
+;Nota: dejar el 2do parámetro vacío para comprobar si existe el valor predeterminado.
+RegExistValue(Key, ValueName := "") {
+	if (ValueName="") {
+		RegRead, OutputVar, %Key%
+		return !ErrorLevel
+	} Loop, Reg, %Key%, V
+		if (A_LoopRegName=ValueName)
 			return true, ErrorLevel := false
 	return false, ErrorLevel := true
 }
@@ -7684,7 +8074,7 @@ SB_GetBKColor(hWnd) {
 ;Return: devuelve el color anterior
 ;Nota: usar -Theme en las opciones al crear el control.
 SB_SetBKColor(hWnd, Color) {
-	return RGB(SendMessage(hWnd, 0x2001,,, "UInt", RGBToInt(_getcolor(Color))))
+	return RGB(SendMessage(hWnd, 0x2001,,, "UInt", _getcolor(Color, true)))
 }
 
 
@@ -8574,7 +8964,7 @@ PB_SetPos(hWNd, Value := "+10") {
 ;Color: espesificar el nombre del color o RGB.
 ;Nota: devuelve el color anterior.
 PB_SetBarColor(hWnd, Color) {
-	return RGB(SendMessage(hWnd, 0x0409,,,, RGBToInt(_getcolor(Color))))
+	return RGB(SendMessage(hWnd, 0x0409,,,, _getcolor(Color, true)))
 }
 
 ;establee el color de fondo de la barra de progreso.
@@ -8582,7 +8972,7 @@ PB_SetBarColor(hWnd, Color) {
 ;Color: espesificar el nombre del color o RGB.
 ;Nota: devuelve el color anterior.
 PB_SetBKColor(hWnd, Color) {
-	return RGB(SendMessage(hWnd, 0x2001,,,, RGBToInt(_getcolor(Color))))
+	return RGB(SendMessage(hWnd, 0x2001,,,, _getcolor(Color, true)))
 }
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------
@@ -9006,8 +9396,10 @@ OpenWithDialog(hWnd, Filename) {
 	, r := DllCall("Shell32.dll\SHOpenWithDialog", "Ptr", hWnd, "Ptr", &OPENASINFO)
 	if (ErrorLevel)
 		return DllCall("shell32\OpenAs_RunDLLW", "Ptr", hWnd, "UInt", 0, "WStr", Filename)
-	return r>0, ErrorLevel := r<0
+	return r=0, ErrorLevel := r!=0
 }
+
+
 
 
 
@@ -9267,7 +9659,7 @@ CopyImage(hImage, Type := 0, Width := 32, Height := 32, Flags := 0x00002000) {
 ;Sintaxis: LoadImage( [Filename], [Index], [Width], [Height], [ImageType] )
 ;Parámetros:
 	;Filename: espesificar la ruta a la imagen, puede ser icono, bitmap, cursor, exe, dll ...
-	;Index: espesificar el indice. espesificar 0 para obtener el número de imagenes en el archivo.
+	;Index: espesificar el indice, puede ser positivo o negativo. espesificar 0 para obtener el número de imagenes en el archivo.
 	;Width: espesificar el ancho nuevo. dejar en 0 para usar el original.
 	;Height: espesificar el alto nuevo. dejar en 0 para usar el original.
 	;ImageType: devuelve uno de los siguientes valores que permite identificar el tipo de imagen.
@@ -9283,7 +9675,7 @@ LoadImage(Filename, Index := 1, Width := 0, Height := 0, ByRef ImageType := "") 
 	return LoadPicture(Filename, "GDI+ Icon" Index " w" Width " h" Height, ImageType)
 }
 
-;eliminar icono
+;eliminar HANDLE a una imagen
 DestroyIcon(hIcon*) {
 	Ok := 0, Error := ErrorLevel
 	Loop, % hIcon.MaxIndex()
@@ -10009,8 +10401,79 @@ SetSystemCursor(Cursor := "") {
 
 
 ;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA Y CONFIGURACIÓN ::::::::::::::::::::::::::::::::::
+; ::::::::::::::::::::::::::::::::::::::::::::: SISTEMA & CONFIGURACIÓN & INFORMACIÓN DE VERSIÓN ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;INFORMACIÓN DE VERSIÓN
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ff468915(v=vs.85).aspx
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;recupera la descripción para el idioma asociado con un identificador de idioma Microsoft.
+;Sintaxis: VerLanguageName( [ID Idioma] )
+;Identificadores de Idiomas: https://msdn.microsoft.com/en-us/library/windows/desktop/dd318693(v=vs.85).aspx
+;Return: String
+;Ejemplo: MsgBox % VerLanguageName(A_Language) 
+VerLanguageName(LangCP) {
+	VarSetCapacity(Lang, 212 * 2, 0), LangCP := InStr(LangCP, "x")?LangCP:"0x" LangCP
+	, Size := DllCall("Version.dll\VerLanguageNameW", "UInt", LangCP, "Str", Lang, "UInt", 212, "UInt")
+	return Lang, ErrorLevel := !Size
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647463(v=vs.85).aspx
+
+;obtener información de la version del archivo.
+;Sintaxis: GetFileVersionInfo( [archivo] )
+;Return: {Comments, InternalName, ProductName, CompanyName, LegalCopyright, ProductVersion, FileDescription, LegalTrademarks, PrivateBuild, FileVersion, OriginalFilename, SpecialBuild}
+;ErrorLevel:
+	;0 = OK
+	;1 = no se ha podido obtener la información de la version
+	;2 = no se ha podrido obtener el tamaño requerido
+	;3 = error en VerQueryValue.
+;Ejemplo:
+	;for k, v in GetFileVersionInfo(A_WinDir "\regedit.exe")
+	;	MsgBox % k " = " v
+GetFileVersionInfo(Filename) {
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647005(v=vs.85).aspx
+	if !(Size := DllCall("Version.dll\GetFileVersionInfoSizeW", "Ptr", &Filename, "Ptr", 0, "UInt")) 
+		return false, ErrorLevel := 2 
+	
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647003(v=vs.85).aspx
+	VarSetCapacity(VS_VERSIONINFO, Size * 2, 0)
+	if !DllCall("Version.dll\GetFileVersionInfoW", "Ptr", &Filename, "UInt", 0, "UInt", Size, "Ptr", &VS_VERSIONINFO, "Int")
+		return false, ErrorLevel := true
+
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647464(v=vs.85).aspx
+	if !DllCall("Version.dll\VerQueryValueW", "Ptr", &VS_VERSIONINFO, "Str", "\VarFileInfo\Translation", "PtrP", VERINFO, "UIntP", 0, "Int")
+		return false, ErrorLevel := 3
+	LangCP := "\StringFileInfo\" Format("{:04X}{:04X}", NumGet(VERINFO+0, "UShort"), NumGet(VERINFO+2, "UShort")) "\"
+	
+	Info := {}
+	Loop, Parse, % "Comments|InternalName|ProductName|CompanyName|LegalCopyright|ProductVersion|FileDescription|LegalTrademarks|PrivateBuild|FileVersion|OriginalFilename|SpecialBuild", |
+		if DllCall("Version.dll\VerQueryValueW", "Ptr", &VS_VERSIONINFO, "Str", LangCP A_LoopField, "PtrP", VERINFO, "UIntP", Size, "Int")
+			Info[A_LoopField] := StrGet(VERINFO, Size)
+	return Info
+}
+
+;igual a GetFileVersionInfo()
+GetFileVersionInfoEx(Filename) { ;WIN_V+
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/aa969435(v=vs.85).aspx
+	if !(Size := DllCall("Version.dll\GetFileVersionInfoSizeExW", "UInt", 0x01, "Ptr", &Filename, "Ptr", 0, "UInt")) 
+		return false, ErrorLevel := 2 
+	
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/aa969434(v=vs.85).aspx
+	VarSetCapacity(VS_VERSIONINFO, Size * 2, 0)
+	if !DllCall("Version.dll\GetFileVersionInfoExW", "UInt", 0x01, "Ptr", &Filename, "UInt", 0, "UInt", Size, "Ptr", &VS_VERSIONINFO, "Int")
+		return false, ErrorLevel := true
+	
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647464(v=vs.85).aspx
+	if !DllCall("Version.dll\VerQueryValueW", "Ptr", &VS_VERSIONINFO, "Str", "\VarFileInfo\Translation", "PtrP", VERINFO, "UIntP", 0, "Int")
+		return false, ErrorLevel := 3
+	LangCP := "\StringFileInfo\" Format("{:04X}{:04X}", NumGet(VERINFO+0, "UShort"), NumGet(VERINFO+2, "UShort")) "\"
+	
+	Info := {}
+	Loop, Parse, % "Comments|InternalName|ProductName|CompanyName|LegalCopyright|ProductVersion|FileDescription|LegalTrademarks|PrivateBuild|FileVersion|OriginalFilename|SpecialBuild", |
+		if DllCall("Version.dll\VerQueryValueW", "Ptr", &VS_VERSIONINFO, "Str", LangCP A_LoopField, "PtrP", VERINFO, "UIntP", Size, "Int")
+			Info[A_LoopField] := StrGet(VERINFO, Size)
+	return Info
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;CONFIGURACIÓN
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -10042,33 +10505,55 @@ SystemAssocChanged() {
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762118%28v=vs.85%29.aspx
 
 ;Apagar Equipo
-;Sinraxis: Shutdown( [Código], [¿Forzar?] )
-;CÓDIGOS
-	;1 = Apagar | 2 = Reiniciar | 3 = Cerrar sesion | 4 = apaga el ardenador y alimentación
-	;5 = Suspender | 6 = Hibernar
-	;7 = Apagar monitor | 8 = Encender monitor | 9 = Poner el monitor en bajo consumo
-	;10 = bloquear el equipo (WIN+L)
-Shutdown(Code, Force := false) {
-	if (Code=5) || (Code=6) { ;Suspender / Hibernar
-		if (Code=5) ;Suspender
-			CMD("powercfg -h Off"), h := false ;desactivar Hibernación
-		else CMD("powercfg -h On"), h := true ;activar Hibernación
-		Run, % A_SysDir() "\rundll32.exe powrprof.dll,SetSuspendState " h "," !!Force ",0",, Hide, PID ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa373201(v=vs.85).aspx
-		return ErrorLevel?false:(PID?PID:true)
-	} else if (Code=7) || (Code=8) || (Code=9) {
-		Code := Code=7?2:Code=8?-1:1, GetDesktop(,, hDesktop)
-		return SendMessage(hDesktop, 0x112, "UInt", 0xF170, "Int", Code, "UInt")
-	} else if (Code=1) || (Code=2) || (Code=3) || (Code=4) {
-		Code := Code=1?0x00000001:Code=2?0x00000002:Code=3?0:0x00000008
-		return DllCall("User32.dll\ExitWindowsEx", "UInt", Force?Code|0x00000004:Code, "UInt", 0)
-	} else if (Code=10) {
-		return DllCall("User32.dll\LockWorkStation")
-	} return false, ErrorLevel := true
-} ShutdownEx(Code, Seconds := 0) { ;Code = /s: apagar, /r: reiniciar, /f: forzar, /a: cancelar.
-	Seconds := (Seconds>0)?"/t" A_Space Seconds:
-	Run, %ComSpec% /c Shutdown %Code% %Seconds%,, Hide
-	return !ErrorLevel
-} ;programar apagado. Sintaxis: ShutdownEx( [/s|/r /f], [segundos] )
+;Sinraxis: Shutdown( [código], [forzar], [WaitToKillTimeout] )
+;Parámetros:
+	;Código: espesificar uno de los siguientes valores.
+		;0 = (WIN_8+) apaga y preparar el sistema para un inicio más rápido
+		;1 / S = apagar
+		;2 / R = reiniciar
+		;3 / L = cerrar sesion
+		;4 = apaga el ardenador y alimentación
+		;5 = suspender 
+		;6 / H = hibernar
+		;7 = apagar monitor
+		;8 = encender monitor 
+		;9 = poner el monitor en bajo consumo
+		;10 = bloquear el equipo
+	;Forzar: espesificar 1 para forzar el cierre de aplicaciones pasado cierto intervalo, o 2 para el apagado de emergencia (puede ocacionar perdida de información en aplicaciones si no se cierran correctamente).
+	;WaitToKillTimeout: espesificar el tiempo máximo de espera para que las aplicaciónes finalizen de manera correcta, en segundos. pasado este tiempo se fuerza el cierre de la aplicacion y/o servicio.
+;Return: 0=ERROR
+;Nota: el proceso invocador requiere el privilegio SeShutdownPrivilege, que es habilitado al inicio por defecto.
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/aa376883(v=vs.85).aspx
+Shutdown(Code, Force := false, WaitToKillTimeout := 0) {
+	if (WaitToKillTimeout)
+		RegWrite(, "HKLM\SYSTEM\CurrentControlSet\Control", "WaitToKillServiceTimeout", WaitToKillTimeout)
+		, RegWrite(, "HKCU\Control Panel\Desktop", "WaitToKillAppTimeout", WaitToKillTimeout)
+	if (Code=0)
+		Ok := DllCall("User32.dll\ExitWindowsEx", "UInt", 0x00400000+(Force=1?0x00000010:Force=2?0x00000004:0), "UInt", 0x80000000, "Int")
+	else if (Code=1) || (Code="S") {
+		if !(Ok := DllCall("User32.dll\ExitWindowsEx", "UInt", 0x00000001+(Force=1?0x00000010:Force=2?0x00000004:0), "UInt", 0x80000000, "Int"))
+			Ok := DllCall("Advapi32.dll\InitiateSystemShutdownExW", "Ptr", 0, "Ptr", 0, "UInt", 0, "Int", !!Force, "Int", false, "UInt", 0x80000000, "Int")
+	} else if (Code=2) || (Code="R") {
+		if !(Ok := DllCall("User32.dll\ExitWindowsEx", "UInt", 0x00000002+(Force=1?0x00000010:Force=2?0x00000004:0), "UInt", 0x80000000, "Int"))
+			Ok := DllCall("Advapi32.dll\InitiateSystemShutdownExW", "Ptr", 0, "Ptr", 0, "UInt", 0, "Int", !!Force, "Int", true, "UInt", 0x80000000, "Int")
+	} else if (Code=3) || (Code="L")
+		Ok := DllCall("User32.dll\ExitWindowsEx", "UInt", 0x00000002+(Force=1?0x00000010:Force=2?0x00000004:0), "UInt", 0x80000000, "Int")
+	else if (Code=4)
+		Ok := DllCall("User32.dll\ExitWindowsEx", "UInt", 0x00000000+(Force=1?0x00000010:Force=2?0x00000004:0), "UInt", 0x80000000, "Int")
+	else if (Code=5)
+		CMD("powercfg -h Off"), Run(A_SysDir() "\rundll32.exe powrprof.dll,SetSuspendState 0," !!Force ",0",, "Hide"), Ok := !ErrorLevel
+	else if (Code=6)
+		CMD("powercfg -h On"), Run(A_SysDir() "\rundll32.exe powrprof.dll,SetSuspendState 1," !!Force ",0",, "Hide"), Ok := !ErrorLevel
+	else if (Code=7)
+		GetDesktop(,, hDesktop), SendMessage(hDesktop, 0x112, "UInt", 0xF170, "Int", 2), Ok := !ErrorLevel
+	else if (Code=8)
+		GetDesktop(,, hDesktop), SendMessage(hDesktop, 0x112, "UInt", 0xF170, "Int", -1), Ok := !ErrorLevel
+	else if (Code=9)
+		GetDesktop(,, hDesktop), SendMessage(hDesktop, 0x112, "UInt", 0xF170, "Int", 1), Ok := !ErrorLevel
+	else if (Code=10)
+		Ok := DllCall("User32.dll\LockWorkStation", "Int")
+	return Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa376868(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/aa376874(v=vs.85).aspx
 
 ;cambiar fecha y hora
 ;Sintaxis: SystemSetTime( [tiempo], [Local / System] )
@@ -11420,7 +11905,6 @@ WinGetClass(hWnd) {
 
 ;recupera el PID, opcional ThreadId/ProcessName/ProcessPath
 ;Sintaxis: WinGetPID( [ID], [ThreadId (salida)], [Proceso (salida)], [Proceso Ruta (salida)] )
-;EJEMPLO: MsgBox % "Pid: " WinGetPid(IsWindow(),,,i) "`nCompanyName: " FileGetInfo(i,"CompanyName") "`nRuta: " i
 WinGetPID(hWnd, ByRef ThreadId := "", ByRef ProcessName := "", ByRef ProcessPath := "") {
 	_gethwnd(hWnd), ThreadId := DllCall("User32.dll\GetWindowThreadProcessId", "Ptr", hWnd, "UIntP", ProcessId, "UInt")
 	if (IsByRef(ProcessName))
@@ -12415,11 +12899,391 @@ SoundPlay(Filename, Wait := false) {
 
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: SERVICIOS ::::::::::::::::::::::::::::::::::
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ms685942(v=vs.85).aspx
 ;#############################################################################################################################################
+;-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;FUNCIONES PRINCIPALES
+;Notas:
+	;[IMPORTANTE!] usar OpenService() para abrir el servico y obtener un identificador a éste (HANDLE)
+	;[IMPORTANTE!] usar CloseServiceHandle() para hService y hSCManager cuando ya no los necesite.
+;Parámetros:
+	;hSCManager: usar OpenSCManager()
+	;hService: usar OpenService()
+	;ServiceName: nombre del servicio. este es el mismo nombre que se espesifica al crear un servicio.
+	;DisplayName: el nombre para mostrar del servicio. esta cadena tiene una longitud máxima de 256 caracteres.
+	;DesiredAccess: acceso deseado. ver "Accesos Para El Servicio" abajo.
+	;MachineName: nombre del equipo destino. por defecto se conecta al gestor de control de servicios en el equipo local.
+	;DatabaseName: nombre de la base de datos del administrador de control de servicios.
+	;ServiceType: valor que determina el tipo de servicio, puede ser uno de los siguientes valores.
+		;SERVICE_KERNEL_DRIVER = 0x00000001
+		;SERVICE_FILE_SYSTEM_DRIVER  = 0x00000002
+		;SERVICE_ADAPTER = 0x00000004
+		;SERVICE_RECOGNIZER_DRIVER = 0x00000008
+		;SERVICE_WIN32_OWN_PROCESS = 0x00000010
+		;SERVICE_WIN32_SHARE_PROCESS = 0x00000020
+		;SERVICE_WIN32 = 0x00000030
+		;SERVICE_DRIVER = 0x0000000B
+		;SERVICE_TYPE_ALL = 0x0000013
+		;SERVICE_INTERACTIVE_PROCESS = 0x00000100
+		;SERVICE_WIN32_OWN_PROCESS + SERVICE_INTERACTIVE_PROCESS = 0x00000110
+		;SERVICE_WIN32_SHARE_PROCESS + SERVICE_INTERACTIVE_PROCESS = 0x00000120
+	;StartType: valor que identifica el tipo de inicio del servicio.
+		;0x00000002 = SERVICE_AUTO_START
+		;0x00000000 = SERVICE_BOOT_START
+		;0x00000003 = SERVICE_DEMAND_START
+		;0x00000004 = SERVICE_DISABLED
+		;0x00000001 = SERVICE_SYSTEM_START
+	;ErrorControl = la gravedad del error, y las medidas adoptadas, si este servicio no se inicia. puede ser uno de los siguientes valores.
+		;0x00000000 = SERVICE_ERROR_IGNORE
+		;0x00000002 = SERVICE_ERROR_SEVERE
+		;0x00000001 = SERVICE_ERROR_NORMAL
+		;0x00000003 = SERVICE_ERROR_CRITICAL
+	;ServiceState = determina el estado actual del servicio. puede ser uno de los siguientes valores.
+		;0x00000005 = SERVICE_CONTINUE_PENDING
+		;0x00000006 = SERVICE_PAUSE_PENDING
+		;0x00000007 = SERVICE_PAUSED
+		;0x00000004 = SERVICE_RUNNING
+		;0x00000002 = SERVICE_START_PENDING
+		;0x00000003 = SERVICE_STOP_PENDING
+		;0x00000001 = SERVICE_STOPPED
+;Accesos Para El Servicio: https://msdn.microsoft.com/en-us/library/windows/desktop/ms685981(v=vs.85).aspx
+	;0xF01FF = SERVICE_ALL_ACCESS  (defecto)
+	;0x0002 = SERVICE_CHANGE_CONFIG 
+	;0x0008 = SERVICE_ENUMERATE_DEPENDENTS
+	;0x0080 = SERVICE_INTERROGATE 
+	;0x0040 = SERVICE_PAUSE_CONTINUE
+	;0x0001 = SERVICE_QUERY_CONFIG 
+	;0x0004 = SERVICE_QUERY_STATUS 
+	;0x0010 = SERVICE_START
+	;0x0020 = SERVICE_STOP
+	;0x0100 = SERVICE_USER_DEFINED_CONTROL
+	;0x00010000 = DELETE
+	;0x20000 = READ_CONTROL
+	;0x1000000 = ACCESS_SYSTEM_SECURITY
+	;0x40000 = WRITE_DAC
+	;0x80000 = WRITE_OWNER
+;Notas:
+	;todas las funciones que requieren de hService, requieren de un Acceso espesífico, este es espesificado en cada función. sumar para combinar.
+;-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtiene un HANDLE a un servicio
+;Sintaxis: OpenService( [hSCManager], [ServiceName], [DesiredAccess] )
+;Return: hService
+OpenService(hSCManager, ServiceName, DesiredAccess := 0xF01FF) {
+	return DllCall("Advapi32.dll\OpenServiceW", "Ptr", hSCManager, "Ptr", &ServiceName, "UInt", DesiredAccess, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684330(v=vs.85).aspx
+
+;establece una conexión con el gestor de control de servicios en el equipo especificado y abre la base de datos de administrador de control de servicio especificado.
+;Sintaxis: OpenSCManager( [MachineName], [DatabaseName], [DesiredAccess] )
+;Return: hSCManager
+OpenSCManager(MachineName := "", DatabaseName := "", DesiredAccess := 0xF003F) {
+	return DllCall("AdvApi32.dll\OpenSCManagerW", "Ptr", MachineName=""?0:&MachineName
+	, "Ptr", DatabaseName=""?0:&DatabaseName, "UInt", DesiredAccess, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684323(v=vs.85).aspx
+
+;cierra un identificador a un gestor de control de servicios (hSCManager) o de objeto de servicio (hService)
+;Sintaxis: CloseServiceHandle( [HANDLE*] )
+;Return: 0|1
+CloseServiceHandle(HANDLE*) {
+	Error := ErrorLevel, Ok := 0
+	for k, v in HANDLE
+		Ok += !!DllCall("Advapi32.dll\CloseServiceHandle", "Ptr", HANDLE[k], "Int")
+	return HANDLE.MaxIndex()=Ok, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682028(v=vs.85).aspx
+
+;recupera el nombre del servicio (ServiceName) espesificado mediante el nombre a mostrar (DisplayName)
+;Sintaxis: GetServiceKeyName( [hSCManager], [DisplayName] )
+;Return: ServiceName
+;ErrorLevel: 0|1
+;Ejemplo: MsgBox % GetServiceKeyName(OpenSCManager(), "Cola de impresión")
+GetServiceKeyName(hSCManager, DisplayName) {
+	DllCall("Advapi32.dll\GetServiceKeyNameW", "Ptr", hSCManager, "Ptr", &DisplayName, "Ptr", 0, "UIntP", Size:=0)
+	, VarSetCapacity(ServiceName, (Size+1) * 2, 0)
+	, Ok := DllCall("Advapi32.dll\GetServiceKeyNameW", "Ptr", hSCManager, "Ptr", &DisplayName, "Str", ServiceName, "UIntP", Size+1, "Int")
+	return ServiceName, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683229(v=vs.85).aspx
+
+;recupera el nombre del servicio a mostrar (DisplayName) espesificado mediante el nombre (ServiceName)
+;Sintaxis: GetServiceDisplayName( [hSCManager], [ServiceName] )
+;Return: DisplayName
+;ErrorLevel: 0|1
+;Ejemplo: MsgBox % GetServiceDisplayName(OpenSCManager(), "spooler")
+GetServiceDisplayName(hSCManager, ServiceName) {
+	DllCall("Advapi32.dll\GetServiceDisplayNameW", "Ptr", hSCManager, "Ptr", &ServiceName, "Ptr", 0, "UIntP", Size:=0)
+	, VarSetCapacity(DisplayName, (Size+1) * 2, 0)
+	, Ok := DllCall("Advapi32.dll\GetServiceDisplayNameW", "Ptr", hSCManager, "Ptr", &ServiceName, "Str", DisplayName, "UIntP", Size+1, "Int")
+	return DisplayName, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683228(v=vs.85).aspx
+
+;envía un código de control al servicio
+;Sintaxis: ControlService( [hService], [dwControl], [lpServiceStatus (out)] )
+	;dwControl: espesificar uno de los siguientes valores.
+		;0x00000003 = SERVICE_CONTROL_CONTINUE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000004 = SERVICE_CONTROL_INTERROGATE. acceso requerido SERVICE_INTERROGATE.
+		;0x00000007 = SERVICE_CONTROL_NETBINDADD. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x0000000A = SERVICE_CONTROL_NETBINDDISABLE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000009 = SERVICE_CONTROL_NETBINDENABLE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000008 = SERVICE_CONTROL_NETBINDREMOVE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000006 = SERVICE_CONTROL_PARAMCHANGE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000002 = SERVICE_CONTROL_PAUSE. acceso requerido SERVICE_PAUSE_CONTINUE.
+		;0x00000001 = SERVICE_CONTROL_STOP. acceso requerido SERVICE_STOP.
+		;128 ~ 255 = USER_DEFINED_CONTROL_CODE. debe tener el acceso SERVICE_USER_DEFINED_CONTROL.
+	;lpServiceStatus: recibe un objeto con la información más reciente sobre el estado del servicio
+		;ServiceType: define el tipo de servicio. puede ser uno de los siguientes valores.
+			;0x00000002 = SERVICE_FILE_SYSTEM_DRIVER
+			;0x00000001 = SERVICE_KERNEL_DRIVER
+			;0x00000010 = SERVICE_WIN32_OWN_PROCESS
+			;0x00000020 = SERVICE_WIN32_SHARE_PROCESS
+			;0x00000100 = SERVICE_INTERACTIVE_PROCESS (SERVICE_WIN32_OWN_PROCESS o SERVICE_WIN32_SHARE_PROCESS y LocalSystem_Account)
+		;CurrentState: espesifica el estado del servicio. puede ser uno de los siguientes valores.
+			;0x00000005 = SERVICE_CONTINUE_PENDING
+			;0x00000006 = SERVICE_PAUSE_PENDING
+			;0x00000007 = SERVICE_PAUSED
+			;0x00000004 = SERVICE_RUNNING
+			;0x00000002 = SERVICE_START_PENDING
+			;0x00000003 = SERVICE_STOP_PENDING
+			;0x00000001 = SERVICE_STOPPED
+		;ControlsAccepted: el tipo de control que acepta por esta función.
+			;0x00000010 = SERVICE_ACCEPT_NETBINDCHANGE
+			;0x00000008 = SERVICE_ACCEPT_PARAMCHANGE
+			;0x00000002 = SERVICE_ACCEPT_PAUSE_CONTINUE
+			;0x00000100 = SERVICE_ACCEPT_PRESHUTDOWN
+			;0x00000004 = SERVICE_ACCEPT_SHUTDOWN
+			;0x00000001 = SERVICE_ACCEPT_STOP
+		;Win32ExitCode: código de error que el servicio utiliza para informar de un error que se produce cuando se está iniciando o cerrando.
+		;ServiceSpecificExitCode: código de error específico que devuelve el servicio cuando se produce un error mientras el servicio está iniciando o cerrando
+		;CheckPoint: valor de punto de control, incrementos de servicio periódicamente para informar de su progreso durante un largo inicio, detener, pausar o continuar la operación
+		;WaitHint: tiempo estimado para hacer un comienzo en espera, detener, pausar o continuar la operación, en milisegundos
+;Acceso Requerido: depende de dwControl.
+;Return: 0=ERROR
+;ErrorLevel: 0|1
+;Notas:
+	;lpServiceStatus recibe la información si el valor de retorno es uno de los siguientes.
+		;0 = NO_ERROR
+		;1052 = ERROR_INVALID_SERVICE_CONTROL
+		;1061 = ERROR_SERVICE_CANNOT_ACCEPT_CTRL
+		;1062 = ERROR_SERVICE_NOT_ACTIVE
+ControlService(hService, dwControl, ByRef lpServiceStatus := "") {
+	VarSetCapacity(SERVICE_STATUS, 28, 0), NumPut(1066, SERVICE_STATUS, 12, "UInt"), lpServiceStatus := {}
+	, Ok := DllCall("AdvApi32.dll\ControlService", "Ptr", hService, "UInt", dwControl, "Ptr", &SERVICE_STATUS, "Int")
+	Loop, Parse, % "ServiceType|CurrentState|ControlsAccepted|Win32ExitCode|ServiceSpecificExitCode|CheckPoint|WaitHint", |
+		lpServiceStatus[A_LoopField] := NumGet(SERVICE_STATUS, 4 * (A_Index-1), "UInt")
+	return Ok, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682108(v=vs.85).aspx
+
+;eliminar servicio
+;Sintaxis: DeleteService( [hService] )
+;Acceso Requerido: DELETE
+;Return: 0=ERROR
+;Nota:
+	;la entrada de la base de datos no es eliminada hasta que no llame CloseServiceHandle()
+	;si el servicio esta iniciado, se intenta parar con una llamada a ControlService(, SERVICE_CONTROL_STOP )
+DeleteService(hService) {
+	return DllCall("Advapi32.dll\DeleteService", "Ptr", hService, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682562(v=vs.85).aspx
+
+;inicia el servicio
+;Sintaxis: StartService( [hService], [dwNumServiceArgs], [&lpServiceArgVectors] )
+;Return: 0=ERROR
+;Acceso Requerido: SERVICE_START
+;Notas:
+	;si el servicio está desabilitado, la función fallará.
+	;si el servicio está marcado para ser eliminado, la función fallará.
+StartService(hService, dwNumServiceArgs := 0, lpServiceArgVectors := 0) {
+	return DllCall("Advapi32.dll\StartServiceW", "Ptr", hService, "UInt", dwNumServiceArgs, "Ptr", lpServiceArgVectors, "Int")
+}
+
+;obtiene los parámetros de configuración opcionales del servicio espesífico
+;Sintaxasis: QueryServiceConfig2( [hService], [dwInfoLevel] )
+;Parámetros:
+	;dwInfoLevel: espesificar el tipo de información a obtener. si no está definido devuelve un puntero a la ESTRUCTURA correspondiente.
+		;12 = SERVICE_CONFIG_LAUNCH_PROTECTED (WIN_8.1+)
+		;9 = SERVICE_CONFIG_PREFERRED_NODE
+		;8 = SERVICE_CONFIG_TRIGGER_INFO
+		;7 = SERVICE_CONFIG_PRESHUTDOWN_INFO
+		;6 = SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO
+		;5 = SERVICE_CONFIG_SERVICE_SID_INFO
+		;4 = SERVICE_CONFIG_FAILURE_ACTIONS_FLAG
+			;Return: 0|1.
+			;Descripción: https://msdn.microsoft.com/en-us/library/windows/desktop/ms685937(v=vs.85).aspx
+		;3 = SERVICE_CONFIG_DELAYED_AUTO_START_INFO
+			;Return: devuelve un valor de tipo BOOL.
+				;1 = se inicia el servicio después del inicio de otros servicios de inicio automático además de un breve retraso.
+				;0 = se inicia el servicio durante el arranque del sistema.
+			;Nota: este ajuste se ignora a menos que el servicio es un servicio de inicio automático.
+		;2 = SERVICE_CONFIG_FAILURE_ACTIONS
+		;1 = SERVICE_CONFIG_DESCRIPTION
+			;Return: devuelve la descripcion del servicio.
+			;Nota: a partir de WIN_V, puede devolver "Localized String", en la siguiente forma "@[path\]dllname,-strID", usar ReadLocalizedString() para obtener la descripción.
+;Acceso Requerido: SERVICE_QUERY_CONFIG
+;Return: depende del valor espesificádo en dwInfoLevel
+;ErrorLevel: 0|1
+;Ejemplo: obtener descripción del servicio spooler (cola de impresión).
+	;MsgBox % QueryServiceConfig2(OpenService(OpenSCManager(), "spooler", 0x0001), 1)
+QueryServiceConfig2(hService, dwInfoLevel) {
+	DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", dwInfoLevel, "Ptr", 0, "UInt", 0, "UIntP", BytesNeeded)
+	, VarSetCapacity(SERVICE_QUERY_CONFIG, BytesNeeded * 2, 0)
+	, Ok := DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", dwInfoLevel, "Ptr", &SERVICE_QUERY_CONFIG, "UInt", BytesNeeded, "UIntP", BytesNeeded, "Int")
+	if (dwInfoLevel=3) || (dwInfoLevel=4) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms685155(v=vs.85).aspx
+		OutputVar := NumGet(SERVICE_QUERY_CONFIG, 0, "Int")
+	} else if (dwInfoLevel=1) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms685156(v=vs.85).aspx
+		OutputVar := StrGet(NumGet(SERVICE_QUERY_CONFIG, 0, "Ptr"), "UTF-16")
+	} else return SERVICE_QUERY_CONFIG, ErrorLevel := !Ok
+	return OutputVar, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684935(v=vs.85).aspx
+
+;cambia los parámetros opcionales de configuración del servicio
+;Sintaxis: ChangeServiceConfig2( [hService], [dwInfoLevel], [lpInfo] )
+;Parámetros:
+	;dwInfoLevel: ver QueryServiceConfig2() para una lista con valores.
+	;lpInfo: datos, depende del valor espesificado en dwInfoLevel.
+		;dependiendo del valor de dwInfoLevel. si no se espesifica, debe espesificar un puntero a la ESTRUCTURA correspondiente.
+			;SERVICE_CONFIG_DESCRIPTION: espesificar la descripción nueva para el servicio.
+;Acceso Requerido: SERVICE_CHANGE_CONFIG
+;Return: 0 = ERROR
+;Ejemplo: cambiar descripción del servicio spooler (cola de impresión).
+	;MsgBox % ChangeServiceConfig2(OpenService(OpenSCManager(), "spooler", 0x0002), 1, "Nueva Descripción") ;1 = SERVICE_CONFIG_DESCRIPTION
+ChangeServiceConfig2(hService, dwInfoLevel, lpInfo) {
+	if (dwInfoLevel=1) { ;SERVICE_CONFIG_DESCRIPTION
+		VarSetCapacity(SERVICE_DESCRIPTION, StrLen(lpInfo) * 2, 0)
+		, NumPut(&lpInfo, SERVICE_DESCRIPTION, 0, "Ptr")
+		, VarSetCapacity(lpInfo, 0), lpInfo := &SERVICE_DESCRIPTION
+	} return DllCall("Advapi32.dll\ChangeServiceConfig2W", "Ptr", hService, "UInt", dwInfoLevel, "Ptr", lpInfo, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms681988(v=vs.85).aspx
+
+;recuperar parámetros de configuración del servicio
+;Sintaxis: QueryServiceConfig( [hService] )
+;Return: devuelve un Objeto con la información, o 0 en caso de ERROR.
+	;ServiceType = valor que espesifíca el tipo de servicio. como ejemplo, el servicio "spooler" suele devolver 272, que es 0x00000110 (SERVICE_WIN32_OWN_PROCESS + SERVICE_INTERACTIVE_PROCESS)
+	;StartType = valor que identifica el tipo de inicio del servicio.
+	;ErrorControl = la gravedad del error, y las medidas adoptadas, si este servicio no se inicia.
+	;BinaryPathName = ruta completa al archivo binario del servicio.
+	;LoadOrderGroup = nombre del grupo de ordenamiento de carga a la que pertenece este servicio, si lo tiene.
+	;TagId = valor de etiqueta única para este servicio en el grupo especificado por el parámetro loadOrderGroup, si lo tiene.
+	;Dependencies = dependencias del servicio.
+	;ServiceStartName = nombre de la cuenta sobre la cual trabaja el servicio. Ej: LocalSystem. Ej: \FileSystem\Rdr. Ej: \Driver\Xns.
+	;DisplayName = nombre a mostrar para el servicio.
+;Acceso Requerido: SERVICE_QUERY_CONFIG
+;Nota: los valores se encuentran arriba de todo, al inicio de las funciones con servicios.
+;Ejemplo: obtener nombre a mostrar del servicio Spooler.
+	;MsgBox % QueryServiceConfig(OpenService(OpenSCManager(), "spooler", 0x0001)).DisplayName
+QueryServiceConfig(hService) {
+	DllCall("Advapi32.dll\QueryServiceConfigW", "Ptr", hService, "Ptr", 0, "UInt", 0, "UIntP", BytesNeeded)
+	, VarSetCapacity(QUERY_SERVICE_CONFIG, BytesNeeded * 2, 0)
+	, Ok := DllCall("Advapi32.dll\QueryServiceConfigW", "Ptr", hService, "Ptr", &QUERY_SERVICE_CONFIG, "UInt", BytesNeeded, "UIntP", BytesNeeded, "Int")
+	, OutputVar := {}, OutputVar.ServiceType := NumGet(QUERY_SERVICE_CONFIG, 0, "UInt")
+	, OutputVar.StartType := NumGet(QUERY_SERVICE_CONFIG, 4, "UInt")
+	, OutputVar.ErrorControl := NumGet(QUERY_SERVICE_CONFIG, 8, "UInt")
+	, OutputVar.BinaryPathName := StrGet(NumGet(QUERY_SERVICE_CONFIG, 12, "Ptr"), "UTF-16")
+	, OutputVar.LoadOrderGroup := StrGet(NumGet(QUERY_SERVICE_CONFIG, 12+A_PtrSize, "Ptr"), "UTF-16")
+	, OutputVar.TagId := NumGet(QUERY_SERVICE_CONFIG, A_PtrSize=4?20:28, "UInt")
+	, OutputVar.Dependencies := StrGet(NumGet(QUERY_SERVICE_CONFIG, A_PtrSize=4?24:36 "Ptr"), "UTF-16")
+	, OutputVar.ServiceStartName := StrGet(NumGet(QUERY_SERVICE_CONFIG, A_PtrSize=4?28:44 "Ptr"), "UTF-16")
+	, OutputVar.DisplayName := StrGet(NumGet(QUERY_SERVICE_CONFIG, A_PtrSize=4?32:52 "Ptr"), "UTF-16")
+	return Ok?OutputVar:false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684932(v=vs.85).aspx
+
+;establecer parámetros de configuración para el servicio
+;Sintaxis: ChangeServiceConfig( [hService], [ ServiceType], [StartType], [ErrorControl], [BinaryPathName], [LoadOrderGroup], [TagId], [Dependencies], [ServiceStartName], [Password], [DisplayName] )
+;Parámetros:
+	;Password: espesificar la contraseña para la cuenta espesificada en ServiceStartName.
+;Acceso Requerido: SERVICE_CHANGE_CONFIG
+;Return: 0|1
+;Notas:
+	;dejar el valor por defecto para no modificar.
+	;lo valores que debe espesificar en cada parámetro se encuentran al principio de las funciones de servicios o otros en QueryServiceConfig().
+;Ejemplo: establecer el servicio Spooler como inicio Manual. 0x00000003 = MANUAL, 0x0002 = SERVICE_CHANGE_CONFIG
+	;MsgBox % ChangeServiceConfig(OpenService(OpenSCManager(), "spooler", 0x0002),, 0x00000003)
+ChangeServiceConfig(hService, ServiceType := 0xFFFFFFFF, StartType := 0xFFFFFFFF, ErrorControl := 0xFFFFFFFF, BinaryPathName := 0, LoadOrderGroup := 0, TagId := "", Dependencies := 0, ServiceStartName := 0, Password := 0, DisplayName*) {
+	dn := DisplayName[1]
+	return DllCall("Advapi32.dll\ChangeServiceConfigW", "Ptr", hService, "UInt", ServiceType, "UInt", StartType, "UInt", ErrorControl
+		, "Ptr", BinaryPathName=0?0:&BinaryPathName, "Ptr", LoadOrderGroup=0?0:&LoadOrderGroup, TagId=""?"Ptr":"UIntP", TagId=""?0:TagId
+		, "Ptr", Dependencies=0?0:&Dependencies, "Ptr", ServiceStartName=0?0:&ServiceStartName, "Ptr", Password=0?0:&Password, "Ptr", DisplayName.MaxIndex()?&dn:0, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms681987(v=vs.85).aspx
+
+;recupera el estado actual del servicio especificado basado en el nivel de información especificada.
+;Sintaxis: QueryServiceStatusEx( [hService] )
+;Acceso Requerido: SERVICE_QUERY_STATUS 
+;Return: devuelve un objeto con la informacio, o 0 en caso de ERROR.
+	;ServiceType = valor que identifica al tipo de servicio.
+	;CurrentState = estado actual del servicio. ver ServiceState arriba de todo, al inicio de las funciones con servicios para una lista con los valores.
+	;ControlsAccepted
+	;Win32ExitCode
+	;ServiceSpecificExitCode
+	;CheckPoint
+	;WaitHint
+	;ProcessId = identificador del proceso (PID) del servicio. devuelve 0 si no se está ejecutando un proceso.
+	;ServiceFlags = puede ser uno de los siguientes valores.
+		;0x00000000 = el servicio se está ejecutando en un proceso que no es un proceso del sistema, o no se está ejecutando.
+		;0x00000001 = el servicio se ejecuta en un proceso del sistema que siempre debe estar en ejecución.
+;Nota: para una lista con valores, ver QueryServiceConfig() y ControlService().
+QueryServiceStatusEx(hService) {
+	DllCall("Advapi32.dll\QueryServiceStatusEx", "Ptr", hService, "UInt", 0, "Ptr", 0, "UInt", 0, "UIntP", BytesNeeded)
+	, VarSetCapacity(SERVICE_STATUS_PROCESS, BytesNeeded * 2, 0)
+	, Ok := DllCall("Advapi32.dll\QueryServiceStatusEx", "Ptr", hService, "UInt", 0, "Ptr", &SERVICE_STATUS_PROCESS, "UInt", BytesNeeded, "UIntP", BytesNeeded, "Int")
+	, OutputVar := {}, OutputVar.ServiceType := NumGet(SERVICE_STATUS_PROCESS, 0, "UInt")
+	Loop, Parse, % "CurrentState|ControlsAccepted|Win32ExitCode|ServiceSpecificExitCode|CheckPoint|WaitHint|ProcessId|ServiceFlags", |
+		OutputVar[A_LoopField] := NumGet(SERVICE_STATUS_PROCESS, 4 * A_Index, "UInt")
+	return Ok?OutputVar:false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684941(v=vs.85).aspx
+
+;recupera el nombre y el estado de cada servicio que depende del servicio especificado; es decir, el servicio especificado debe estar en ejecución antes de que los servicios dependientes se pueden ejecutar.
+;Sintaxis: EnumDependentServices( [hService], [ServiceState] )
+;Parámetros:
+	;ServiceState: el estado de lo servicios a ser enumerados. puede ser uno o mas de los siguientes valores.
+		;0x00000001 = SERVICE_ACTIVE
+		;0x00000002 = SERVICE_INACTIVE
+;Acceso Requerido: SERVICE_ENUMERATE_DEPENDENTS
+;Return: Array[ {ServiceName, DisplayName, ServiceType, CurrentState, ControlsAccepted, Win32ExitCode, ServiceSpecificExitCode, CheckPoint, WaitHint} ] o 0 en caso de ERROR.
+;Ejemplo: obtener todos los serivios que dependen del servicio  Dhcp.
+	;for k, v in EnumDependentServices(OpenService(OpenSCManager(), "Dhcp", 0x0008))
+	;	MsgBox % "ServiceName: " v.ServiceName "`nDisplayName: " v.DisplayName "`nCurrentState: " v.CurrentState "`nServiceType: " v.ServiceType
+EnumDependentServices(hService, ServiceState := 0x00000003) {
+	DllCall("Advapi32.dll\EnumDependentServicesW", "Ptr", hService, "UInt", ServiceState, "Ptr", 0, "UInt", 0, "UIntP", BytesNeeded, "UIntP", 0)
+	, VarSetCapacity(ENUM_SERVICE_STATUS, BytesNeeded * 2, 0), OutputVar := [], Offset := 0
+	, Ok := DllCall("Advapi32.dll\EnumDependentServicesW", "Ptr", hService, "UInt", ServiceState, "Ptr", &ENUM_SERVICE_STATUS
+		, "UInt", BytesNeeded, "UIntP", BytesNeeded, "UIntP", ServicesReturned, "Int")
+	Loop, % (ServicesReturned) { ;ServicesReturned = representa el número de servicios que dependen del servicio espesificado
+		Info := {}, Info.ServiceName := StrGet(NumGet(ENUM_SERVICE_STATUS, Offset, "Ptr"), "UTF-16")
+		, Info.DisplayName := StrGet(NumGet(ENUM_SERVICE_STATUS, Offset+A_PtrSize, "Ptr"), "UTF-16")
+		Loop, Parse, % "ServiceType|CurrentState|ControlsAccepted|Win32ExitCode|ServiceSpecificExitCode|CheckPoint|WaitHint", |
+			Info[A_LoopField] := NumGet(ENUM_SERVICE_STATUS, (Offset+A_PtrSize) + (4 * A_Index), "UInt")
+		OutputVar.Push(Info), Offset += A_PtrSize+28+A_PtrSize
+	} return Ok?OutputVar:false
+}
+
+;enumera los servicios en la base de datos de control de servicio especificado. el nombre y el estado de cada servicio se proporcionan, junto con datos adicionales basados en el nivel de información específica.
+;Sintaxis: EnumServicesStatus( [hSCManager], [ServiceType], [ServiceState], [GroupName] )
+;Parámetros:
+	;ServiceType: enumerar solo los servicios con los tipos espesificados. por defecto enumera todo los tipos de servicios.
+	;ServiceState: enumera solo los servicios con el estado espesificado. por defecto enumera todos los estados de estados. ver EnumDependentServices()
+	;GroupName: enumera solo los servicios que pertenescan al grupo espesificado. por defecto enumera todos los servicios de cualquier grupo.
+;Return: Array[ {ServiceName, DisplayName, ServiceType, CurrentState, ControlsAccepted, Win32ExitCode, ServiceSpecificExitCode, CheckPoint, WaitHint, ProcessId, ServiceFlags} ] o 0 en caso de ERROR.
+;Ejemplo: enumerar todos los servicios, cualquier tipo, cualquier estado, cualquier grupo.
+	;for k, v in EnumServicesStatus(hSCManager := OpenSCManager())
+	;	MsgBox % "ServiceName: " v.ServiceName "`nDisplayName: " v.DisplayName "`nCurrentState: " v.CurrentState "`nServiceType: " v.ServiceType
+EnumServicesStatus(hSCManager, ServiceType := 0x0000006E, ServiceState := 0x00000003, GroupName := "") {
+	DllCall("Advapi32.dll\EnumServicesStatusExW", "Ptr", hSCManager, "UInt", 0, "UInt", ServiceType, "UInt", ServiceState
+		, "Ptr", 0, "UInt", 0, "UIntP", BytesNeeded, "UIntP", 0, "Ptr", 0, "Ptr", GroupName=""?0:&GroupName) 
+	, VarSetCapacity(ENUM_SERVICE_STATUS_PROCESS, BytesNeeded * 2, 0), OutputVar := [], Offset := 0
+	, Ok := DllCall("Advapi32.dll\EnumServicesStatusExW", "Ptr", hSCManager, "UInt", 0, "UInt", ServiceType, "UInt", ServiceState, "Ptr", &ENUM_SERVICE_STATUS_PROCESS
+		, "UInt", BytesNeeded, "UIntP", BytesNeeded, "UIntP", ServicesReturned, "Ptr", 0, "Ptr", GroupName=""?0:&GroupName, "Int") 
+	Loop, % (ServicesReturned) { ;ServicesReturned = representa el número de servicios
+		Info := {}, Info.ServiceName := StrGet(NumGet(ENUM_SERVICE_STATUS_PROCESS, Offset, "Ptr"), "UTF-16")
+		, Info.DisplayName := StrGet(NumGet(ENUM_SERVICE_STATUS_PROCESS, Offset+A_PtrSize, "Ptr"), "UTF-16")
+		Loop, Parse, % "ServiceType|CurrentState|ControlsAccepted|Win32ExitCode|ServiceSpecificExitCode|CheckPoint|WaitHint|ProcessId|ServiceFlags", |
+			Info[A_LoopField] := NumGet(ENUM_SERVICE_STATUS_PROCESS, (Offset+A_PtrSize) + (4 * A_Index), "UInt")
+		OutputVar.Push(Info), Offset += A_PtrSize+36+A_PtrSize ;36 corresponde a la estructura SERVICE_STATUS_PROCESS y A_PtrSize a ServiceName y DisplayName.
+	} return Ok?OutputVar:false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682640(v=vs.85).aspx
+
+;-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;OTRAS FUNCIONES
+;-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;enumerar todos los servicios y obtener información
 ;Ejemplo:
 	;for k, v in ServiceEnum()
 	;	MsgBox % "#" k "`nServicio: " v.Name "`nNombre: " v.Caption "`nProcess ID: " v.ProcessId "`nParámetros: " v.PathName
+;Nota: recomendado usar EnumServicesStatus(), es mucho mas rapido que esta función.
 ServiceEnum() {
 	List := []
 	for Srv in ComObjGet("winmgmts:").ExecQuery("SELECT * FROM Win32_Service")
@@ -12432,154 +13296,16 @@ ServiceEnum() {
 	return List
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa394073(v=vs.85).aspx
 
-;cambiar modo de inicio del servicio.
-;Sintaxis: ServiceSet( [servicio], [boot | system | auto | manual | disabled] )
-ServiceSet(IpName, StartMode := "") {
-	static StartupModes := {"boot": 0x00000000, "system": 0x00000001, "auto": 0x00000002, "manual": 0x00000003, "disabled": 0x00000004, "disable": 0x00000004}
-	hService := ServiceOpen( IpName,, 0x0002 ) ;SERVICE_NO_CHANGE := 0xffffffff | SERVICE_CHANGE_CONFIG := 0x0002
-	if StartupModes[StartMode]
-		return i := DllCall("Advapi32.dll\ChangeServiceConfigW", "Ptr", hService, "UInt", 0xffffffff, "UInt", StartupModes[StartMode]
-		, "UInt", 0xffffffff, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-	return 0, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := 1
-}
-
-;recupera la informacion del servicio
-;Sintaxis: ServiceGetDescription( [servicio], [Fast|Slow] )
-ServiceGetDescription(IpName, Mode := "Fast") {
-	if (Mode="F"||Mode="Fast") { ;Fast: lee desde el registro (recomendado)
-		return RegRead("HKLM\SYSTEM\CurrentControlSet\Services\" IpName, "Description")
-	} else if (Mode="S"||Mode="Slow") { ;Slow: abre el servicio para leer la descripcion (mas lento)
-		hService := ServiceOpen(IpName,, 0x0001)
-		, DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", 0, "UInt", 0, "UIntP", pcbBytesNeeded)
-		, cbBufSize := VarSetCapacity(SERVICE_DESCRIPTION, pcbBytesNeeded * 2, 0) / 2
-		, i := DllCall("Advapi32.dll\QueryServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION, "UInt", cbBufSize, "UIntP", 0)
-		return StrGet(NumGet(SERVICE_DESCRIPTION, 0, "Ptr"), cbBufSize, "UTF-16")
-			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-	} return 0, ErrorLevel := 1
-}
-
-;establece la informacion del servicio
-;Sintaxis: ServiceSetDescription( [servicio], [descripcion], [Fast|Slow] )
-ServiceSetDescription(IpName, Description := "", Mode := "Slow") {
-	Description := Trim(StrReplace(Description, A_Tab, A_Space))
-	if (Mode="F"||Mode="Fast") { ;Fast: establece desde el registro (puede dar problemas con permisos)
-		return RegWrite(, "HKLM\SYSTEM\CurrentControlSet\Services\" IpName, "Description", Description)
-	} else if (Mode="S"||Mode="Slow") { ;Slow: abre el servicio para establecer la descripcion (recomendado)
-		hService := ServiceOpen(IpName,, 0x0002)
-		, VarSetCapacity(SERVICE_DESCRIPTION, StrLen(Description) * 2, 0)
-		, NumPut(&Description, SERVICE_DESCRIPTION, 0, "Ptr")
-		return i := DllCall("Advapi32.dll\ChangeServiceConfig2W", "Ptr", hService, "UInt", 1, "Ptr", &SERVICE_DESCRIPTION)
-			, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-	} return 0, ErrorLevel := 1
-}
-
-;pausar
-ServicePause(IpName) {
-	hService := ServiceOpen( IpName,, 0x0040 )
-	, VarSetCapacity(SERVICE_STATUS, A_PtrSize = 4 ? 28 : 36, 0)
-	return i := DllCall("Advapi32.dll\ControlService", "Ptr", hService, "UInt", 0x00000002, "Ptr", &SERVICE_STATUS)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-}
-
-;reanudar servicio
-ServiceContinue(IpName) {
-	hService := ServiceOpen( IpName,, 0x0040 )
-	, VarSetCapacity(SERVICE_STATUS, A_PtrSize = 4 ? 28 : 36, 0)
-	return i := DllCall("Advapi32.dll\ControlService", "Ptr", hService, "UInt", 0x00000003, "Ptr", &SERVICE_STATUS)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-}
-
-;eliminar
-ServiceDelete(IpName) {
-	hService := ServiceOpen(IpName,, 0x00010000)
-	return r := DllCall("Advapi32.dll\DeleteService", "Ptr", hService)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !r
-}
-
-;iniciar
-ServiceStart(IpName) {
-	if (ServiceInfo(IpName).StartMode = "disable")
-		ServiceSet( IpName, "manual" )
-	hService := ServiceOpen( IpName,, 0x0010 )
-	return i := DllCall("Advapi32.dll\StartServiceW", "Ptr", hService, "UInt", 0, "Ptr", 0)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService)
-		, ErrorLevel := !i
-}
-
-;detener
-ServiceStop(IpName) {
-	hService := ServiceOpen( IpName,, 0x0020 )
-	, VarSetCapacity(SERVICE_STATUS, A_PtrSize = 4 ? 28 : 36, 0)
-	return i := DllCall("Advapi32.dll\ControlService", "Ptr", hService, "UInt", 0x00000001, "Ptr", &SERVICE_STATUS)
-		, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !i
-}
-
-;obtiene el estado
-;Sintaxis: ServiceStatus( [servicio] )
-;EJEMPLO: MsgBox % ServiceStatus("spooler").State
-ServiceStatus(IpName) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms685996%28v=vs.85%29.aspx
-	static s1 := "STOPPED", s2 := "START_PENDING", s3 := "STOP_PENDING", s4 := "RUNNING", s5 := "CONTINUE_PENDING", s6 := "PAUSE_PENDING", s7 := "PAUSED"
-	static t1 := "KERNEL_DRIVER", t2 := "FILE_SYSTEM_DRIVER", t16 := "OWN_PROCESS", t32 := "SHARE_PROCESS", t100 := "INTERACTIVE_PROCESS"
-	hService := ServiceOpen( IpName,, 0x0004 ), i := {}
-	, cbBufSize := VarSetCapacity(SERVICE_STATUS_PROCESS, A_PtrSize=4?36:44, 0), VarSetCapacity(pcbBytesNeeded, 4)
-	, r := DllCall("Advapi32.dll\QueryServiceStatusEx", "Ptr", hService, "UInt", 0, "Ptr", &SERVICE_STATUS_PROCESS, "UInt", cbBufSize, "UIntP", &pcbBytesNeeded)
-	, i.Type := (x:=NumGet(&SERVICE_STATUS_PROCESS, 0, "UInt"))?t%x%:t%x%
-	, i.State := (x:=NumGet(&SERVICE_STATUS_PROCESS, 4, "UInt"))?s%x%:s%x%
-	, i.ControlsAccepted := NumGet(&SERVICE_STATUS_PROCESS, 8, "UInt")
-	, i.ExitCode := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 12 : 16, "UInt")
-	, i.SpecificExitCode := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 16 : 24, "UInt")
-	, i.CheckPoint := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 20 : 28, "UInt")
-	, i.WaitHint := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 24 : 32, "UInt")
-	, i.ProcessId := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 28 : 36, "UInt")
-	, i.Flags := NumGet(&SERVICE_STATUS_PROCESS, A_PtrSize = 4 ? 32 : 40, "UInt") ;1=system process (always be running)
-	return i, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := !r
-}
-
-;obtener informacion
-;Sintaxis: ServiceInfo( [servicio] )
-;EJEMPLO:
-	;for k, v in ServiceInfo( "spooler" )
-	;	MsgBox % k ": " v
-ServiceInfo(IpName) {
-	static StartType := {0: "BOOT", 1: "SYSTEM", 2: "AUTO", 3: "MANUAL", 4: "DISABLE"}
-	hService := ServiceOpen( IpName,, 0x0001 )
-	, DllCall("Advapi32.dll\QueryServiceConfigW", "Ptr", hService, "Ptr", 0, "UInt", 0, "UIntP", pcbBytesNeeded)
-	, cbBufSize := VarSetCapacity(QUERY_SERVICE_CONFIG, pcbBytesNeeded>0?pcbBytesNeeded:8000, 0) 
-	, DllCall("Advapi32.dll\QueryServiceConfigW", "Ptr", hService, "Ptr", &QUERY_SERVICE_CONFIG, "UInt", cbBufSize, "UIntP", 0)
-	, i := {}, i.Type := NumGet(&QUERY_SERVICE_CONFIG, 0, "UInt") 
-		, i.StartType := NumGet(&QUERY_SERVICE_CONFIG, 4, "UInt"), i.StartMode := StartType[i.StartType]
-		, i.ErrorControl := NumGet(&QUERY_SERVICE_CONFIG, 8, "UInt")
-		, i.PathName := StrGet( NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 12 : 16, "UInt") )
-		, i.OrderGroup := StrGet( NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 16 : 24, "UInt") ) 
-		, i.TagId := NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 20 : 28, "UInt")
-		, i.Dependencies := NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 24 : 32, "Ptr")
-		, i.StartName := StrGet( NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 28 : 36, "UInt") ) 
-		, i.DisplayName := StrGet( NumGet(&QUERY_SERVICE_CONFIG, A_PtrSize = 4 ? 32 : 40, "UInt") ) 
-	return i, DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hService), ErrorLevel := i.StartType=""?1:0
-}
-
 ;comprueba si existe el servicio
-;Sintaxis: ServiceExist( [servicio], [Fast|Slow] )
-ServiceExist(lpDisplayName, Mode := "Fast") {
-	if (Mode="F"||Mode="Fast") ;Fast: comprueba si existe desde el registro. (recomendado)
-		return RegExistKey("HKLM\SYSTEM\CurrentControlSet\Services\" lpDisplayName)
-	if (Mode="S"||Mode="Slow") ;Slow: abre y cierra el servicio para comprobar si existe. (mas lento)
-		return i:=DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", ServiceOpen(lpDisplayName)), ErrorLevel:=!i
-	return 0, ErrorLevel := 1
+;Sintaxis: ServiceExist( [ServiceName] )
+;Return: 0|1
+ServiceExist(ServiceName) {
+	return RegExistKey("HKLM\SYSTEM\CurrentControlSet\Services\" ServiceName)
 }
 
-;abre un servicio para modificar/leer datos/configuracion
-;Sintaxis: ServiceOpen( [servicio], [acceso para SCManager], [acceso para el servicio], [SCManager (salida)] )
-ServiceOpen(lpDisplayName, SCManagerAccess := 0xF003F, ServiceAccess := 0xF01FF, ByRef hSCManager := "") {
-	hSCManager := DllCall("AdvApi32.dll\OpenSCManagerW", "Ptr", 0, "Ptr", 0, "UInt", SCManagerAccess) 
-	, DllCall("Advapi32.dll\GetServiceKeyNameW", "Ptr", hSCManager, "Str", lpDisplayName, "Ptr", 0, "UIntP", lpcchBuffer)
-	, VarSetCapacity(lpServiceName, lpcchBuffer * 2)
-	, lpServiceName := DllCall("Advapi32.dll\GetServiceKeyNameW", "Ptr", hSCManager, "Str", lpDisplayName, "Str", lpServiceName, "UIntP", lpcchBuffer) ? lpServiceName : lpDisplayName
-	return i := DllCall("Advapi32.dll\OpenServiceW", "Ptr", hSCManager, "Str", lpServiceName, "UInt", ServiceAccess)
-		, x:=IsByRef(hSCManager)?"":DllCall("AdvApi32.dll\CloseServiceHandle", "Ptr", hSCManager)
-		, ErrorLevel := !i
-}
+
+
+
 
 
 
