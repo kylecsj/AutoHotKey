@@ -1,4 +1,113 @@
 ###############################################################
+ACTUALIZACION 24/01/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• SetTrayIconNumber()
+	• RGBToARGB()
+	• ARGBToRGB()
+	• GdipTextToGraphics()
+	• GdipDeleteFont()
+	• GdipDeleteFontFamily()
+	• GdipDeleteStringFormat()
+	• GdipDrawString()
+	• GdipMeasureString()
+	• GdipSetStringFormatAlign()
+	• GdipCreateStringFormat()
+	• GdipCreateFont()
+	• GdipCreateFontFamily()
+	• GdipCreateHICONFromBitmap()
+	• GdipFillRectangle()
+	• GdipCreateSolidBrush()
+	• GetIDListsFromShellItemArray()
+	• CreateShellItemArrayFromIDLists()
+	• FileSaveDialog()
+	• FileOpenDialog()
+	• GetIDListFromObject()
+	• Array_Length()
+	• CreateItemFromIDList()
+	• CreateShellItem()
+	• _cvtvalue()
+	• Array_Remove()
+	• Edit_SetRect()
+	• Edit_GetRect()
+	• GuiAddRichEdit()
+	• ImageList_ReplaceIcon()
+	• GetFontTextDimension()
+
+Clases Agregadas:
+	• __RichEditClass 4.1
+
+Mejoras:
+	• _getcolor()
+	• FontSelect(). agegado opcion código de idioma.
+	
+Correcciones:
+	• CoTaskMemFree()
+	• GetKnownFolderPath()
+	• Array_Count()
+	• GetPathFromIDList()
+	
+Notas:
+	• añadido "SHELL INTERFACE (IShellItems & ShellItemArray)" funciones.
+	• se ha cambiado el uso de StrCopy() por StrPut() y StrGet() para las siguientes funciones:
+		-- > FontSelect(), FontEnum().
+	• Funciones de "LISTA DE IMÁGENES" modificadas, quitado ErrorLevel en algunas, agregado ReturnType, agregado links a msdn y renombradas.
+	
+Funciones Renombradas:
+	• IL_GetIcon() --> ImageList_GetIcon().
+	• IL_GetSize() --> ImageList_GetIconSize().
+	• IL_GetCount() --> ImageList_GetImageCount().
+	• IL_Duplicate() --> ImageList_Duplicate().
+	• IL_CreateEx() --> ImageList_Create().
+	• IL_DestroyEx() --> ImageList_Destroy().
+	• IL_Remove() --> ImageList_Remove().
+
+Funciones Eliminadas:
+	• FontExist(). usar FontEnum(, "Arial").
+	• FontGetStringSize(). usar GetFontTextDimension().
+	• FontGetMetrics()
+
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• Hex() / Int() / Float()
+	• StringFromCLSID()
+	• CLSIDFromString()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• FontEnum(), ahora devuelve un Array.
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 19/01/2016 - AHK1.1.23.00 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
