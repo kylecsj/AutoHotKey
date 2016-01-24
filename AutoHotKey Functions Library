@@ -47,13 +47,15 @@ Funciones:
 	• Lista de Imágenes, Imágenes, Bitmap, Iconos, Pixel
 	• Servicios de Escritorio Remoto
 	• Programas de Inicio Automático
+	• Shell Interface (IShellItems & ShellItemArray)
 	• Otros (funciones variadas)
 Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variables, IVirtualDesktopManager:=1):
 	• IVirtualDesktopManager
 	• __gsvalue
+	• __RichEditClass
 Link (reporta problemas o sugerencias para nuevas funciones): http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.23.00+
-Actualizado: AHK1.1.23.00 U32 & U64 || martes, 19 de enero de 2016
+Actualizado: AHK1.1.23.01 U32 & U64 || domingo, 24 de enero de 2016
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -100,6 +102,42 @@ _mnum(f,s,r:=true){
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;####################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -331,6 +369,217 @@ FileSave(RootDirFilename := "", Filter := "", Options := 24, Prompt := "") {
 		FileSelectFile, OutputVar, S%Options%,, %Prompt%, %Filter%
 	return OutputVar
 }
+
+;diálogo para guardar archivo
+;Sintaxis: FileSaveDialog( [opciones] )
+;Parámetros:
+	;Opciones:espesificar un Objeto con la información.
+		;Title: título para la ventana.
+		;RooDir: ruta completa a un directorio que sera seleccionado por defecto al abrir el diálogo.
+		;Filename: nombre de larchivo por defecto.
+		;Flags: https://msdn.microsoft.com/en-us/library/windows/desktop/dn457282(v=vs.85).aspx
+			;Guardar Archivo:
+				;0x00000002 = preguntar para sobreescribir si el archivo ya existe.
+				;0x00000004 = solo permite elegir un archivo que tenga la extensiones espesificadas en el filtro.
+				;0x00010000 = no comprobar si la creacion del elemento, como se espesifica en el diálogo, tendrá exito. 
+				;0x00002000 = preguntar por la creación si el elemento no existe.
+			;General:
+				;0x00040000 = ocultar los elementos del panel izquierdo como: Equipo, Bibliotecas, Favoritos, Red, etc.)
+				;0x02000000 = no añadir el elemento seleccionado o guardado a la lista de elementos recientes.
+				;0x10000000 = incluir archivos ocultos y del sistema.
+				;0x40000000 = indica que el panel de vista previe siempre debe mostrarse.
+		;ButtonLabel: espesificar el nombre de los botones "Abrir" y "Guardar".
+		;Filter: espesificar un Array en un Array con el nombre descriptivo del filtro, el filtro y opcional establecerlo por defecto
+			;Sintaxis: [ ["Descripción 1", "Filtro 1"], ["Descripción 2", "Filtro 2", "Defecto"] , ["Descripción 3", "Filtro 3"] ]
+		;FilterIndex: espesificar el indice del filtro por defecto a mostrar. esto se puede espesificar en "Filter".
+;Return: ruta
+;ErrorLevel:
+	;-1 = error al crear el objeto.
+	;0 = OK
+	;1 = ERROR
+	;2 = no se ha podido obtener la ruta
+FileSaveDialog(Options := "") { ;WIN_V+
+	;IModalWindow: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761688(v=vs.85).aspx
+		;IFileDialog: https://msdn.microsoft.com/en-us/library/windows/desktop/bb775966(v=vs.85).aspx
+			;IFileSaveDialog: https://msdn.microsoft.com/en-us/library/windows/desktop/bb775688(v=vs.85).aspx
+ 
+	;create IFileSaveDialog Interface
+	;Example: https://searchcode.com/codesearch/view/10150167/
+	;Source Code: http://board.flatassembler.net/topic.php?t=14106
+	if !(IFileSaveDialog := ComObjCreate("{C0B4E2F3-BA21-4773-8DBA-335EC946EB8B}", "{84BCCD23-5FDE-4CDB-AEA4-AF64B83D78AB}"))
+		return false, ErrorLevel := -1
+	
+	;IFileSaveDialog::SetOptions method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775708(v=vs.85).aspx)
+	if Options.HasKey("Flags")
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 9*A_PtrSize), "Ptr", IFileSaveDialog, "UInt", Options.Flags)
+	else DllCall(NumGet(NumGet(IFileSaveDialog+0), 9*A_PtrSize), "Ptr", IFileSaveDialog, "UInt", 0x12002002)
+	
+	;IFileDialog::SetTitle method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761834(v=vs.85).aspx)
+	if Options.HasKey("Title")
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 17*A_PtrSize), "Ptr", IFileSaveDialog, "WStr", Options.Title)
+ 
+	;IFileDialog::SetFolder method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761828(v=vs.85).aspx)
+	if Options.HasKey("RootDir") && DirExist(Options.RootDir)
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 12*A_PtrSize), "Ptr", IFileSaveDialog, "Ptr", CreateShellItem(Options.RootDir))
+	
+	;IFileDialog::SetFileName method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775974(v=vs.85).aspx)
+	if Options.HasKey("Filename")
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 15*A_PtrSize), "Ptr", IFileSaveDialog, "WStr", Options.Filename)
+	
+	;IFileDialog::SetOkButtonLabel method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761830(v=vs.85).aspx)
+	if Options.HasKey("ButtonLabel")
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 18*A_PtrSize), "Ptr", IFileSaveDialog, "WStr", Options.ButtonLabel)
+ 
+	;IFileDialog::SetFileTypes method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775980(v=vs.85).aspx)
+	if Options.HasKey("Filter") && Options.Filter.MaxIndex() {
+		VarSetCapacity(COMDLG_FILTERSPEC, Array_Length(Options.Filter) * 2, 0), Offset := 0
+		for k, v in Options.Filter {
+			d%A_Index% := v.2=""?"":v.1, NumPut(&d%A_Index%, COMDLG_FILTERSPEC, Offset, "Ptr") ;friendly name of the filter
+			, f%A_Index% := v.2=""?v.1:v.2, NumPut(&f%A_Index%, COMDLG_FILTERSPEC, Offset+A_PtrSize, "Ptr"), Offset += 2*A_PtrSize ;filter pattern
+			if (v.3) && !Options.HasKey("FilterIndex") ;establecer filtro por defecto si no se ha espesificado FilterIndex.
+				Options.FilterIndex := A_Index
+		} DllCall(NumGet(NumGet(IFileSaveDialog+0), 4*A_PtrSize), "Ptr", IFileSaveDialog, "UInt", Options.Filter.MaxIndex(), "Ptr", &COMDLG_FILTERSPEC)
+		for k, v in Options.Filter ;free Descriptions and Filters variables
+			VarSetCapacity(d%A_Index%, 0), VarSetCapacity(f%A_Index%, 0)
+	}
+ 
+	;IFileDialog::SetFileTypeIndex method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775978(v=vs.85).aspx)
+	if Options.HasKey("FilterIndex")
+		DllCall(NumGet(NumGet(IFileSaveDialog+0), 5*A_PtrSize), "Ptr", IFileSaveDialog, "UInt", Options.FilterIndex)
+
+	;IModalWindow::Show method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761688(v=vs.85).aspx)
+	if !(DllCall(NumGet(NumGet(IFileSaveDialog+0), 3*A_PtrSize), "Ptr", IFileSaveDialog, "Ptr", 0) = 0)
+		return false, ObjRelease(IFileSaveDialog), ErrorLevel := true
+
+	;IFileDialog::GetResult method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775964(v=vs.85).aspx)
+	if !(DllCall(NumGet(NumGet(IFileSaveDialog+0), 20*A_PtrSize), "Ptr", IFileSaveDialog, "PtrP", IShellItem) = 0)
+		return false, ObjRelease(IFileSaveDialog), ErrorLevel := 2
+	OutputVar := GetPathFromIDList(GetIDListFromObject(IShellItem)), ObjRelease(IShellItem), ObjRelease(IFileSaveDialog)
+
+	;return and free IFileSaveDialog object
+	return OutputVar, ErrorLevel := OutputVar=""?2:false
+} ;https://autohotkey.com/boards/viewtopic.php?f=42&t=13302&p=68253#p68253
+
+;diálogo para seleccionar archivo/carpeta
+;Sintaxis: FileOpenDialog( [opciones]] )
+;Parámetros:
+	;Opciones: espesificar un Objeto con la información.
+		;hWnd: identificador de la ventana propietaria.
+		;RootDir: ruta completa a un directorio que sera seleccionado por defecto al abrir el diálogo. si la ruta no existe, se omite.
+		;Filename: nombre del archivo por defecto en el diálogo.
+		;Filter: espesificar un Array en un Array con el nombre descriptivo del filtro, el filtro y opcional establecerlo por defecto
+			;Sintaxis: [ ["Descripción 1", "Filtro 1"], ["Descripción 2", "Filtro 2", "Defecto"] , ["Descripción 3", "Filtro 3"] ]
+		;Prompt: comentario.
+		;Title: título de la ventana.
+		;Flags: https://msdn.microsoft.com/en-us/library/windows/desktop/dn457282(v=vs.85).aspx
+			;Seleccionar Directorio:
+				;0x00000020 = seleccionar directorio.
+				;0x00000800 = el directorio debe existir.
+			;Seleccionar Archivo:
+				;0x00000200 = permite seleccionar mas de un archivo.
+				;0x00001000 = el archivo debe existir.
+				;0x00100000 = los accesos directos no deben ser tratados como su destino (no deve devolver la ruta destino del acceso directo sino la ruta al acceso directo).
+				;0x00000080 = permite al usuario elegir cualquier artículo en el espacio de nombre Shell.
+			;General:
+				;0x00040000 = ocultar los elementos del panel izquierdo como: Equipo, Bibliotecas, Favoritos, Red, etc.)
+				;0x02000000 = no añadir el elemento seleccionado o guardado a la lista de elementos recientes.
+				;0x10000000 = incluir archivos ocultos y del sistema.
+				;0x40000000 = indica que el panel de vista previe siempre debe mostrarse.
+		;ButtonLabel: espesificar el nombre de los botones "Abrir" y "Guardar".
+		;FilterIndex: espesificar el indice del filtro por defecto a mostrar. esto se puede espesificar en "Filter".
+		;DefaultExtension: establecer la extension por defecto a añadir a los nombres de archivos.
+		;DefaultFolder: establecer directorio por defecto si no se espesifica
+		;CustomPlaces: establecer directorios personalizados en el panel izquierdo. puede ser un Array o directamente el directorio.
+			;Sintaxis 1: "Directorio"
+			;Sintaxis 2: ["Directorio 1", "Directorio 2"]
+;Return: archivos separador por `n
+;ErrorLevel:
+	;-1 = error al crear el objeto
+	;0 = OK
+	;1 = el usuario canceló el diálogo.
+	;2 = la variable de salida esta vacía. esto ocurre, por ej. cuando el usuario acepta el diálogo no habiando seleccionado una carpeta (ejemplo, estando en Equipo).
+FileOpenDialog(Options := "") { ;WIN_V+
+	;IModalWindow: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761688(v=vs.85).aspx
+		;IFileDialog: https://msdn.microsoft.com/en-us/library/windows/desktop/bb775966(v=vs.85).aspx
+			;IFileOpenDialog: https://msdn.microsoft.com/en-us/library/windows/desktop/bb775834(v=vs.85).aspx#methods
+	;ShellItemArray: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761106(v=vs.85).aspx
+ 
+	;create IFileOpenDialog Interface
+	;Example: http://codexpert.ro/blog/2013/05/21/file-open-dialog-with-multiple-selection-part-3-cutting-the-dog-tail/
+	;Source Code: http://dotnetframework.org/default.aspx/DotNET/DotNET/8@0/untmp/whidbey/REDBITS/ndp/fx/src/WinForms/Managed/System/WinForms/FileDialog_Vista_Interop@cs/1/FileDialog_Vista_Interop@cs
+	if !(IFileOpenDialog := ComObjCreate("{DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7}", "{D57C7288-D4AD-4768-BE02-9D969532D960}"))
+		return false, ErrorLevel := -1
+ 
+	;IFileDialog::SetDefaultFolder method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775972(v=vs.85).aspx)
+	if Options.HasKey("DefaultFolder") && DirExist(Options.DefaultFolder)
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 11*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", CreateShellItem(Options.DefaultFolder))
+	;else DllCall(NumGet(NumGet(IFileOpenDialog+0), 11*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", CreateShellItem(A_MyDocuments))
+ 
+	;IFileDialog::AddPlace method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775946(v=vs.85).aspx)
+	if Options.HasKey("CustomPlaces") {
+		if !IsObject(Options.CustomPlaces) && DirExist(Options.CustomPlaces)
+			DllCall(NumGet(NumGet(IFileOpenDialog+0), 21*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", CreateShellItem(Options.CustomPlaces), "UInt", 0)
+		else if IsObject(Options.CustomPlaces) {
+			for k, v in Options.CustomPlaces {
+				if DirExist(v) {
+					DllCall(NumGet(NumGet(IFileOpenDialog+0), 21*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", CreateShellItem(v), "UInt", 0)
+	}	}	}	}
+ 
+	;IFileDialog::SetDefaultExtension method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775970(v=vs.85).aspx)
+	if Options.HasKey("DefaultExtension") && (Options.DefaultExtension:=StrReplace(Options.DefaultExtension, "."))
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 22*A_PtrSize), "Ptr", IFileOpenDialog, "WStr", Options.DefaultExtension)
+ 
+	;IFileDialog::SetTitle method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761834(v=vs.85).aspx)
+	if Options.HasKey("Title")
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 17*A_PtrSize), "Ptr", IFileOpenDialog, "WStr", Options.Title)
+ 
+	;IFileDialog::SetFolder method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761828(v=vs.85).aspx)
+	if Options.HasKey("RootDir") && DirExist(Options.RootDir)
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 12*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", CreateShellItem(Options.RootDir))
+ 
+	;IFileDialog::SetFileName method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775974(v=vs.85).aspx)
+	if Options.HasKey("Filename")
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 15*A_PtrSize), "Ptr", IFileOpenDialog, "WStr", Options.Filename)
+ 
+	;IFileDialog::SetOptions method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761832(v=vs.85).aspx)
+	if Options.HasKey("Flags")
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 9*A_PtrSize), "Ptr", IFileOpenDialog, "UInt", Options.Flags)
+	else DllCall(NumGet(NumGet(IFileOpenDialog+0), 9*A_PtrSize), "Ptr", IFileOpenDialog, "UInt", 0x12101000)
+ 
+	;IFileDialog::SetOkButtonLabel method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761830(v=vs.85).aspx)
+	if Options.HasKey("ButtonLabel")
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 18*A_PtrSize), "Ptr", IFileOpenDialog, "WStr", Options.ButtonLabel)
+ 
+	;IFileDialog::SetFileTypes method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775980(v=vs.85).aspx)
+	if Options.HasKey("Filter") && Options.Filter.MaxIndex() {
+		VarSetCapacity(COMDLG_FILTERSPEC, Array_Length(Options.Filter) * 2, 0), Offset := 0
+		for k, v in Options.Filter {
+			d%A_Index% := v.2=""?"":v.1, NumPut(&d%A_Index%, COMDLG_FILTERSPEC, Offset, "Ptr") ;friendly name of the filter
+			, f%A_Index% := v.2=""?v.1:v.2, NumPut(&f%A_Index%, COMDLG_FILTERSPEC, Offset+A_PtrSize, "Ptr"), Offset += 2*A_PtrSize ;filter pattern
+			if (v.3) && !Options.HasKey("FilterIndex") ;establecer filtro por defecto
+				Options.FilterIndex := A_Index
+		} DllCall(NumGet(NumGet(IFileOpenDialog+0), 4*A_PtrSize), "Ptr", IFileOpenDialog, "UInt", Options.Filter.MaxIndex(), "Ptr", &COMDLG_FILTERSPEC)
+		for k, v in Options.Filter ;free Descriptions and Filters variables
+			VarSetCapacity(d%A_Index%, 0), VarSetCapacity(f%A_Index%, 0)
+	}
+ 
+	;IFileDialog::SetFileTypeIndex method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775978(v=vs.85).aspx)
+	if Options.HasKey("FilterIndex")
+		DllCall(NumGet(NumGet(IFileOpenDialog+0), 5*A_PtrSize), "Ptr", IFileOpenDialog, "UInt", Options.FilterIndex)
+ 
+	;IModalWindow::Show method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761688(v=vs.85).aspx)
+	if !(DllCall(NumGet(NumGet(IFileOpenDialog+0), 3*A_PtrSize), "Ptr", IFileOpenDialog, "Ptr", 0) = 0)
+		return false, ObjRelease(IFileOpenDialog), ErrorLevel := true
+ 
+	;IFileOpenDialog::GetResults method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb775831(v=vs.85).aspx)
+	DllCall(NumGet(NumGet(IFileOpenDialog+0), 27*A_PtrSize), "Ptr", IFileOpenDialog, "PtrP", IShellItemArray)
+	for Index, Path in GetIDListsFromShellItemArray(IShellItemArray, true)
+		OutputVar .= Path "`n"
+	ObjRelease(IShellItemArray), ObjRelease(IFileOpenDialog) 
+	
+	;return
+	return RTrim(OutputVar, "`n"), ErrorLevel := OutputVar=""?2:false
+} ;https://autohotkey.com/boards/viewtopic.php?f=42&t=13302&p=68253#p68253
 
 ;--------------------------------------------------------------------------------------------------------------------------------------------------
 ;Obtener
@@ -1841,6 +2090,30 @@ Abs64(Num) {
 	return DllCall("msvcrt.dll\_abs64", "Int64", Num) ;Abs() --> DllCall("msvcrt.dll\_abs", "Int", Num)
 } ;https://msdn.microsoft.com/en-us/library/kw1ee768.aspx
 
+;dependiendo del modificador espesificado a la izquierda, suma, resta o invierte un valor a otro.
+;Sintaxis: _cvtvalue( [valor base], [mod valor], [num_mod] )
+;Parámetros:
+	;Valor Base: valor al que modificar
+	;Mod Valor: espesificar el valor a sumar, restar o invertir junto con el modo, el modo puede ser uno de los siguientes modificadores.
+		;- = restar. solo si ya se encuentra, Base&Value.
+		;+ = sumar. solo si no se encuentra, !(Base&Value)
+		;^ = invierte (si ya se encuentra, lo resta, de lo contrario lo suma)
+		;[vacío] = si no se espesifica, lo reemplaza (devuelve el mismo valor espesificado en Mod Valor].
+	;num_mod: si no se espesifica un modificador en el 2do parámetro, espesificarlo en este en forma de números.
+		;-1 = ^
+		;0 = -
+		;[distinto de cero, -1 y vacío] = +
+		;[vacío] = [vacío]
+_cvtvalue(Base, Value, Mod := "*") {
+	if !(Mod="*")
+		Value := (Mod=-1?"^":Mod?"+":Mod=0?"-":"") Trim(Value)
+	else Value := Trim(Value)
+	Mod := SubStr(Value, 1, 1), Value := (Mod="+"||Mod="-"||Mod="^")?SubStr(Value, 2):Value
+	return Mod="-"?(Base&Value?Base-Value:Base)
+		: Mod="+"?(Base&Value?Base:Base+Value)
+		: Mod="^"?(Base&Value?Base-Value:Base+Value) : (Value)
+}
+
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
 
@@ -1877,52 +2150,26 @@ IsPrime(N) {
 
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
-
 ;convertir a hexadecimal
 ;Sintaxis: Hex( [num], [max], [may], [prefix] )
 ;Parámetros:
-	;Num: espesificar el número a convertir
+	;Num: espesificar el número a convertir, puede ser de la siguiente forma: FF000000
 	;Max: espesificar la longitúd que debe tener, se rellena con ceros.
 	;May: espesificar 1 para usar mayúsculas.
 	;Prefix: prefijo a añadir antes del número, por defecto usa "0x".
 Hex(Number, Length := 0, May := false, Prefix := "0x") {
-	return Format(Prefix "{:" ((Length>0)?0 LTrim(Length,0):"") (May?"X":"x") "}", Number)
+	return Format(Prefix "{:" ((Length>0)?0 LTrim(Length,0):"") (May?"X":"x") "}", (Number+0)=""?"0x" Number:Number)
 }
 
 Int(Number, Signed := false) {
-	return Format("{:" (Signed?"d":"u") "}", Number)
+	return Format("{:" (Signed?"d":"u") "}", (Number+0)=""?"0x" Number:Number)
 }
 
 ;convertir a Float
 ;Sintaxis: Float( [valor], [max.decimales] )
 Float(Number, Type := "0.2") {
-	return Format("{:" Type (RegExReplace(Type, "[^fegaEGA]")?"":"f") "}", Number)
+	return Format("{:" Type (RegExReplace(Type, "[^fegaEGA]")?"":"f") "}", (Number+0)=""?"0x" Number:Number)
 }
-
-;convertir a RGB | extraer rojo, verde, azul
-;Sintaxis: RGB( [color], [rojo (salida)], [verde (salida)], [azul (salida)] )
-;Ejemplos:
-	;MsgBox % RGB(8454016)
-	;MsgBox % "R: " RGB(0x80FF80,, G, B) ", G: " G ", B: " B
-	;MsgBox % "R: " RGB("#DECAFE",, G, B) ", G: " G ", B: " B
-RGB(Color := "", ByRef R := "", ByRef G := "", ByRef B := "") {
-	if (Color="") {
-		DllCall("msvcrt.dll\sprintf", "Str", V:="000000", "Str", "#%06X", "UInt", (R<<16)+(G<<8)+B)
-		return V
-	} if (IsByRef(R)) || (IsByRef(G)) || (IsByRef(B)) {
-		if (InStr(Color, "#")) {
-			NumPut("0x" SubStr(Color, -5), V:="000000")
-			return R := NumGet(V,2,"UChar"), G := NumGet(V,1,"UChar"), B := NumGet(V,0,"UChar")
-		} Color := Hex(Color, 6)
-		return R := (Color & 0xFF), G := ((Color & 0xFF00) >> 8), B := ((Color & 0xFF0000) >> 16)
-	} Color := (Color & 255) << 16 | (Color & 65280) | (Color >> 16), Color := SubStr(Color, 1)
-	return Hex(Color, 6, true)
-} ;R := ((Color & 0xFF0000) >> 16), G := ((Color & 0xFF00) >> 8), B := (Color & 0xFF)
-
-;convertir RGB a BGR
-RGBToBGR(rgb) {
- 	return Hex(((rgb & 255) << 16) | (((rgb >> 8) & 255) << 8) | (rgb >> 16), 6, true)
-}   
 
 ;----------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------
@@ -2268,6 +2515,7 @@ NumAverage(num*) {
 ;genera un número pseudo-aleatorio
 ;Sintaxis 1: Random( [min (-2147483648)], [max (2147483647)], [1~4294967295] )
 ;Sintaxis 2: RandomEx( [min], [max], [decimales] )
+;Nota: para generar un carácter usar Chr(Random(97, 122))
 Random(Min := -2147483648, Max := 2147483647, NewSeed := 0) {
 	if (NewSeed) {
 		Random,, %NewSeed%
@@ -2415,6 +2663,7 @@ DegreeToRadian(Degrees, Centesimal := false) {
 ;Notas: 
 	;• antes de usar cualquier funcion de abajo: usar GdiplusStartup()
 	;• cuando ya no necesite usarlas: usar GdiplusShutdown()
+;THIS IS A REWRITTEN VERSION OF GDIP STANDART LIBRARY BY TIC (credits for him)
 ;#############################################################################################################################################
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUNCIONES NECESARIAS ~ INICIO
@@ -2657,6 +2906,111 @@ GdipAddPathLine(pPath, spx, spy, epx, epy) {
 	return DllCall("gdiplus.dll\GdipAddPathLine", "Ptr", pPath, "Float", spx, "Float", spy, "Float", epx, "Float", epy)
 } ;https://msdn.microsoft.com/en-us/library/ms535603(v=vs.85).aspx
 
+;Sintaxis: GdipCreateSolidBrush( [ARGB Color] )
+GdipCreateSolidBrush(ARGB := "0xFF000000") {
+	DllCall("gdiplus\GdipCreateSolidFill", "UInt", RGBToARGB(ARGB), "UPtrP", pBrush)
+	return pBrush
+} ;https://msdn.microsoft.com/en-us/library/ms534735(v=vs.85).aspx
+
+GdipFillRectangle(pGraphics, pBrush, x, y, w, h) {
+	return DllCall("gdiplus\GdipFillRectangle", "UPtr", pGraphics, "UPtr", pBrush, "Float", x, "Float", y, "Float", w, "Float", h)
+}
+
+GdipCreateHICONFromBitmap(pBitmap) {
+	DllCall("gdiplus\GdipCreateHICONFromBitmap", "UPtr", pBitmap, "UPtrP", hIcon)
+	return hIcon
+}
+
+GdipTextToGraphics(pGraphics, Text, Options, Font := 0, Width := "", Height := "", Measure := 0) {
+	Font := Font?Trim(Font):FontQuery()[1], IWidth := Width, IHeight:= Height, Style := Align := 0
+	, RegExMatch(Options, "i)X([\-\d\.]+)(p*)", xpos), RegExMatch(Options, "i)Y([\-\d\.]+)(p*)", ypos)
+	, RegExMatch(Options, "i)W([\-\d\.]+)(p*)", Width), RegExMatch(Options, "i)H([\-\d\.]+)(p*)", Height)
+	, RegExMatch(Options, "i)C(?!(entre|enter))([a-f\d]+)", Colour), RegExMatch(Options, "i)Top|Up|Bottom|Down|vCentre|vCenter", vPos)
+	, RegExMatch(Options, "i)NoWrap", NoWrap), RegExMatch(Options, "i)R(\d)", Rendering), RegExMatch(Options, "i)S(\d+)(p*)", Size)
+	if !GdipDeleteBrush(GdipCloneBrush(Colour2))
+		PassBrush := 1, pBrush := Colour2
+	if !(IWidth && IHeight) && (xpos2 || ypos2 || Width2 || Height2 || Size2)
+		return false
+	Loop, Parse, % "Regular|Bold|Italic|BoldItalic|Underline|Strikeout", |
+		if RegExMatch(Options, "\b" A_loopField)
+			Style |= (A_LoopField != "StrikeOut") ? (A_Index-1) : 8
+	Loop, Parse, % "Near|Left|Centre|Center|Far|Right", |
+		if RegExMatch(Options, "\b" A_loopField)
+			Align |= A_Index//2.1      ; 0|0|1|1|2|2
+	xpos := (xpos1!="")?xpos2?IWidth*(xpos1/100):xpos1:0, ypos := (ypos1!="")?ypos2?IHeight*(ypos1/100):ypos1:0
+	, Width := Width1?Width2?IWidth*(Width1/100):Width1:IWidth, Height := Height1?Height2?IHeight*(Height1/100):Height1:IHeight
+	, Colour := !PassBrush?("0x" (Colour2?Colour2:"ff000000")):Colour, Rendering := ((Rendering1>=0)&&(Rendering1<=5))?Rendering1:4
+	, Size := (Size1>0)?Size2?IHeight*(Size1/100):Size1:12, hFamily := GdipCreateFontFamily(Font), hFont := GdipCreateFont(hFamily, Size, Style)
+	, FormatStyle := NoWrap?0x4000|0x1000:0x4000, hFormat := GdipCreateStringFormat(FormatStyle), pBrush := PassBrush?pBrush:GdipCreateSolidBrush(Colour)
+	if !(hFamily && hFont && hFormat && pBrush && pGraphics)
+		return false
+	VarSetCapacity(RC, 16), NumPut(xpos, RC, 0, "Float"), NumPut(ypos, RC, 4, "Float"), NumPut(Width, RC, 8, "Float"), NumPut(Height, RC, 12, "Float")
+   , GdipSetStringFormatAlign(hFormat, Align), GdipSetTextRenderingHint(pGraphics, Rendering), ReturnRC := GdipMeasureString(pGraphics, Text, hFont, hFormat, RC)
+	if (vPos)
+		ReturnRC := StrSplit(vPos, "|"), ypos := (vPos="vCentre"||vPos="vCenter")?((Height-ReturnRC.4)//2):(vPos="Top"||vPos="Up")?0:(vPos="Bottom"||vPos = "Down")?(Height-ReturnRC.4):ypos
+		, VarSetCapacity(RC2, 16), NumPut(xpos, RC2, 0, "Float"), NumPut(ypos, RC2, 4, "Float"), NumPut(Width, RC2, 8, "Float"), NumPut(ReturnRC.4, RC2, 12, "Float")
+		, ReturnRC := GdipMeasureString(pGraphics, Text, hFont, hFormat, RC2)
+	E := !Measure?GdipDrawString(pGraphics, Text, hFont, hFormat, pBrush, RC):E, PassBrush := !PassBrush?GdipDeleteBrush(pBrush):PassBrush
+	return E?E:ReturnRC, GdipDeleteStringFormat(hFormat), GdipDeleteFont(hFont), GdipDeleteFontFamily(hFamily)
+}
+
+GdipDeleteFont(hFont) {
+   return DllCall("gdiplus\GdipDeleteFont", "UPtr", hFont)
+}
+
+GdipDeleteFontFamily(hFamily) {
+   return DllCall("gdiplus\GdipDeleteFontFamily", "UPtr", hFamily)
+}
+
+GdipDeleteStringFormat(hFormat) {
+   return DllCall("gdiplus\GdipDeleteStringFormat", "UPtr", hFormat)
+}
+
+GdipDrawString(pGraphics, Str, hFont, hFormat, pBrush, ByRef RectF) {
+	return DllCall("gdiplus\GdipDrawString", "UPtr", pGraphics, "UPtr", &Str, "Int", -1, "UPtr", hFont, "UPtr", &RectF, "UPtr", hFormat, "UPtr", pBrush)
+}
+
+GdipMeasureString(pGraphics, Str, hFont, hFormat, ByRef RectF) {
+	VarSetCapacity(RC, 16)
+	, DllCall("gdiplus\GdipMeasureString", "UPtr", pGraphics, "UPtr", &Str, "Int", -1, "UPtr", hFont, "UPtr", &RectF, "UPtr", hFormat, "UPtr", &RC, "UIntP", Chars, "UIntP", Lines)
+	return &RC?(NumGet(RC, 0, "Float") "|" NumGet(RC, 4, "Float") "|" NumGet(RC, 8, "Float") "|" NumGet(RC, 12, "Float") "|" Chars "|" Lines):false
+}
+
+;Near = 0 | Center = 1 | Far = 2
+GdipSetStringFormatAlign(hFormat, Align := 0) {
+   return DllCall("gdiplus\GdipSetStringFormatAlign", "UPtr", hFormat, "Int", Align)
+}
+
+;StringFormatFlagsDirectionRightToLeft = 0x00000001 | StringFormatFlagsDirectionVertical = 0x00000002
+;StringFormatFlagsNoFitBlackBox = 0x00000004 | StringFormatFlagsDisplayFormatControl = 0x00000020
+;StringFormatFlagsNoFontFallback = 0x00000400 | StringFormatFlagsMeasureTrailingSpaces = 0x00000800
+;StringFormatFlagsNoWrap = 0x00001000 | StringFormatFlagsLineLimit = 0x00002000 | StringFormatFlagsNoClip = 0x00004000 
+GdipCreateStringFormat(Format := 0, Lang := 0) {
+   DllCall("gdiplus\GdipCreateStringFormat", "Int", Format, "Int", Lang, "UPtrP", hFormat)
+   return hFormat
+}
+
+GdipCreateFontFamily(Font) {
+	DllCall("gdiplus\GdipCreateFontFamilyFromName", "UPtr", &Font, "UInt", 0, "UPtrP", hFamily)
+	return hFamily
+}
+
+;Regular = 0 | Bold = 1 | Italic = 2 | BoldItalic = 3 | Underline = 4 | Strikeout = 8
+GdipCreateFont(hFamily, Size := 0, Style := 0) {
+	Size := Size?Size:FontQuery()[2]
+   , DllCall("gdiplus\GdipCreateFont", "UPtr", hFamily, "Float", Size, "Int", Style, "Int", 0, "UPtrP", hFont)
+   return hFont
+}
+
+GdipCloneBrush(pBrush) {
+	DllCall("gdiplus\GdipCloneBrush", "UPtr", pBrush, "UPtrP", pBrushClone)
+	return pBrushClone
+}
+
+GdipDeleteBrush(pBrush) {
+   return DllCall("gdiplus\GdipDeleteBrush", "UPtr", pBrush)
+}
+
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;funciones de calidad
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2892,11 +3246,12 @@ VirtualFree(hProcess := 0, Address := 0, Bytes := 0, AllocationType := 0x8000) {
 
 ;libera un bloque de memoria de una tarea asignada previamente a través de una llamada a la función CoTaskMemAlloc() o CoTaskMemAlloc().
 ;Sintaxis: CoTaskMemFree( [hMem] )
-CoTaskMemFree(hMem) {
+CoTaskMemFree(ByRef hMem, Cap := "") {
 	Error := ErrorLevel
-	for k, v in hMem
-		DllCall("Ole32.dll\CoTaskMemFree", "Ptr", v)
-	return "", ErrorLevel := Error
+	Ok := DllCall("Ole32.dll\CoTaskMemFree", "UPtr", hMem)
+	if !(Cap="")
+		VarSetCapacity(hMem, Cap)
+	return Ok=""?true:!!Ok, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms680722(v=vs.85).aspx
 
 ;asigna un bloque de memoria de trabajo
@@ -3386,6 +3741,8 @@ Dll_InsertIcons(DllFile, Data, Overwrite := false, Recurse := false) {
 ;#############################################################################################################################################
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;COLORES
+;Parámetros:
+	;ARGB: color RGB con un valor adelante y despues de «0x» que indica el nivel de transparencia. donde 00 es transparente y FF es sólido.
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;dialogo para elegir color
 ;Sintaxis: ColorSelect( [ID ventana propietaria], [color], [¿mostrar todos los colores?] )
@@ -3411,14 +3768,22 @@ ColorSelect(hWnd := 0, Color := "", ShowAll := "") {
 }
 
 ;obtiene el color RGB mediante el nombre
-;Sintaxis: _getcolor( [color] )
+;Sintaxis: _getcolor( [color], [modo], [Transparent] )
+;Parámetros:
+	;Color: nombre o valor
+	;Modo: convertir salida. BGR, ARGB.
+	;Transparent: espesificar la transparencia. solo válido para ARGB. ver RGBToARGB().
 ;Nota: si el color no se encuentra, no lo modifica
-_getcolor(RGB, BGR := false) {
+_getcolor(RGB, Mode := false, Transparent := -1) {
 	static Colors := {Aqua: "0x00FFFF", Black: "0x000000", Blue: "0x0000FF", Fuchsia: "0xFF00FF", Gray: "0x808080" ;nombres soportados
 		, Green: "0x008000", Lime: "0x00FF00", Maroon: "0x800000", Navy: "0x000080", Olive: "0x808000", Purple: "0x800080"
 		, Red: "0xFF0000", Silver: "0xC0C0C0", Teal: "0x008080", White: "0xFFFFFF", Yellow: "0xFFFF00"}
-	Color := (Colors[RGB]="")?Hex(RGB, 6, true):Colors[RGB] ;si el color espesificado no esta en «Colors» devuelve el color sin modificar
-	return BGR?RGBToBGR(Color):Color
+	Color := (Colors[RGB]="")?Hex(RGB, 6, true):Colors[RGB]
+	if (Mode=true) || (Mode="BGR")
+		return RGBToBGR(Color)
+	if (Mode="ARGB")
+		return RGBToARGB(Color, Transparent)
+	return Color
 }
 
 ;genera un color RGB aleatorio
@@ -3436,29 +3801,90 @@ _randcolor() {
 	return Hex((Random(0, 255)<<16) + (Random(0, 255)<<8) + Random(0, 255), 6, true)
 }
 
+;convertir a RGB | extraer rojo, verde, azul
+;Sintaxis: RGB( [color], [rojo (salida)], [verde (salida)], [azul (salida)] )
+;Ejemplos:
+	;MsgBox % RGB(8454016)
+	;MsgBox % "R: " RGB(0x80FF80,, G, B) ", G: " G ", B: " B
+	;MsgBox % "R: " RGB("#DECAFE",, G, B) ", G: " G ", B: " B
+RGB(Color := "", ByRef R := "", ByRef G := "", ByRef B := "") {
+	if (Color="") {
+		DllCall("msvcrt.dll\sprintf", "Str", V:="000000", "Str", "#%06X", "UInt", (R<<16)+(G<<8)+B)
+		return V
+	} if (IsByRef(R)) || (IsByRef(G)) || (IsByRef(B)) {
+		if (InStr(Color, "#")) {
+			NumPut("0x" SubStr(Color, -5), V:="000000")
+			return R := NumGet(V,2,"UChar"), G := NumGet(V,1,"UChar"), B := NumGet(V,0,"UChar")
+		} Color := Hex(Color, 6)
+		return R := (Color & 0xFF), G := ((Color & 0xFF00) >> 8), B := ((Color & 0xFF0000) >> 16)
+	} Color := (Color & 255) << 16 | (Color & 65280) | (Color >> 16), Color := SubStr(Color, 1)
+	return Hex(Color, 6, true)
+} ;R := ((Color & 0xFF0000) >> 16), G := ((Color & 0xFF00) >> 8), B := (Color & 0xFF)
+
+;convertir RGB a BGR
+RGBToBGR(RGB) {
+ 	return Hex(((RGB & 255) << 16) | (((RGB >> 8) & 255) << 8) | (RGB >> 16), 6, true)
+}   
+
+;convertir RGB a ARGB.
+;Sintaxis: RGBToARGB( [RGB], [00~FF] )
+;Return: ARGB con el prefijo 0x
+;Notas:
+	;si se espesifica un color RGB, la transparencia por defecto es FF.
+	;si espesifica un color ARGB, la transparencia por defecto es la misma (no la modifica).
+	;el prefijo 0x no tiene importancia.
+;Ejemplo:
+	;MsgBox % RGBToARGB("0x8000FF") "," RGBToARGB("8000FF")
+	;	. "`n" RGBToARGB("0xFF8000FF") "," RGBToARGB("FF8000FF")
+	;	. "`n`n" RGBToARGB("0x8000FF", 0) "," RGBToARGB("8000FF", 0)
+	;	. "`n" RGBToARGB("0xFF8000FF", 0) "," RGBToARGB("FF8000FF", 0)
+RGBToARGB(RGB, Transparent := -1) { ;ARGB (A=alpha channel, transparency). FF=color solido. 00=Transparente.
+	RGB := SubStr(RGB, 1, 2)="0x"?SubStr(RGB, 3):RGB, Transparent := Transparent=0?"00":Transparent
+	return "0x" StrUpper(StrLen(RGB)=8?(Transparent=-1?RGB:Transparent SubStr(RGB, 3))
+	: ((Transparent=-1?"FF":Transparent) Hex("0x" RGB, 6,, "")))
+}
+
+;convertir ARGB a RGB.
+;Sintaxis: ARGBToRGB( [ARGB] )
+;Return: RGB con el prefijo 0x
+;Notas:
+	;si se espesifica un color RGB, no lo modifica.
+	;si espesifica un color ARGB, se quita la transparencia.
+	;el prefijo 0x no tiene importancia.
+;Ejemplo:
+	;MsgBox % ARGBToRGB("0x8000FF") "," ARGBToRGB("8000FF")
+	;	. "`n" ARGBToRGB("0xFF8000FF") "," ARGBToRGB("FF8000FF")
+ARGBToRGB(ARGB) {
+	RGB := SubStr(ARGB, 1, 2)="0x"?SubStr(ARGB, 3):ARGB
+	return StrLen(RGB)<7?Hex("0x" RGB, 6, 1):"0x" StrUpper(SubStr(RGB, -5))
+}
+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;FUENTES
 ;Parámetros:
-	;hFont: hFont (FontCreate) o dejar vacío (o cero) para usar la fuente por defecto
+	;hFont: espesificar un identificador a una fuente, puede usar FontCreate(). dejar en cero para usar la fuente po defecto.
+	;FontName: nombre de la fuente.
+	;lfCharSet: script, valor que identifica al conjunto de carácteres
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;enumera todas las fuentes instaladas.
-FontEnum(lfCharSet := 1, lfFaceName := "") {
+;Sintaxis: FontEnum( [lfCharSet], [FontName] )
+;Ejemplo:
+	;for k, v in FontEnum()
+	;	MsgBox % v
+;Nota: para comprobar si una fuente existe, usar los parámetros lfCharSet y FontName, si no se encuentra, devuelve una cadena vacía.
+FontEnum(lfCharSet := 1, FontName := "") {
 	hDC := GetDC(), VarSetCapacity(LOGFONT, 92, 0), NumPut(lfCharSet, LOGFONT, 23, "UChar")
-	if !(lfFaceName="")
-		StrCopy(&LOGFONT+28, lfFaceName)
-	lpEnumFunc := RegisterCallback("EnumFontFamExProc", "Fast", 4), Param := {List: ""}
-	, DllCall("Gdi32.dll\EnumFontFamiliesExW", "Ptr", hDC, "Ptr", &LOGFONT, "Ptr", lpEnumFunc, "Ptr", &Param, "UInt", 0)
-	, ReleaseDC(0, hDC), DllCall("Kernel32.dll\GlobalFree", "Ptr", lpEnumFunc)
-	return Sort(Param.List, "U")
-} EnumFontFamExProc(lpelfe, lpntme, FontType, lParam) {
-	Param := Object(lParam), StrCopy(Name, lpelfe+28,, "Str")
-	return true, Param.List .= (Param.List?"`n":"") Name
-} FontExist(FontName, lfCharSet := 1, lfFaceName := "") {
-	Loop, Parse, % FontEnum(lfCharSet, lfFaceName), `n, `r
-		if (A_LoopField=FontName)
-			return true
-	return false
-}
+	if !(FontName="")
+		StrPut(FontName, &LOGFONT + 28)
+	Address := RegisterCallback("EnumFontFamExProc", "Fast", 4), Data := {List: []}
+	, DllCall("Gdi32.dll\EnumFontFamiliesExW", "Ptr", hDC, "Ptr", &LOGFONT, "Ptr", Address, "Ptr", &Data, "UInt", 0)
+	return Data.List, ReleaseDC(0, hDC), GlobalFree(Address)
+} EnumFontFamExProc(LOGFONT, lpntme, FontType, Data) {
+	Data := Object(Data), FontName := StrGet(LOGFONT + 28)
+	if !InArray(Data.List, FontName) ;remover fuentes duplicadas
+		Data.List.Push(FontName)
+	return true
+} ;https://msdn.microsoft.com/en-us/library/dd162620(v=vs.85).aspx
 
 ;crea una fuente con las caracteristicas espesificadas.
 ;Sintaxis: FontCreate( [fuente], [tamaño], [negrita], [¿cursiva?], [¿subrayado?], [¿tachado?], [Calidad] )
@@ -3468,17 +3894,19 @@ FontEnum(lfCharSet := 1, lfFaceName := "") {
 ;Calidad: 
 	;DEFAULT_QUALITY = 0 | DRAFT_QUALITY = 1 | PROOF_QUALITY = 2
 	;NONANTIALIASED_QUALITY = 3 | ANTIALIASED_QUALITY = 4 | CLEARTYPE_QUALITY = 5
-;NOTA: cuando ya no use la fuente, eliminarla con FontDelete()
+;NOTA: cuando ya no use la fuente, eliminarla con DeleteObject()
 ;Return: hFont
 FontCreate(FontName := "", Size := 0, Bold := 400, Italic := false, Underline := false, StrikeOut := false, Quality := 5) {
 	Error := ErrorLevel, FontName := FontName?FontName:FontQuery()[1], Size := Size>0?Size:FontQuery()[2]
 	return DllCall("Gdi32.dll\CreateFontW", "Int", -MulDiv(Size, GetDeviceCaps(, 90), 72)
 		, "Int", 0, "Int", 0, "Int", 0, "Int", Bold,"UInt", !!Italic, "UInt", !!Underline, "UInt", !!StrikeOut
 		, "UInt", 1, "UInt", 4, "UInt", 0, "UInt", Quality, "UInt", 0, "Ptr", &FontName), ErrorLevel := Error
+} FontDelete(hFont*) { ;usar DeleteObject() en vez de FontDelete().
+	return DeleteObject(hFont*)
 } ;https://msdn.microsoft.com/en-us/library/dd183499(v=vs.85).aspx
 
 ;obtiene información sobre una fuente (hFont)
-;Sintaxis: FontQuery( [hFont], [nombre], [tamaño], [negrita], [cursiva], [subrayado], [tachado] )
+;Sintaxis: FontQuery( [hFont], [nombre (out)], [tamaño (out)], [negrita (out)], [cursiva (out)], [subrayado (out)], [tachado (out)] )
 FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRef Italic := "", ByRef Underline := "", ByRef Strike := "") {
 	hFont := hFont?hFont:GetStockObject(17), hDC := GetDC(), hSelectObj := SelectObject(hDC, hFont)
 	, Size := DllCall("Gdi32.dll\GetTextFace", "Ptr", hDC, "Ptr", 0, "Ptr", 0), VarSetCapacity(Name, (Size>0?Size:(Size:=32)) * 2, 0)
@@ -3501,6 +3929,7 @@ FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRe
 		;Cursiva = 0|1
 		;Subrayado = 0|1
 		;Tachado = 0|1
+		;lfCharSet
 	;Opciones Adicionales: sumar para combinar
 		;0x00000200 = mostrar boton Aplicar
 		;0x00000004 = mostrar boton Ayuda
@@ -3517,7 +3946,7 @@ FontQuery(hFont := 0, ByRef Name := "", ByRef Size := "", ByRef Bold := "", ByRe
 	;	. "`nTamaño: " FontInfo[2] "`nNegrita: " FontInfo[3] "`nCursiva: " FontInfo[4]
 	;	. "`nSubrayado: " FontInfo[5] "`nTachado: " FontInfo[6] "`n`nErrorLevel: " ErrorLevel
 FontSelect(hWnd := 0, FontName := "", Options := "", Flags := 0x10100) {
-	FontName := FontName?FontName:FontQuery()[1]
+	FontName := FontName?Trim(FontName):FontQuery()[1]
 	, Color := _getcolor(Options[1], true)
 	, Size := StrSplit(Options[2], ",", A_Space A_Tab)
 	, MinSize := Size[2], MaxSize := Size[3]
@@ -3529,55 +3958,41 @@ FontSelect(hWnd := 0, FontName := "", Options := "", Flags := 0x10100) {
     VarSetCapacity(LOGFONT, 92, 0) , NumPut(-MulDiv(Size, LogPixelsY, 72), LOGFONT, 0, "Int")
     , NumPut(Bold, LOGFONT, 16, "Int"), NumPut(Italic, LOGFONT, 20, "UChar")
     , NumPut(Underline, LOGFONT, 21, "UChar"), NumPut(StrikeOut, LOGFONT, 22, "UChar")
-	, StrCopy(&LOGFONT+28, FontName), CFSize := VarSetCapacity(CHOOSEFONT, A_PtrSize=8?104:60, 0)
+	, NumPut(Options.7?Options.7:0, LOGFONT, 23, "UChar")
+	, StrPut(FontName, &LOGFONT + 28, StrLen(FontName)+1)
+	, CFSize := VarSetCapacity(CHOOSEFONT, A_PtrSize=8?104:60, 0)
 	, NumPut(CFSize, CHOOSEFONT, 0, "UInt"), NumPut(hWnd, CHOOSEFONT, A_PtrSize, "Ptr")
 	, NumPut(&LOGFONT, CHOOSEFONT, A_PtrSize=8?24:12, "Ptr")
 	, NumPut(Flags, CHOOSEFONT, A_PtrSize=8?36:20, "UInt")
 	, NumPut(Color, CHOOSEFONT, A_PtrSize=8?40:24, "UInt")
-	;, NumPut(CustData, CHOOSEFONT, A_PtrSize=8?48:28, "UInt")
-	;, NumPut(nHook, CHOOSEFONT, A_PtrSize=8?56:32, "UInt")
 	, NumPut(MinSize, CHOOSEFONT, A_PtrSize=8?92:52, "Int")
 	, NumPut(MaxSize, CHOOSEFONT, A_PtrSize=8?96:56, "Int")
 	, Ok := DllCall("comdlg32.dll\ChooseFontW", "Ptr", &CHOOSEFONT, "Int")
-	, StrCopy(FontName, &LOGFONT+28,, "Str"), OutPutVar := [], OutPutVar[0] := FontName
+	, OutPutVar := [], OutPutVar[0] := StrGet(&LOGFONT + 28)
 	, OutPutVar[1] := RGB(NumGet(CHOOSEFONT, A_PtrSize=8?40:24, "UInt"))
 	, OutPutVar[2] := NumGet(CHOOSEFONT, A_PtrSize=8?32:16, "Int")//10
 	, OutPutVar[3] := NumGet(LOGFONT, 16, "Int"), OutPutVar[4] := NumGet(LOGFONT, 20, "UChar")
 	, OutPutVar[5] := NumGet(LOGFONT,21,"UChar"), OutPutVar[6] := NumGet(LOGFONT, 22, "UChar")
+	, OutPutVar[7] := NumGet(LOGFONT, 23, "UChar")
 	return OutPutVar, ErrorLevel := !Ok
 }
 
-;obtener tamaño dependiendo de la fuente y texto
-;Sintaxis: FontGetStringSize( [fuente], [texto], [ancho (out)], [alto (out)], [ajustar ancho y alto] )
-;Fuente: espesificar el nombre de una fuente o usar FontCreate()
-FontGetStringSize(hFont := 0, String := "", ByRef Width := "", ByRef Height := "", Convert := true) {
-	static Size
-	hFont := hFont?hFont:DllCall("Gdi32.dll\GetStockObject", "Int", 17)
-	, hDC := DllCall("User32.dll\GetDC", "Ptr", 0, "Ptr"), VarSetCapacity(Size, 8, 0)
-	, hFont2 := DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont, "Ptr")
-    , RC := DllCall("Gdi32.dll\GetTextExtentPoint32W", "Ptr", hDC, "Str", String, "Int", StrLen(String), "Ptr", &Size)
-	, DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont2), DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC)
-	, Width := NumGet(&Size+0, 0, "Int"), Height := NumGet(&Size+0, 4, "Int")
-	if (Convert)
-		Width := Width + (NumGet(FontGetMetrics(hFont), 20, "Int")*3)
-		, Height := Floor((NumGet(FontGetMetrics(hFont), 0, "Int")*Convert)+(NumGet(FontGetMetrics(hFont),16, "Int")*(Floor(Convert+0.5)-1))+0.5)+8
-	return &Size, ErrorLevel := !(RC)
-} FontGetMetrics(hFont := 0, ByRef FontSize := "") {
-	static TEXTMETRIC
-	hFont := hFont?hFont:DllCall("Gdi32.dll\GetStockObject", "Int", 17)
-    , hDC := DllCall("User32.dll\GetDC", "Ptr", 0, "Ptr"), VarSetCapacity(TEXTMETRIC, 60, 0)
-    , hFont2 := DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont, "Ptr")
-	, DllCall("Gdi32.dll\GetTextMetrics", "Ptr", hDC, "Ptr", &TEXTMETRIC)
-	, DllCall("Gdi32.dll\SelectObject", "Ptr", hDC, "Ptr", hFont2)
-	, DllCall("User32.dll\ReleaseDC", "Ptr", 0, "Ptr", hDC), hp := &TEXTMETRIC
-	, FontSize := Round((NumGet(hp+0,0,"Int")-NumGet(hp+0,12,"Int"))*72)
-	return &TEXTMETRIC
-} FontDelete(hFont*) {
-	Error := ErrorLevel, Ok := 0
-	Loop, % hFont.MaxIndex()
-		Ok += !!DllCall("Gdi32.dll\DeleteObject", "Ptr", hFont[A_Index], "UInt")
-	return Ok, ErrorLevel := Error
-}
+;calcular el alto y ancho del texto en la fuente espesificada.
+;Sintaxis: GetFontTextDimension( [hFont], [texto], [ancho (out)], [alto (out)] )
+;Return: 0|1
+GetFontTextDimension(hFont, Text, ByRef Width := "", ByRef Height := "", c := 1) {
+	hFont := hFont?hFont:GetStockObject(17), hDC := GetDC()
+	, hSelectObj := SelectObject(hDC, hFont), VarSetCapacity(SIZE, 8, 0)
+	if !DllCall("Gdi32.dll\GetTextExtentPoint32W", "Ptr", hDC, "Ptr", &Text, "Int", StrLen(Text), "Ptr", &SIZE, "Int")
+		return false, ReleaseDC(0, hDC), Width := Height := 0
+	VarSetCapacity(TEXTMETRIC, 60, 0)
+	if !DllCall("Gdi32.dll\GetTextMetricsW", "Ptr", hDC, "Ptr", &TEXTMETRIC, "Int") ;https://msdn.microsoft.com/en-us/library/dd144941(v=vs.85).aspx
+		return false, ReleaseDC(0, hDC), Width := Height := 0
+	SelectObject(hDC, hSelectObj), ReleaseDC(0, hDC), Width := NumGet(SIZE, 0, "Int"), Height := NumGet(SIZE, 4, "Int")
+	, Width := Width + NumGet(TEXTMETRIC, 20, "Int") * 3
+	, Height := Floor((NumGet(TEXTMETRIC, 0, "Int")*c)+(NumGet(TEXTMETRIC,16, "Int")*(Floor(c+0.5)-1))+0.5)+8
+	return true
+} ;https://msdn.microsoft.com/en-us/library/dd144938(v=vs.85).aspx
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
 ;PINCEL (BRUSH FUNCTIONS)
@@ -3945,24 +4360,32 @@ LoadString(hModule, uID, Bytes := 512) {
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms647486.aspx
 
 ;convertir String a CLSID
-;Sintaxis: CLSIDFromString( ["{string}"], [CLSID (out)] )
-CLSIDFromString(Str, ByRef CLSID) {
+;Sintaxis: CLSIDFromString( [CLSID], [oCLSID] )
+;Parámetros:
+	;CLSID: {x8-x4-x4-x4-x12}
+	;oCLSID: CLSID salida.
+;Return:
+	;si espesifica una variable de salida en el 2do parámetro, devuelve 0|1.
+	;si no espesificar el 2do parámetro, devuelve &CLSID.
+;Ejemplo: MsgBox % StringFromCLSID(CLSIDFromString("{724EF170-A42D-4FEF-9F26-B60E846FBA4F}"))
+CLSIDFromString(Str, ByRef CLSID := "") {
 	VarSetCapacity(CLSID, 0), VarSetCapacity(CLSID, 16, 0)
-	return DllCall("Ole32.dll\CLSIDFromString", "WStr", Str, "Ptr", &CLSID, "UInt")=0 ;NOERROR
+	, Ok := DllCall("Ole32.dll\CLSIDFromString", "WStr", Str, "Ptr", &CLSID, "UInt") = 0
+	return IsByRef(CLSID)?Ok:&CLSID
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms680589(v=vs.85).aspx
 
 ;convertir CLSID a String
 ;Sintaxis: StringFromCLSID( [&CLSID] )
-;Nota: usar CoTaskMemFree() para liberar la memoria
 StringFromCLSID(CLSID) {
-	Error := ErrorLevel
-	, DllCall("Ole32.dll\StringFromCLSID", "Ptr", CLSID, "PtrP", RCLSID)
-	;DllCall("Ole32.dll\CoTaskMemFree", "Ptr", RCLSID)
-	return StrGet(RCLSID, "UTF-16"), ErrorLevel := Error
+	DllCall("Ole32.dll\StringFromCLSID", "Ptr", CLSID, "PtrP", OutputVar)
+	return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar, 0)
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683917(v=vs.85).aspx
 
-;Copia un determinado número de caracteres de una cadena de origen en un búfer.
+;copia un determinado número de caracteres de una cadena de origen en un búfer.
 ;Sintaxis: StrCopy( [destino (out)], [origen], [tamaño], [destino str/ptr] )
+;Nota: usar StrPut() y StrGet().
+	;StrPut(Source, &Dest + 0)
+	;Dest := StrGet(&Source + 0)
 StrCopy(ByRef Dest, Source, Length := 0, Type := "Ptr") {
 	if !(Length)
 		Length := (Type="Ptr"?StrLen(Source):DllCall("Kernel32.dll\lstrlenW", "UInt", Source))+1
@@ -5915,6 +6338,179 @@ WM_COPYDATA(hWnd, dwData := 1, Size := 0, lpData := 0) {
 
 
 ;#############################################################################################################################################
+;SHELL INTERFACE (IShellItems & ShellItemArray)
+;Parámetros:
+	;Path: cadena de carácteres que reprecenta la ruta a un archivo o carpeta existente.
+	;PIDL: pointer a una lista de identificadores de elemento.
+	;IShellItems: Objeto del cual se puede obtener PIDL
+	;ShellItemArray: Array que contiene IShellItems
+	;IDLists: espesificar un Array con PIDLs y/o Paths. Ejemplo: [A_Desktop, A_ProgramFiles, ParseDisplayName(A_WinDir)]
+	;RIID: espesificar un CLSID, puede ser un pointer o string
+	;----------------------------------------------------------------------------------------------------------------------------------
+	;UsesShortFileNames: establecer en verdadero para usar nombres de archivo corto
+;SO: Windows Vista en adelante.
+;Links:
+	;Shell Interfaces: https://msdn.microsoft.com/en-us/library/windows/desktop/bb774328(v=vs.85).aspx
+		;ShellItemArray: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761106(v=vs.85).aspx
+			;IShellItem: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761144(v=vs.85).aspx
+				;PIDL: https://msdn.microsoft.com/en-us/library/windows/desktop/bb759800(v=vs.85).aspx
+;#############################################################################################################################################
+;convertir Path a PIDL
+;Sintaxis: ParseDisplayName( [Path] )
+;Return: PIDL
+ParseDisplayName(Path, IBindCtx := 0, sfgaoIn := 0, ByRef SFGAOF := 0) {
+	Error := DllCall("Shell32.dll\SHParseDisplayName", "WStr", Path, "Ptr", IBindCtx, "PtrP", PIDL, "UInt", sfgaoIn, "UInt", SFGAOF)
+	return PIDL, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762236(v=vs.85).aspx
+
+;convertir PIDL a Path
+;Sintaxis: GetPathFromIDList( [PIDL], [UsesShortFileNames] )
+;Return: Path
+GetPathFromIDList(PIDL, UsesShortFileNames := false) {
+	VarSetCapacity(Path, 512 * 2, 0)
+	, Ok := DllCall("Shell32.dll\SHGetPathFromIDListEx", "Ptr", PIDL, "WStr", Path, "UInt", 512, "UInt", UsesShortFileNames?0x0001:0x0000, "Int")
+	return RTrim(Path, "\"), ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762195(v=vs.85).aspx
+
+;crear ShellItemArray desde un Array con PIDLs o Paths (o espesificar directamente el PIDL o Path si es uno solo).
+;Sintaxis: CreateShellItemArrayFromIDLists( [IDLists] )
+CreateShellItemArrayFromIDLists(IDLists) { 
+	VarSetCapacity(ITEMIDLIST, IDLists.MaxIndex() * A_PtrSize, 0), IDLists := IsObject(IDLists)?IDLists:[IDLists] ;PIDL = PTR = A_PtrSize c/u
+	for Index, PIDL in IDLists {
+		PIDL := (PIDL+0)=""?ParseDisplayName(PIDL):PIDL ;if PIDL+0="" / PIDL = Path | else PIDL = PIDL
+		, NumPut(PIDL, ITEMIDLIST, (A_Index - 1) * A_PtrSize, "Ptr") ;1° = 0, 2° = A_PtrSize, 3° = 2*A_PtrSize, 4° = 3*A_PtrSize, etc...
+	} Error := DllCall("Shell32.dll\SHCreateShellItemArrayFromIDLists", "UInt", IDLists.MaxIndex(), "Ptr", &ITEMIDLIST, "PtrP", IShellItemArray)
+	return IShellItemArray, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762146(v=vs.85).aspx
+
+;obtener IDLists desde ShellItemArray
+;Sintaxis: GetIDListsFromShellItemArray( [IShellItemArray], [ConvertToPath] )
+;ErrorLevel:
+	;-1 = no se han encontrado items
+	;0 = OK
+	;1 = no se ha podido obtener los items
+;Ejemplo con CreateShellItemArrayFromIDLists():
+	;IShellItemArray := CreateShellItemArrayFromIDLists([A_Desktop, A_MyDocuments, ParseDisplayName(A_AppData)])
+	;for k, v in GetIDListsFromShellItemArray(IShellItemArray)
+	;	MsgBox % GetPathFromIDList(v)
+GetIDListsFromShellItemArray(IShellItemArray, ConvertToPath := false) {
+	List := []
+	;IShellItemArray::GetCount method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761098(v=vs.85).aspx)
+	Error := DllCall(NumGet(NumGet(IShellItemArray+0), 7*A_PtrSize), "Ptr", IShellItemArray, "UIntP", Count)
+	Loop, % (Count) {
+		;IShellItemArray::GetItemAt method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761100(v=vs.85).aspx)
+		if (DllCall(NumGet(NumGet(IShellItemArray+0), 8*A_PtrSize), "Ptr", IShellItemArray, "UInt", A_Index-1, "PtrP", IShellItem) = 0) {
+			if (ConvertToPath) ;PIDL --> Path
+				Path := GetPathFromIDList(GetIDListFromObject(IShellItem)), List.Push(Path), CoTaskMemFree(Path, 0)
+			else List.Push(GetIDListFromObject(IShellItem))
+			ObjRelease(IShellItem)
+	}	} return Error?false:(Count?List:false), ErrorLevel := Error?true:(Count?false:-1)
+}
+
+;obtener PIDL desde IShellItem
+;Sintaxis: GetIDListFromObject( [objeto] )
+;Return: PIDL
+GetIDListFromObject(Object) {
+	DllCall("Shell32.dll\SHGetIDListFromObject", "Ptr", Object, "PtrP", PIDL)
+	return PIDL
+}
+	
+;crear IShellItem
+;Sintaxis 1: CreateShellItem( [pidlParent], [psfParent], [PIDL o Path] )
+;Sintaxis 2: CreateShellItem( [PIDL o Path] )
+;Return: IShellItem
+;Ejemplo: MsgBox % CreateShellItem(0, 0, A_Desktop)
+CreateShellItem(pidlParent, psfParent := 0, PIDL := 0) {
+	if (psfParent=0) && (PIDL=0)
+		PIDL := pidlParent, psfParent := pidlParent := 0
+	if ((PIDL+0)="")
+		PIDL := ParseDisplayName(PIDL), free := true
+	Error := DllCall("Shell32.dll\SHCreateShellItem", "Ptr", pidlParent, "Ptr", psfParent, "Ptr", PIDL, "PtrP", IShellItem)
+	if (free)
+		CoTaskMemFree(PIDL, 0)
+	return Error?false:IShellItem
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762143(v=vs.85).aspx
+
+;Crear IShellItem desde PIDL
+;Sintaxis: CreateItemFromIDList( [PIDL], [RIID] )
+;Ejemplo: MsgBox % CreateItemFromIDList(A_Desktop, "{43826d1e-e718-42ee-bc55-a1e261c37bfe}")
+CreateItemFromIDList(PIDL, RIID) {
+	if ((PIDL+0)="")
+		PIDL := ParseDisplayName(PIDL), free := true
+	if ((RIID+0)="")
+		CLSIDFromString(RIID, CLSID), RIID := &CLSID
+	Error := DllCall("Shell32.dll\SHCreateItemFromIDList", "Ptr", PIDL, "Ptr", RIID, "PtrP", IShellItem)
+	if (free)
+		CoTaskMemFree(PIDL, 0)
+	return Error?false:IShellItem
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762133(v=vs.85).aspx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: NOMBRES Y RUTAS DE ARCHIVOS/DIRECTORIOS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
 ;recupera la ruta y el nombre completo del archivo/carpeta especificado.
@@ -5958,36 +6554,24 @@ GetValidPathName(Filename) {
 
 ;recupera la ruta completa de un directorio
 ;Sintaxis: GetKnownFolderPath( [GUID] )
-;GUID:
-	;WIN_V+ = https://msdn.microsoft.com/en-us/library/windows/desktop/dd378457%28v=vs.85%29.aspx
-	;WIN_XP = https://msdn.microsoft.com/en-us/library/windows/desktop/bb762494(v=vs.85).aspx
+;Parámetros:
+	;GUID: espesificar un valor CSIDL, un CLSID.
+		;Nota: para WIN_XP solo soporta valores CSIDL.
+		;WIN_V+ = https://msdn.microsoft.com/en-us/library/windows/desktop/dd378457%28v=vs.85%29.aspx
+		;WIN_XP = https://msdn.microsoft.com/en-us/library/windows/desktop/bb762494(v=vs.85).aspx
 		;constantes: https://www.omniref.com/ruby/gems/windows-pr/1.0.0/symbols/Windows::Shell::CSIDL_ADMINTOOLS
-;Ejemplo: MsgBox % GetKnownFolderPath(IsWindowsVistaOrGreater()?"{724EF170-A42D-4FEF-9F26-B60E846FBA4F}":0x0030) "`n" ErrorLevel
+;Ejemplos:
+	;MsgBox % GetKnownFolderPath(0x0030) "`n" ErrorLevel ;WIN_XP+
+	;MsgBox % GetKnownFolderPath({724EF170-A42D-4FEF-9F26-B60E846FBA4F}) "`n" ErrorLevel ;WIN_V+
 GetKnownFolderPath(GUID) {
-	if (VarSetCapacity(Path, (260 + 1) * 2, 0)) && (IsWindowsVistaOrGreater()) && (VarSetCapacity(CLSID, 16, 0)) {
-		DllCall("Ole32.dll\CLSIDFromString", "WStr", GUID, "Ptr", &CLSID)
-		, r := DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", Path)
-		return StrGet(Path, 260 + 1, "UTF-16"), DllCall("Ole32.dll\CoTaskMemFree", "Ptr", Path), ErrorLevel := r
-	} r := DllCall("Shell32.dll\SHGetFolderPathW", "Ptr", 0, "Int", GUID, "Ptr", 0, "UInt", 0, "Str", Path)
-	return Path, ErrorLevel := r ;S_OK = 0
+	VarSetCapacity(OutputVar, 512 * 2, 0)
+	if ((GUID+0)="") {
+		CLSIDFromString(GUID, CLSID)
+		Error := DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", OutputVar)
+		return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar, 0), ErrorLevel := Error
+	} Error := DllCall("Shell32.dll\SHGetFolderPathW", "Ptr", 0, "Int", GUID, "Ptr", 0, "UInt", 0, "Str", OutputVar)
+	return OutputVar, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762188(v=vs.85).aspx
-
-;convertir una cadena a un puntero a una lista de identificadores de elemento (PIDL).
-;Sintaxis: ParseDisplayName( [ruta] )
-;Return: PIDL
-ParseDisplayName(Path) {
-	r := DllCall("Shell32.dll\SHParseDisplayName", "WStr", Path, "Ptr", 0, "PtrP", Path, "UInt", 0, "UIntP", 0)
-	return Path, ErrorLevel := r
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762236(v=vs.85).aspx
-
-;hace la operacion inversa de ParseDisplayName()
-;Sintaxis: GetPathFromIDList( [PIDL], [¿usar nombres cortos?] )
-;Return: Ruta
-GetPathFromIDList(pidl, UsesShortFileNames := false) {
-	VarSetCapacity(Path, 260 * 2, 0)
-	r := DllCall("Shell32.dll\SHGetPathFromIDListEx", "Ptr", pidl, "WStr", Path, "UInt", 260, "UInt", UsesShortFileNames?0x0001:0x0000)
-	return RTrim(Path, "\"), ErrorLevel := !r
-}
 
 ;convierte una lista de archivos separados por `n o un array (que tambiene puede contener mas arrays con `n) en un nuevo array con archivos válidos con su ruta completa en su forma larga
 ;Sintaxis: GetValidArrayFiles( [archivos], [¿comprobar si el archivo existe?=1], [espesificar la ruta del archivo si solo se espesificó el nombre], [carácteres totales], [¿remover duplicados?=1] )
@@ -6630,13 +7214,24 @@ ComVar(Value*) {
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;ARRAY
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtener carácteres totales en un array/objeto
+;Sintaxis: Array_Length( [array], [profundidad] )
+Array_Length(Array, Depth := -1) {
+	Length := 0
+	for k, v in Array {
+		if IsObject(v) && ((Depth>1) || (Depth<0))
+			Length += Array_Length(v, Depth-1)
+		else Length += StrLen(v)
+	} return Length
+}
+
 ;devolver la estructura de un Array/Objeto como String
 ;Return: String
-Array_Print(Array, Depth := 5, IndentLevel := "    ") {
-   for k,v in Array {
+Array_Print(Array, Depth := -1, IndentLevel := "    ") {
+   for k, v in Array {
       List .= IndentLevel "[" k "]"
-      if (IsObject(v)) && (Depth>1)
-         List .= "`n" %A_ThisFunc%(v, Depth-1, IndentLevel)
+      if (IsObject(v)) && ((Depth>1) || (Depth<0))
+         List .= "`n" Array_Print(v, Depth-1, IndentLevel)
       else List .= A_Space "=>" A_Space v
       List .= "`n"
    } return RTrim(List)
@@ -6646,11 +7241,11 @@ Array_Print(Array, Depth := 5, IndentLevel := "    ") {
 ;Sintaxis: Array_Count( [Array], [Profundidad] )
 ;Sintaxis 2: NumGet(&Array, 4*A_PtrSize)
 ;Return: N / N>=0 E N
-Array_Count(Array, Depth := 1) {
+Array_Count(Array, Depth := -1) {
 	Count := 0
 	for k, v in Array {
-		if (A_Index<=Depth) && IsObject(v)
-			Count += %A_ThisFunc%(v, Depth), Count -= Count>0
+		if IsObject(v) && ((Depth>1) || (Depth<0))
+			Count += Array_Count(v, Depth-1) ;, Count -= Count>0
 		Count++
 	} return Count
 } ;https://autohotkey.com/boards/viewtopic.php?p=66474#p66474
@@ -6701,6 +7296,24 @@ Array_Find(Array, Value, CaseSensitive := false) {
 		if ((CaseSensitive) && (v==Value)) || (!(CaseSensitive) && (v=Value))
 			return k, ErrorLevel := false
 	return "", ErrorLevel := true
+}
+
+;eliminar un valor espesificado en un Array u Objeto
+;Sintaxis: Array_Remove( [array], [str], [casesensitive], [instr], [max] )
+;Parámetros:
+	;Str: cadena de buscar
+	;CaseSensitive: espesificar 1 para hacer sensible a mayúsculas
+	;InStr: usar InStr()
+	;Max: espesificar la cantidad máxima a remover (si se encuentran mas de 1 valor), dejar en -1 para quitar todos.
+Array_Remove(Array, Str, CaseSensitive := false, InStr := false, Max := -1) {
+	Count := 0
+	for k, v in Array
+		if (InStr && InStr(v, Str, !!CaseSensitive)) || (!InStr && ((CaseSensitive && Str==v) || (!CaseSensitive && Str=v))) {
+			if (Count=Max)
+				break
+			Array.RemoveAt(A_Index)
+			Count++
+		} return Array
 }
 
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -6850,9 +7463,44 @@ Array_Clone(Array) {
 
 
 
+
+
+
+
+
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;cambiar el icono del área de notificación por un número.
+;Sintaxis: SetTrayIconNumber( [Number], [TextColor], [BKColor] )
+;Parámetros:
+	;Number: un numero entre 0 y 99, inclusive.
+	;TextColor: color del texto ARGB.
+	;BKColor: color de fondo ARGB.
+;Nota: un color ARGB es un color RGB pero con un numero adelante que indica el nivel de transparencia. ver RGBToARGB().
+;Ejemplo:
+	;GdiplusStartup()
+	;Menu, Tray, Icon
+	;Loop 99
+	;	Sleep(100), SetTrayIconNumber(A_Index)
+	;ExitApp
+SetTrayIconNumber(Number := 0, TextColor := "0xFFFFFF", BKColor := "0x00000000") {
+	GdiplusStartup(hModule), pBitmap := GdipCreateBitmap(16, 16), G := GdipGraphicsFromImage(pBitmap)
+	, GdipFillRectangle(G, pBrush := GdipCreateSolidBrush(BKColor), 0, 0, 16, 16)
+	, GdipDeleteBrush(pBrush), pBrush := GdipCreateSolidBrush(TextColor)
+	, GdipTextToGraphics(G, Number, "x-2 y0 w20 h20 Center r4 s12 Bold c" pBrush, "Segoe UI")
+	, GdipDeleteBrush(pBrush), hIcon := GdipCreateHICONFromBitmap(pBitmap)
+	, GdipDeleteGraphics(G), GdipDisposeImage(pBitmap), GdiplusShutdown(, hModule)
+	try Menu, Tray, Icon, HICON:*%hIcon%
+	catch
+		return false
+	return true, DestroyIcon(hIcon)
+	;, Size := VarSetCapacity(NOTIFYICONDATA, A_PtrSize=4?820:836, 0), NumPut(Size, NOTIFYICONDATA, 0)
+	;, NumPut(A_ScriptHwnd, NOTIFYICONDATA, 4, "Ptr"), NumPut(1028, NOTIFYICONDATA, 4+A_PtrSize, "UInt")
+	;, NumPut(hIcon, NOTIFYICONDATA, 16+A_PtrSize, "Ptr"), NumPut(0x2, NOTIFYICONDATA, 8+A_PtrSize, "UInt")
+	;return DllCall("shell32.dll\Shell_NotifyIcon", "UInt", 0x1, "Ptr", &NOTIFYICONDATA, "Int"), DestroyIcon(hIcon)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762159(v=vs.85).aspx
+
 ;ejecuta el script como administrador
 RunAsAdmin() {
 	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (IsWindowsVistaOrGreater()) {
@@ -7654,8 +8302,24 @@ Edit_GetMargins(hWnd, ByRef Left := "", ByRef Right := "") {
 	return [Left := OutputVar & 0xffff, Right := OutputVar >> 16]
 }
 
+;obtiene la parte editable del control
+;Sintaxis: Edit_GetRect( [hWnd], [x (out)], [y (out)], [ancho (out)], [alto (out)] )
+;Return: Array(x, y, ancho, alto)
+Edit_GetRect(hWnd, ByRef x := "", ByRef y := "", ByRef w := "", ByRef h := "") {
+	VarSetCapacity(RECT, 16, 0), SendMessage(hWnd, 0xB2,,,, &RECT)
+	return RECT(RECT, x, y, w, h)
+}
+	
 ;--------------------------------------------------------------------------------------------------------------------------
-
+;establece la parte editable del control
+;Sintaxis: Edit_SetRect( [hWnd], [x], [y], [ancho], [alto] )
+Edit_SetRect(hWnd, x := "", y := "", w := "", h := "") {
+	if (x="") || (y="") || (w="") || (h="")
+		Edit_GetRect(hWnd, _x, _y, _w, _h)
+	RECT(RECT, x=""?_x:x, y=""?_y:y, w=""?_w:w, h=""?_h:h)
+	return SendMessage(hWnd, 0xB3,,,, &RECT)
+}
+	
 ;establece el límite de texto
 ;Sintaxis: Edit_SetLimitText( [hWnd], [limite de caracteres 1~64000] )
 Edit_SetLimitText(hWnd, Limit := 64000) {
@@ -7848,7 +8512,7 @@ Edit_SelectFont(hWnd, Quality := 2, Redraw := false) {
 	static Color := [], List := []
 	for k, v in List
 		if !IsWindow(k)
-			FontDelete(v), List.RemoveAt(A_Index)
+			DeleteObject(v), List.RemoveAt(A_Index)
 	FontInfo := FontQuery(ControlGetFont(false, hWnd))
 	, FontInfo := FontSelect(DllCall("User32.dll\GetParent", "Ptr", hWnd), FontInfo[1]
 		, [Color[hWnd], FontInfo[2], FontInfo[3], FontInfo[4], FontInfo[5], FontInfo[6]])
@@ -7959,7 +8623,7 @@ Edit_SelectFont(hWnd, Quality := 2, Redraw := false) {
 BC_SetIcon(hWnd, ImageList, Options := "L2") {
 	Flag := SplitFlags(Options, "\d", "w", "h", "l", "t", "r", "b", "a")
 	if !(ImageList+0)
-		v := IL_CreateEx(1, 1,, Flag[1]>0?Flag[1]:16, Flag[2]>0?Flag[2]:16)
+		v := ImageList_Create(1, 1,, Flag[1]>0?Flag[1]:16, Flag[2]>0?Flag[2]:16)
 		, IL_Add(v, IsObject(ImageList)?ImageList[1]:ImageList, ImageList[2]>1?ImageList[2]:1), ImageList := v
 	VarSetCapacity(BUTTON_IMAGELIST, 20 + A_PtrSize, 0)
 	, NumPut(ImageList, BUTTON_IMAGELIST, 0, "Ptr")
@@ -9379,15 +10043,6 @@ TrayTip(Title := "", Text := "", TimeOut := 0, Options := 1) {
 			SetTimer(TrayTip, (TimeOut>0?(-(TimeOut*1000)):TimeOut))
 }}
 
-;color para los controles
-;conversor de colores: http://www.yellowpipe.com/yis/tools/hex-to-rgb/color-converter.php
-;Sintaxis: GuiControlColor( [control], [color del texto], [color de fondo] )
-GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Force := false) {
-	if (Force)
-		CtlColors.Detach(ControlId)
-	CtlColors.Change(ControlId, BackgroundColor, TextColor)
-} 
-
 ;dialogo Abrir Con...
 ;Sintaxis: OpenWithDialog( [owner window hwnd], [archivo] )
 OpenWithDialog(hWnd, Filename) {
@@ -9399,7 +10054,62 @@ OpenWithDialog(hWnd, Filename) {
 	return r=0, ErrorLevel := r!=0
 }
 
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;GUI
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;color para los controles
+;conversor de colores: http://www.yellowpipe.com/yis/tools/hex-to-rgb/color-converter.php
+;Sintaxis: GuiControlColor( [control], [color del texto], [color de fondo] )
+GuiControlColor( ControlId, TextColor := "Black", BackgroundColor := "White", Force := false) {
+	if (Force)
+		CtlColors.Detach(ControlId)
+	CtlColors.Change(ControlId, BackgroundColor, TextColor)
+} 
 
+;crear control RichEdit
+;Sintaxis: GuiAddRichEdit( [Options], [Text] )
+;Parámetros:
+	;Options: opciones para el control.
+		;Nota: si se detecta un salto de linea en el texto, usa +Multi automáticamente, a menos que espesifique -Multi.
+	;Text: texto por defecto.
+;Retuen: Object
+;Nota: para ver las funciones disponibles, ver la clase __RichEditClass
+;Ejemplo:
+	/*
+	Gui, New,, Ejemplo ClassRICHEDIT50W
+	RichEdit1 := GuiAddRichEdit( "w425 h175", "Normal Text.`nText Color.`nBK Color.`nOther Font Options." A_Tab(100) "`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n`n")
+		RichEdit1.SetRect(RichEdit1.GetRect(, y)[1] + 10, y + 2) ;x + 10 | y + 2
+		RichEdit1.SetFont({TextColor: "Red", BKColor: 0xCEE7FF}, true, 13, 13+11)
+		RichEdit1.SetFont({BKColor: 0xFF0080}, true, 25, 25+9)
+		RichEdit1.SetFont({Italic: true, Bold: true, Underline: true, Strike: true, Name: "Times New Roman", Size: 16}, true, 35, 35+19)
+		RichEdit1.ScrollPos := 0
+		RichEdit1.SetColor(0xCEE7FF) ;color de fondo
+		RichEdit1.Zoom := 200 ;establecer Zoom en 200 %
+		RichEdit1.ReadOnly := true ;solo lectura
+	RichEdit2 := GuiAddRichEdit("w425 h25")
+		RichEdit2.Text := ["F1 = Cambiar Color | F2 = Cambiar Fuente | F3 = Random", 0] ;establecer texto.
+		RichEdit2.SetFont({Size:12, UnderlineType: 7, Underline: true, Disabled: 1}) ;tamaño de la fuente 12
+		RichEdit2.Limit := 54 ;limitar texto a 54 carácteres
+	Gui, Show
+	return
+	GuiClose:
+	ExitApp
+	F1::RichEdit2.ChooseColor() ;CAMBIAR COLOR
+	F2::RichEdit2.ChooseFont() ;CAMBIAR FUENTE
+	F3::RichEdit2.SetFont({UnderlineType: Random(0, 18), Underline: true, Size: Random(10, 14), TextColor: _randcolor()}) ;RANDOM
+	F4::RichEdit1.ScrollPos := [20, 0] ;CAMBIAR POSICION DE LA BARRA DE DESPLAZAMIENTO
+	F5::RichEdit1.ShowScrollBar(1, ShowScrollBar:=!ShowScrollBar), RichEdit1.ShowScrollBar(0, ShowScrollBar) ;OCULTAR / MOSTRAR BARRA DE DESPLAZAMIENTO
+	F6:: ;INFO
+	Info := RichEdit1.GetStatistics()
+	ToolTip % "Linea: " Info.CaretLine "`nColumna: " Info.CaretCol "`nSeleccionado: " Info.SelLength "`n"
+		. "Caracteres: " Info.CharLength " en " Info.LineCount " Lineas.`nSelección: " Info.SelStart " - " Info.SelEnd
+	return
+	F7::RichEdit1.SaveFileDlg() ;GUARDAR
+	F8::RichEdit1.LoadFileDlg() ;CARGAR
+	*/
+GuiAddRichEdit(Options := "", Text := "") { ;WIN_V+
+	return new __RichEditClass(Options, Text)
+}
 
 
 
@@ -9548,63 +10258,99 @@ SetPixelColor(hWnd, Color) {
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;LISTA DE IMÁGENES
+;Parámetros:
+	;hImageList / ImageList := identificador (HANDLE) a la lista de imágenes
+	;Index: espesificar la posición de la imágen, en algunas funciones, el 0 afecta/incluye a todas
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ff485948(v=vs.85).aspx
+;SO: WIN_V+
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;elimina una lista de imágenes 
-;Sintaxis: IL_DestroyEx( [ID] )
-IL_DestroyEx(ImageList) {
-	return (r:=DllCall("Comctl32.dll\ImageList_Destroy", "Ptr", ImageList)), ErrorLevel := !r
-}
+;Sintaxis: ImageList_Destroy( [ImageList] )
+;Return: 0=ERROR
+ImageList_Destroy(ImageList) {
+	return DllCall("Comctl32.dll\ImageList_Destroy", "Ptr", ImageList, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761524(v=vs.85).aspx
 
 ;elimina una imagen de una lista de imágenes
-;Sintaxis: IL_Remove( [ID], [Posición] )
-;NOTA: si el segundo parametro es 0, elimina todas las imágenes
-IL_Remove(ImageList, Pos := 0) {
-	return (r:=DllCall("ComCtl32.dll\ImageList_Remove", "Ptr", ImageList, "Int", (Pos - 1))), ErrorLevel := !r
-}
+;Sintaxis: ImageList_Remove( [ImageList], [Index] )
+;Return: 0=ERROR
+ImageList_Remove(ImageList, Pos := 0) {
+	return DllCall("ComCtl32.dll\ImageList_Remove", "Ptr", ImageList, "Int", Pos - 1, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761564(v=vs.85).aspx
 
 ;crea una lista de imágenes 
-;Sintaxis: IL_CreateEx( [cantidad inicial], [aumento al pasar el limite], [¿iconos grandes?], [ancho], [alto] )
-IL_CreateEx(InitialCount := 2, GrowCount := 5, LargeIcons := false, cx := 0, cy := 0) {
-	static SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON
-	!(SM_CXICON)?(SM_CXICON:=DllCall("User32.dll\GetSystemMetrics", "Int", 11)): ;el ancho predeterminada de un icono, en píxeles.
-	!(SM_CXSMICON)?(SM_CXSMICON:=DllCall("User32.dll\GetSystemMetrics", "Int", 49)): ;el ancho recomendado de un icono pequeño, en píxeles.
-	!(SM_CYICON)?(SM_CYICON:=DllCall("User32.dll\GetSystemMetrics", "Int", 12)): ;la altura predeterminada de un icono, en píxeles.
-	!(SM_CYSMICON)?(SM_CYSMICON:=DllCall("User32.dll\GetSystemMetrics", "Int", 50)): ;la altura recomendada de un icono pequeño, en píxeles.
-	, i := DllCall("Comctl32.dll\ImageList_Create", "UInt", ((cx>0)?cx:(LargeIcons?SM_CXICON:SM_CXSMICON)) ;el ancho en píxeles de las imagenes.
-		, "UInt", ((cy>0)?cy:(LargeIcons?SM_CYICON:SM_CYSMICON)) ;la altura en píxeles de las imagenes.
-		, "UInt", 0x00000001|0x00000020 ;opciones
-		, "Int", InitialCount ;el número de imágenes que la lista de imágenes contiene inicialmente.
-		, "Int", GrowCount) ;el número de iconos por el que la lista crecerá cada ves que se supere el limite.
-	return i, ErrorLevel := !i
-}
+;Sintaxis: ImageList_Create( [InitialCount], [GrowCount], [LargeIcons], [Width], [Height], [Flags] )
+;Parámetros:
+	;InitialCount: número de imágenes que la lista de imágenes inicialmente contiene.
+	;GrowCount: número de imágenes por el cual la lista de imágenes puede crecer cuando el sistema necesita para hacer espacio para las nuevas imágenes.
+	;LargeIcons: espesificar 1 para usar el icono predeterminado grande del sistema, por defecto usa el pequeño.
+	;Width: espesificar el ancho para todas las imágenes en la lista de imágenes, en píxeles.
+	;Height: espesificar el alto para todas las imágenes en la lista de imágenes, en píxeles.
+	;Flags: https://msdn.microsoft.com/en-us/library/windows/desktop/bb775232(v=vs.85).aspx
+;Return: hImageList
+;Notas:
+	;si usa Width, LargeIcons no tiene efecto para el ancho de las imágenes.
+	;si usa Height, LargeIcons no tiene efecto para el alto de las imágenes.
+ImageList_Create(InitialCount := 2, GrowCount := 5, LargeIcons := false, Width := 0, Height := 0, Flags := 0x00000021) {
+	static SM_
+	if !(SM_)
+		SM_ := {CXICON: GetSystemMetrics(11) ;el ancho predeterminada de un icono, en píxeles.
+			, CXSMICON: GetSystemMetrics(49)  ;el ancho recomendado de un icono pequeño, en píxeles.
+			, CYICON: GetSystemMetrics(12) ;la altura predeterminada de un icono, en píxeles.
+			, CYSMICON: GetSystemMetrics(50)} ;la altura recomendada de un icono pequeño, en píxeles.
+	return DllCall("Comctl32.dll\ImageList_Create", "Int", Width>0?Width:LargeIcons?SM_.CXICON:SM_.CXSMICON
+		, "Int", Height>0?Height:LargeIcons?SM_.CYICON:SM_.CYSMICON
+		, "UInt", Flags, "Int", InitialCount , "Int", GrowCount, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761522(v=vs.85).aspx
 
 ;crea un duplicado de una lista de imágenes existente
-;Sintaxis: IL_Duplicate( [ID] )
-IL_Duplicate(ImageList) {
-	return (r:=DllCall("Comctl32.dll\ImageList_Duplicate", "Ptr", ImageList)), ErrorLevel := !r
-}
+;Sintaxis: ImageList_Duplicate( [ImageList] )
+;Return: hImageList
+ImageList_Duplicate(ImageList) {
+	return DllCall("Comctl32.dll\ImageList_Duplicate", "Ptr", ImageList, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761540(v=vs.85).aspx
 
 ;recupera el número de imágenes en una lista de imágenes
-;Sintaxis: IL_GetCount( [ID] )
-IL_GetCount(ImageList) {
-	return (r:=DllCall("ComCtl32.dll\ImageList_GetImageCount", "Ptr", ImageList, "Int")), ErrorLevel := !r
-}
+;Sintaxis: ImageList_GetImageCount( [ImageList] )
+;Return: INT
+ImageList_GetImageCount(ImageList) {
+	return DllCall("ComCtl32.dll\ImageList_GetImageCount", "Ptr", ImageList, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761552(v=vs.85).aspx
 
 ;recupera las dimensiones de las imágenes en una lista de imágenes
-;NOTA: todas las imágenes tienen las mismas dimensiones
-;Sintaxis: IL_GetSize( [ID], [Ancho, en pixeles], [Alto, en pixeles] )
-IL_GetSize(ImageList, ByRef Width := "", ByRef Height := "") {
-	i := DllCall("ComCtl32.dll\ImageList_GetIconSize", "Ptr", ImageList, "IntP", Width, "IntP", Height)
-	, s := {}, s.h := s.Height := Height, s.w := s.Width := Width
-	return s, ErrorLevel := !i
-}
+;Sintaxis: ImageList_GetIconSize( [ImageList], [ancho (out)], [alto (out)] )
+;Return: 0=ERROR
+ImageList_GetIconSize(ImageList, ByRef Width := "", ByRef Height := "") {
+	return DllCall("ComCtl32.dll\ImageList_GetIconSize", "Ptr", ImageList, "IntP", Width, "IntP", Height, "Int")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761550(v=vs.85).aspx
 
-;obtener HANDLE de una imagen en la lista de imagenes
-;Sintaxis: IL_GetIcon( [ID], [Indice], [estilo de dibujo] )
-;Estilos de dibujo: https://msdn.microsoft.com/en-us/library/windows/desktop/bb761533(v=vs.85).aspx
-IL_GetIcon(ImageList, Index := 1, Flags := 0x0) {
-	return r:=DllCall("Comctl32.dll\ImageList_GetIcon", "Ptr", ImageList, "Int", Index-1, "UInt", Flags), ErrorLevel := !r
-}
+;obtener identificador (HANDLE) de un icono en la lista de imagenes
+;Sintaxis: ImageList_GetIcon( [ImageList], [Index], [flags] )
+;Parámetros:
+	;Flags: una combinacion de valores que espesifican el estilo de dibujo.
+;Return: hIcon
+ImageList_GetIcon(ImageList, Index := 1, Flags := 0x0) {
+	return DllCall("Comctl32.dll\ImageList_GetIcon", "Ptr", ImageList, "Int", Index-1, "UInt", Flags, "Ptr")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb761548(v=vs.85).aspx
+
+;reemplaza una imagen
+;Sintaxis: ImageList_ReplaceIcon( [ImageList], [Index], [hIcon] )
+;Parámetros:
+	;Index: espesificar el indice. por defecto la añade al final.
+	;hIcon: espesificar un HANDLE a una imagen o la ruta completa a una imagen/archivo. para espesificar un indice, usar un Array [archivo, indice].
+;Return:
+	;0 = ERROR
+	;[Index > 0] = OK
+ImageList_ReplaceIcon(ImageList, Index := 0, hIcon := 0) {
+	if ((hIcon+0)="")
+		hIcon := LoadImage(hIcon.1?hIcon.1:hIcon, hIcon.2,,, Type), DestroyIcon := true
+	Index := DllCall("Comctl32.dll\ImageList_ReplaceIcon", "Ptr", ImageList, "Int", Index-1, "Ptr", hIcon, "Int") + 1
+	if (DestroyIcon)
+		if (Type=0)
+			DeleteObject(hIcon)
+		else DestroyIcon(hIcon)
+	return Index
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb775215(v=vs.85).aspx
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;IMÁGENES
@@ -9666,8 +10412,9 @@ CopyImage(hImage, Type := 0, Width := 32, Height := 32, Flags := 0x00002000) {
 		;0 = hBitmap
 		;1 = hIcon
 		;2 = Cursor
-;Return: hIcon | hBitmap
-;Nota: destruir el HANDLE cuando ya no lo necesite con DestroyIcon()
+;Return:
+	;hIcon / Cursor = usar DestroyIcon() para eliminar el HANDLE
+	;hBitmap = usar DeleteObject() para eliminar el HANDLE
 LoadImage(Filename, Index := 1, Width := 0, Height := 0, ByRef ImageType := "") {
 	if (Index=0)
 		return DllCall("Shell32.dll\ExtractIconW", "Ptr", A_ScriptHwnd, "Ptr", &Filename, "UInt", -1)
@@ -9675,7 +10422,10 @@ LoadImage(Filename, Index := 1, Width := 0, Height := 0, ByRef ImageType := "") 
 	return LoadPicture(Filename, "GDI+ Icon" Index " w" Width " h" Height, ImageType)
 }
 
-;eliminar HANDLE a una imagen
+;eliminar HANDLE a un icono
+;Sintaxis: DestroyIcon( [hIcon*] )
+;Return: 0|1
+;Nota: para eliminar hBitmap usar DeleteObject()
 DestroyIcon(hIcon*) {
 	Ok := 0, Error := ErrorLevel
 	Loop, % hIcon.MaxIndex()
@@ -10312,8 +11062,8 @@ CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 	{ if !(Cursor) {
 			hCursor := hCursorImage := []
 			, hCursor[A_Index] := DllCall("User32.dll\CreateCursor", "Ptr", 0, "Int", 0, "Int", 0
-				, "Int", DllCall("User32.dll\GetSystemMetrics", "Int", 13)
-				, "Int", DllCall("User32.dll\GetSystemMetrics", "Int", 14)
+				, "Int", GetSystemMetrics(13)
+				, "Int", GetSystemMetrics(14)
 				, "Ptr", &AndMask, "Ptr", &XorMask)
 			, hCursorImage[A_Index] := DllCall("User32.dll\CopyImage", "Ptr", hCursor[A_Index], "UInt", 2, "Int", 0, "Int", 0, "UInt", 0)
 		} i += DllCall("User32.dll\SetSystemCursor", "Ptr", hCursorImage[A_Index], "UInt", A_LoopField)
@@ -10481,7 +11231,7 @@ GetFileVersionInfoEx(Filename) { ;WIN_V+
 ;Sintaxis: GetSystemMetrics( [valor] )
 ;Parámetros:
 	;Valores: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724385(v=vs.85).aspx
-;Nota: todas las dimencionas son recuperadas en pixeles
+;Nota: todas las dimenciones son recuperadas en pixeles
 GetSystemMetrics(Index) {
 	return DllCall("User32.dll\GetSystemMetrics", "Int", Index, "Int")
 } SysGet(Subcommand, Param3 := "") {
@@ -10496,12 +11246,12 @@ GetSystemMetrics(Index) {
 ;Sintaxis: SystemBoot()
 ;Return: 0(normal) | 1(a prueba de fallos) | 2(a prueba de fallos con acceso a la red)
 SystemBoot() {
-	return DllCall("User32.dll\GetSystemMetrics", "Int", 67)
+	return GetSystemMetrics(67)
 }
 
 ;notifica al sistema que las asociaciones de tipo de archivo han cambiado.
 SystemAssocChanged() {
-	return r:=DllCall("Shell32.dll\SHChangeNotify", "UInt", 0x08000000, "UInt", 0, "Ptr", 0, "Ptr", 0), ErrorLevel := !r
+	return DllCall("Shell32.dll\SHChangeNotify", "UInt", 0x08000000, "UInt", 0, "Ptr", 0, "Ptr", 0, "Int")
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762118%28v=vs.85%29.aspx
 
 ;Apagar Equipo
@@ -10803,7 +11553,7 @@ A_AppDataLocal() {
 
 ;ancho del monitor actual
 A_ScreenWidth() {
-	return DllCall("User32.dll\GetSystemMetrics", "Int", false)
+	return GetSystemMetrics(0)
 }
 
 ;tamaño de la zona de trabajo en el monitor de pantalla principal.
@@ -10820,7 +11570,7 @@ A_MonitorWorkArea(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height 
 
 ;alto del monitor actual
 A_ScreenHeight() {
-	return DllCall("User32.dll\GetSystemMetrics", "Int", true)
+	return GetSystemMetrics(1)
 }
 
 ;ruta completa al script
@@ -11150,7 +11900,7 @@ IsWindowsServer() { ; = WIN_SERVER
 	if (isWindowsServer!="")
 		return isWindowsServer
 	VersionInfo := SysGetVersion()
-	return isWindowsServer:=(((VersionInfo.CSDVersion="")&&(VersionInfo.ProductType!=0x0000001))||((DllCall("User32.dll\GetSystemMetrics", "Int", 89))&&!(ErrorLevel)))
+	return isWindowsServer:=(((VersionInfo.CSDVersion="")&&(VersionInfo.ProductType!=0x0000001))||(GetSystemMetrics(89)&&!(ErrorLevel)))
 }
 
 ;devuelve una cadena que identifica al sistema operativo actual.
@@ -11171,7 +11921,7 @@ WindowsVersion(ByRef ServicePackMajor := "") {
 		return WindowsVersion, ServicePackMajor := ServicePackMajor2
 	VersionInfo := SysGetVersion()
 	return (WindowsVersion:=(((VersionInfo.MajorVersion=5)&&(VersionInfo.MinorVersion=2)&&(VersionInfo.SuiteMask&0x00008000))?"WIN_HOMESERVER"
-	: ((DllCall("User32.dll\GetSystemMetrics", "Int", 89))&&!(ErrorLevel))?"WIN_SERVER2003R2" ;SM_SERVERR2
+	: (GetSystemMetrics(89)&&!(ErrorLevel))?"WIN_SERVER2003R2" ;SM_SERVERR2
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=0)&&(VersionInfo.ProductType!=0x0000001))?"WIN_SERVER2008"
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=1)&&(VersionInfo.ProductType!=0x0000001))?"WIN_SERVER2008R2"
 	: ((VersionInfo.MajorVersion=6)&&(VersionInfo.MinorVersion=2)&&(VersionInfo.ProductType!=0x0000001))?"WIN_SERVER2012"
@@ -12397,6 +13147,8 @@ MenuGetItemCount(hMenu) {
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: TAREAS PROGRAMADAS ::::::::::::::::::::::::::::::::::
 ;Nota: requiere WIN_V+
+;WIN_XP: https://msdn.microsoft.com/en-us/library/windows/desktop/aa383581(v=vs.85).aspx
+;WIN_V+: https://msdn.microsoft.com/en-us/library/windows/desktop/aa383600(v=vs.85).aspx
 ;#############################################################################################################################################
 ;recupera todas las tareas programadas
 ;Sintaxis: SchTasksEnum( [¿buscar tareas en subcarpetas?] )
@@ -13407,7 +14159,7 @@ ServiceExist(ServiceName) {
 	;FAT32
 	;FAT
 ;QuickFormat: formato rápido mediante la eliminación de archivos desde el disco sin escanear el disco en busca de sectores defectuosos
-;ClusterSize: tamaño del clúster
+;ClusterSize: tamaño del clúster. recomendado dejar en 4096.
 ;Label: etiqueta. 11 carácteres max para FAT y FAT32. 32 carácteres max para NTFS.
 DriveFormat(Drive, FileSystem := "NTFS", QuickFormat := true, ClusterSize := 4096, Label := "") { ;WIN_V+
 	Drive := SubStr(Trim(Drive), 1, 1) ":", Label := Trim(StrReplace(StrReplace(StrReplace(Label, A_Tab, A_Space), "`r"), "`n"))
@@ -14127,7 +14879,7 @@ class IVirtualDesktopManager {
 			, this.obj := ComObjCreate(CLSID, IID)
 	}
 	
-	;free IVirtualDesktopManager
+	;free IVirtualDesktopManager object
 	ObjRelease() {
 		ObjRelease(this.obj), this.obj := ""
 	}
@@ -14137,9 +14889,26 @@ class IVirtualDesktopManager {
 	;https://msdn.microsoft.com/en-us/library/windows/desktop/mt186442(v=vs.85).aspx
 	IsWindowOnCurrentVirtualDesktop(hWnd) {
 		this.ComObjCreate()
-		Error := DllCall(NumGet(NumGet(this.obj+0), 3*A_PtrSize), "Ptr", this.obj, "Ptr", hWnd, "IntP", onCurrentDesktop, "UInt")
+		, Error := DllCall(NumGet(NumGet(this.obj+0), 3*A_PtrSize), "Ptr", this.obj, "Ptr", hWnd, "IntP", onCurrentDesktop, "UInt")
 		return Error=0?onCurrentDesktop:false, ErrorLevel := Error
 	}
+
+	;IVirtualDesktopManager::GetWindowDesktopId method
+	;Gets the identifier for the virtual desktop hosting the provided top-level window.
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/mt186441(v=vs.85).aspx
+	GetWindowDesktopId(hWnd, ByRef GUID := "") {
+		VarSetCapacity(GUID, 16, 0), this.ComObjCreate()
+		return DllCall(NumGet(NumGet(this.obj+0), 4*A_PtrSize), "Ptr", this.obj, "Ptr", hWnd, "Ptr", &GUID, "UInt")=0
+	}
+	
+	;IVirtualDesktopManager::MoveWindowToDesktop method
+	;Moves a window to the specified virtual desktop.
+	;https://msdn.microsoft.com/en-us/library/windows/desktop/mt186443(v=vs.85).aspx
+	MoveWindowToDesktop(hWnd, GUID) {
+		this.ComObjCreate()
+		return DllCall(NumGet(NumGet(this.obj+0), 5*A_PtrSize), "Ptr", this.obj, "Ptr", hWnd, "Ptr", GUID, "UInt")=0
+	}
+	
 }
 
 ;recordar valores espesificados en las funciones
@@ -14147,6 +14916,509 @@ class __gsvalue {
 	static LastWindowId ;ultimo ID espesificado para una ventana
 	static LastControlId ;ultimo ID espesificado para un control
 	static LastProcessId ;ultimo ID espesificado para un proceso
+}
+
+;RICH EDIT 4.1 CLASS
+;THIS IS A REWRITTEN VERSION OF JUSTME RICHEDIT CLASS (credits for him):  https://autohotkey.com/boards/viewtopic.php?f=6&t=681&hilit=richedit
+class __RichEditClass { ;https://msdn.microsoft.com/en-us/library/ff486015(v=vs.85).aspx
+	;******************************************************************************************************************************************************************************************
+	;Static/Class Variables
+	;******************************************************************************************************************************************************************************************
+	static hModule, Address
+	static Instances := []
+	
+	;******************************************************************************************************************************************************************************************
+	;Instance Variables
+	;******************************************************************************************************************************************************************************************
+	SelIsVisible := false
+	AutoUrl := false
+	SaveFileDefaultPath := A_Desktop "\New Document.rtf"
+	LoadFileDefaultPath := A_Desktop
+	
+	;******************************************************************************************************************************************************************************************
+	;CREAR OBJETO
+	;******************************************************************************************************************************************************************************************
+	__New(Options := "", Text := "") {
+		if !(this.hModule)
+			this.hModule := LoadLibrary("MsftEdit.dll") ;Rich Edit 4.1 (Msftedit.dll)
+		if !(this.Address)
+			this.Address := RegisterCallback("__RichEditClass.SubClassProc")
+		Style := 0x10000000 | 0x10000 | 0x40000000 | 0x80
+		if InStr(Options, "+Multi") || (!InStr(Options, "-Multi") && InStr(Text, "`n"))
+			Style |= 0x0004 | 0x100000 | 0x200000 | 0x40 | 0x0100 | 0x1000 | 0x2000 | 0x8000
+		try Gui, %A_DefaultGui%:Add, Custom, ClassRICHEDIT50W HWNDhWnd +%Style% +E0x20000 %Options%, %Text%
+		catch
+			return false
+		this.Instances.Push(this.hWnd := hWnd), this.Limit := 2147483647, this.EventMask := InStr(Options, "+AltSubmit")?0x0011000D:0x01
+		, SendMessage(hWnd, 0x04CA, "UInt", 0x01, "UInt", 0x01), SendMessage(hWnd, 0x0478,,, "UInt", 0x03)
+		, DllCall("Comctl32.dll\SetWindowSubclass", "Ptr", hWnd, "Ptr", this.Address, "Ptr", hWnd, "Ptr", 0, "Int")
+	} __Delete() {
+		DllCall("Comctl32.dll\RemoveWindowSubclass", "Ptr", this.hWnd, "Ptr", this.Address, "Ptr", this.hWnd, "Int")
+		, WinDestroy(this.hWnd), this.Instances := Array_Remove(this.Instances, this.hWnd)
+		if !(this.Instances.MaxIndex())
+			FreeLibrary(this.hModule), GlobalFree(this.Address), this.hModule := this.Address := ""
+	} SubClassProc(hWnd, Msg, wParam, lParam, Subclass) { 
+		If (hWnd = 0x87)
+			return 4
+		return DllCall("Comctl32.dll\DefSubclassProc", "Ptr", This, "UInt", hWnd, "Ptr", Msg, "Ptr", wParam)
+	}
+   
+	;******************************************************************************************************************************************************************************************
+	;Properties (variables que se le puede asignar un valor para establecer datos y/o obtener datos)
+	;Establecer Datos: obj.Var := value
+	;Obtener Datos: obj.Var
+	;Nota: para invertir, usar -1.
+	;******************************************************************************************************************************************************************************************
+	;obtener / establece posición de la barra de dezplazamiento
+	;Obtener: devuelve un array [barra horizontal, barra vertical].
+	;Establecer: espesificar un array. si no espesifica un array afecta a ambas.
+	ScrollPos[] {
+		Get {
+			VarSetCapacity(POINT, 8, 0), SendMessage(this.hWnd, 0x04DD,,,, &POINT)
+			return [NumGet(POINT, 0, "Int"), NumGet(POINT, 4, "Int")]
+		} Set {
+			value := IsObject(value)?value:[value, value], VarSetCapacity(POINT, 8, 0)
+			, NumPut(value.1, POINT, 0, "Int"), NumPut(value.2, POINT, 4, "Int")
+			, SendMessage(this.hWnd, 0x04DE,,,, &POINT)
+		}
+	}
+	
+	;obtener / establecer estilo(extendido)
+	Style[] {
+		Get {
+			return SendMessage(this.hWnd, 0x04CD)
+		} Set {
+			Style := _cvtvalue(this.Style, value)
+			, SendMessage(this.hWnd, 0x04CC,, Style,, Style)
+	}} ExStyle[] {
+		Get {
+			return SendMessage(this.hWnd, 1300)
+		} Set {
+			ExStyle := _cvtvalue(this.ExStyle, value)
+			, SendMessage(this.hWnd, 1299,, ExStyle,, ExStyle)
+	}}
+	
+	;mostrar / ocultar / comprobar estado
+	Visible[] {
+		Get {
+			return WinVisible(this.hWnd)
+		} Set {
+			if (value=-1)
+				this.Visible := !this.Visible
+			else if (value)
+				WinShow(this.hWnd)
+			else WinHide(this.hWnd)
+	}}
+
+	;cambiar / obtener texto. 
+	;Nota: espesificar un array para cambiar el modo en que se copia el texto.
+	;Sintaxis: [Texto, Modo].
+	;Modos:
+		;0 = reemplaza todo el texto, no permite deshacerlo.
+		;1 = reemplaza todo el texto, permite deshacerlo.
+		;3 = reemplaza solo el texto seleccionado.
+		;4 = añade sin reemplazar nada.
+	Text[] {
+		Get {
+			VarSetCapacity(GETTEXTLENGTHEX, 8, 0), NumPut(1200, GETTEXTLENGTHEX, 4, "UInt")
+			, Length := SendMessage(this.hWnd, 0x045F,, &GETTEXTLENGTHEX)
+			, VarSetCapacity(GETTEXTEX, (4 * 4) + (A_PtrSize * 2), 0), NumPut((Length + 1) * 2, GETTEXTEX, 0, "UInt")
+			, NumPut(1200, GETTEXTEX, 8, "UInt"), VarSetCapacity(Text, (Length + 1) * 2, 0)
+			, SendMessage(this.hWnd, 0x045E,, &GETTEXTEX, "Str", Text), VarSetCapacity(Text, -1)
+			return Text
+		} Set {
+			if IsObject(value)
+				Mode := value.2, value := value.1
+			else Mode := 1
+			VarSetCapacity(SETTEXTEX, 8, 0), NumPut(Mode, SETTEXTEX, 0, "UInt"), NumPut(1200, SETTEXTEX, 4, "UInt") 
+			, SendMessage(this.hWnd, 0x0461,, &SETTEXTEX,, &value)
+	}}
+	
+	;habilitar / deshabilitar / comprobar estado
+	Enabled[] {
+		Get {
+			return WinEnabled(this.hWnd)
+		} Set {
+			if (value=-1)
+				this.Enabled := !this.Enabled
+			else if (value)
+				WinEnable(this.hWnd)
+			else WinDisable(this.hWnd)
+	}}
+
+	;obtener / establecer zoom %
+	Zoom[] {
+		Get {
+			VarSetCapacity(N, 4, 0), VarSetCapacity(D, 4, 0)
+			, SendMessage(this.hWnd, 0x04E0,, &N,, &D)
+			, N := NumGet(N, 0, "Int"), D := NumGet(D, 0, "Int")
+			return (N = 0) && (D = 0) ? 100 : Round(N / D * 100)
+		} Set {
+			SendMessage(this.hWnd, 0x4E1, "Int", value>0?value:100, "Int", 100)
+	}}
+	
+	;obtener / establecer limite de texto
+	Limit[] {
+		Get {
+			return this.LimitText
+		} Set {
+			SendMessage(this.hWnd, 0x0435,,,, this.LimitText:=value)
+	}}
+	
+	;obtener / establecer solo lectura
+	ReadOnly[] {
+		Get {
+			return SendMessage(this.hWnd, 0x044E)&0x800
+		} Set {
+			Options := _cvtvalue(SendMessage(this.hWnd, 0x044E), 0x800, value)
+			, SendMessage(this.hWnd, 0x044D, "UInt", 0x01, "UInt", Options)
+	}}
+	
+	;comprueba / establece si ha sido modificado
+	Modified[] {
+		Get {
+			return SendMessage(this.hWnd, 0xB8)
+		} Set {
+			SendMessage(this.hWnd, 0xB9,, !!value)
+	}}
+	
+	;obtiene / establece el nivel de notificaciones que se envian a la etiqueta espesificada (A_EventInfo contiene el código)
+	;CHANGE: 0x01, UPDATE: 0x02, SCROLL: 0x04, SCROLLEVENTS: 0x08, DRAGDROPDONE: 0x10
+	;PARAGRAPHEXPANDED: 0x20, PAGECHANGE: 0x40, KEYEVENTS: 0x010000, MOUSEEVENTS: 0x020000
+	;REQUESTRESIZE: 0x040000, SELCHANGE: 0x080000, DROPFILES: 0x100000, PROTECTED: 0x200000
+	EventMask[] { ;ALL=0x043F0085
+		Get {
+			return SendMessage(this.hWnd, 1083)
+		} Set {
+			EventMask := _cvtvalue(this.EventMask, value)
+			, SendMessage(this.hWnd, 0x0445,,, "UInt", EventMask)
+	}}
+	
+	;muestra / oculta la selección
+	SelVisible[] {
+		Get {
+			return this.SelIsVisible
+		} Set {
+			if (value=-1)
+				value := !this.SelIsVisible
+			SendMessage(this.hWnd, 0x043F,, !(this.SelIsVisible:=!!value))
+	}}
+	
+	;obtiene / establece el texto seleccionado
+	SelText[] {
+		Get {
+			this.GetSel(,, Text)
+			return Text
+		} Set {
+			this.GetSel(Start, End)
+			, SendMessage(this.hWnd, 0xC2,, true,, &value)
+			, this.SetSel(Start, Start+StrLen(value))
+			return true
+	}}
+
+	;activa / desactiva la detección de URLs
+	AutoUrlDetect[] {
+		Get {
+			return this.AutoUrl
+		} Set {
+			if (value=-1)
+				value := !this.AutoUrl
+			SendMessage(this.hWnd, 0x45B,, this.AutoUrl:=!!value), this.Redraw()
+	}}
+	
+	;obtiene el número de lineas
+	Lines[] {
+		Get {
+			return SendMessage(this.hWnd, 0xBA)
+	}}
+	
+	;obtiene la linea que contiene a la barra de intercalación
+	CaretLine[] {
+		Get {
+			LineIndex := SendMessage(this.hWnd, 0xBB,, -1)
+			return SendMessage(this.hWnd, 0x0436,,,, LineIndex) + 1
+			
+	}}
+	
+	;obtiene el número de caracteres
+	Length[] {
+		Get {
+			VarSetCapacity(GETTEXTLENGTHEX, 8, 0), NumPut(1200, GETTEXTLENGTHEX, 4, "UInt")
+			return SendMessage(this.hWnd, 0x045F,, &GETTEXTLENGTHEX)
+	}}
+	
+	;activar / desactivar ajuste de linea (el ajuste de linea hace que cuando el texto alcanze el maximo ancho visible, continue en una linea aparte, que no cuenta como linea en si)
+	WordWrap[] {
+		Set {
+			this.GetSel(Start, End), SendMessage(this.hWnd, 0x0448,,,, value?0:-1)
+			, this.SetSel(Start, End), this.ScrollCaret()
+	}}
+	
+	;******************************************************************************************************************************************************************************************
+	;Methods (funciones)
+	;******************************************************************************************************************************************************************************************	
+	;obtener algunos valores de estadistica
+	;CaretLine: linea actual
+	;CaretCol: columna actual
+	;LineCount: lineas tótales
+	;CharLength: carácteres totales
+	;SelLength: carácteres seleccionados
+	;SelText: texto seleccionado
+	;SelStart: posicion inicial de la barra de intercalación actual
+	;SelEnd: posición final de la barra de intercalación actual
+	GetStatistics() {
+		Statistics := {}, Statistics.SelStart := this.GetSel(, End, Text).1, Statistics.SelEnd := End
+		, Statistics.SelText := Text, Statistics.SelLength := StrLen(Text)
+		, Statistics.CaretCol := Statistics.SelStart, Statistics.CaretLine := this.CaretLine
+		, Statistics.LineCount := this.Lines, Statistics.CharLength := this.Length
+		return Statistics
+	}
+	
+	;busca un determinado texto, lo selecciona y lo hace visible.
+	;Mode (sumar para combinar): 1 = BÚSQUEDA HACIA ADELANTE | 2 = BUSCAR PALABRA COMPLETA | 4 = BÚSQUEDA SENSIBLE A MAYÚSCULAS
+	;Return: Array(Start, End)=OK | 0=ERROR
+	FindText(Text, Mode := -1) {
+		this.GetSel(Start, End), Min := Mode&1?End-1:Start-1, Max := Mode&1?-1:0
+		, VarSetCapacity(FINDTEXTEX, 16 + A_PtrSize, 0), NumPut(Min, FINDTEXTEX, 0, "Int")
+		, NumPut(Max, FINDTEXTEX, 4, "Int"), NumPut(&Text, FINDTEXTEX, 8, "Ptr")
+		, SendMessage(this.hWnd, 0x047C,, Mode=-1?1:Mode,, &FINDTEXTEX)
+		Start := NumGet(FINDTEXTEX, 8 + A_PtrSize, "Int")+1, End := NumGet(FINDTEXTEX, 12 + A_PtrSize, "Int")+1
+		If (Start=0) && (End=0)
+			return false
+		return [Start, End], this.SetSel(Start, End, true)
+	}
+
+	;mueve la barra de desplazamiento a tal punto que la barra de intercalación es totalmente visible
+	ScrollCaret() {
+		SendMessage(this.hWnd, 0x00B7)
+	}
+	
+	;mostrar / ocultar barras de desplazamiento
+	;SB:  0 = HORIZONTAL | 1 = VERTICAL
+	;Mode: 0 = OCULTAR | 1 = MOSTRAR
+	ShowScrollBar(SB := 1, Mode := true) {
+		SendMessage(this.hWnd, 0x0460, "UInt", SB, "Int", !!Mode)
+	}
+	
+	;diálogo para elegir color
+	;Selected: solo aplica para el texto seleccionado
+	;Mode: 0 = color del texto | 1 = color de fondo
+	ChooseColor(Selected := false, Mode := 0) {
+		Font := this.GetFont(Selected)
+		, Color := ColorSelect(this.hWnd, Mode?Font.BKColor:Font.TextColor)
+		if (ErrorLevel) 
+			return false
+		if (Mode)
+			this.SetFont({BKColor: Color}, Selected)
+		else this.SetFont({TextColor: Color}, Selected)
+		return true
+	}
+	
+	;diálogo para elegir fuente
+	;Selected: solo aplica para el texto seleccionado
+	;Mode: 0 = color del texto | 1 = color de fondo
+	ChooseFont(Selected := false, Mode := 0) {
+		Font := this.GetFont(Selected)
+		, Font := FontSelect(this.hWnd, Font.Name, [Mode?Font.BKColor:Font.TextColor, Font.Size, Font.Bold, Font.Italic, Font.Underline, Font.Strike, Font.CharSet])
+		if (ErrorLevel)
+			return false
+		if (Mode)
+			this.SetFont({Name: Font.0, BKColor: Font.1, Size: Font.2, Bold: Font.3, Italic: Font.4, Underline: Font.5, Strike: Font.6, CharSet: Font.7}, Selected)
+		else this.SetFont({Name: Font.0, TextColor: Font.1, Size: Font.2, Bold: Font.3, Italic: Font.4, Underline: Font.5, Strike: Font.6, CharSet: Font.7}, Selected)
+		return true
+	}
+	
+	;establecer color de fondo y texto
+	;BKColor: RGB color. -1 = SYSTEM_COLOR
+	;TextColor: RGB color.
+	;Selected: 1 = aplicar solo al texto seleccionado.
+	SetColor(BKColor := "", TextColor := "", Selected := false) {
+		if (Selected)
+			return this.SetFont({BKColor: BKColor, TextColor: TextColor}, true)
+		if !(BKColor="")
+			SendMessage(this.hWnd, 0x0443,, BKColor=-1,, BKColor=-1?0:_getcolor(BKColor, true))
+		if !(TextColor="")
+			this.SetFont({TextColor: TextColor})
+	}
+	
+	;limpiar, copiar, cortar, pegar, rehacer, deshacer, puede rehacer, puede deshacer.
+	Clear() {
+		Edit_SelClear(this.hWnd)
+	} Copy() {
+		Edit_SelCopy(this.hWnd)
+	} Cur() {
+		Edit_SelClear(this.hWnd)
+	} Paste() {
+		Edit_SelPaste(this.hWnd)
+	} Redo() {
+		SendMessage(this.hWnd, 0x454)
+	} Undo() {
+		SendMessage(this.hWnd, 0xC7)
+	} CanRedo() {
+		return SendMessage(this.hWnd, 0x0455)
+	} CanUndo() {
+		return SendMessage(this.hWnd, 0x00C6)
+	}
+
+   ;redibujar control
+	Redraw() {
+		WinRedraw(this.hWnd)
+	} 
+	
+	;obtener fuente
+	GetFont(Selected := 0) { ;0=SCF_DEFAULT | 1=SCF_SELECTION
+		VarSetCapacity(CHARFORMAT2, 116, 0), NumPut(116, CHARFORMAT2, 0, "UInt"), Font := {}
+		, NumPut(0xEC03001F, CHARFORMAT2, 4, "UInt"), NumPut(0xEC000000, CHARFORMAT2, 8, "UInt")
+		, SendMessage(this.hWnd, 0x043A, "Int", !!Selected,, &CHARFORMAT2) ;EM_GETCHARFORMAT
+		, Font.Name := StrGet(&CHARFORMAT2 + 26), Font.Size := NumGet(CHARFORMAT2, 12, "Int") / 20
+		, Font.Effects := NumGet(CHARFORMAT2, 8, "UInt"), Font.Bold := Font.Effects&1, Font.Italic := Font.Effects&2
+		, Font.Underline := Font.Effects&4, Font.Link := Font.Effects&0x0020, Font.Face := Font.Effects&0x20000
+		, Font.Protected := Font.Effects&16, Font.AutoColor := Font.Effects&0x40000000, Font.Strike := Font.Effects&8
+		, Font.SuperScript := Font.Effects&0x20000, Font.SubScript := Font.Effects&0x10000, Font.CharSet := NumGet(CHARFORMAT2, 24, "UChar")
+		, Font.Normal := !Font.Underline&&!Font.Italic&&!Font.Bold&&!Font.Protected&&!Font.Strike&&!Font.SuperScript&&!Font.SubScript
+		, Font.TextColor := RGB(NumGet(CHARFORMAT2, 20, "Int")), Font.BKColor := Font.Effects&0x04000000?"White":RGB(NumGet(CHARFORMAT2, 96, "UInt"))
+		, Font.UnderlineType := NumGet(CHARFORMAT2, 112, "UChar"), Font.UnderlineColor := NumGet(CHARFORMAT2, 115, "UChar")
+		, Font.RevAuthor := NumGet(CHARFORMAT2, 114, "UChar"), Font.Weight := NumGet(CHARFORMAT2, 90, "UShort")
+		return Font
+	}
+
+	;establecer fuente
+	SetFont(Font, Selected := false, Start := "", End := "") { 
+		if !(End="") || !(Start="")
+			this.GetSel(s, e), this.SetSel(Start=""?1:Start, End=""?0:End)
+		CFont := this.GetFont(Selected), Mask := Effects := 0
+		, VarSetCapacity(CHARFORMAT2, 116, 0), NumPut(116, CHARFORMAT2, 0, "UInt")
+		, Mask |= 0x20000000, Effects |= 0x20000000, StrPut(Font.Name=""?CFont.Name:Font.Name, &CHARFORMAT2 + 26)
+		, Mask |= 0x80000000, Effects |= 0x80000000, NumPut((Font.Size=""?CFont.Size:Font.Size)*20, CHARFORMAT2, 12, "UInt")
+		, Mask |= 0x40000000, NumPut(_getcolor(Font.TextColor=""?CFont.TextColor:Font.TextColor, true), CHARFORMAT2, 20, "Int")
+		, Mask |= 0x04000000, NumPut(_getcolor(Font.BKColor=""?CFont.BKColor:Font.BKColor, true), CHARFORMAT2, 96, "UInt")
+		, Mask |= 0x08000000, Effects |= 0x08000000, NumPut(Font.CharSet=""?CFont.CharSet:Font.CharSet, CHARFORMAT2, 24, "UChar")
+		, Mask |= 0x3001F, Effects |= (Font.Bold=""?!!CFont.Bold:!!Font.Bold) | (Font.Italic=""?(CFont.Italic?2:0):(Font.Italic?2:0)) 
+			| (Font.Underline=""?(CFont.Underline?4:0):(Font.Underline?4:0)) | (Font.Strike=""?(CFont.Strike?8:0):(Font.Strike?8:0))
+			| (Font.Protected=""?(CFont.Protected?16:0):(Font.Protected?16:0)) | (Font.SuperScript=""?(CFont.SuperScript?0x20000:0):(Font.SuperScript?0x20000:0))
+			| (Font.SubScript=""?(CFont.SubScript?0x10000:0):(Font.SubScript?0x10000:0))
+		Mask |= 0x00800000, NumPut(Font.UnderlineType=""?CFont.UnderlineType:Font.UnderlineType, CHARFORMAT2, 112, "UChar")
+		, Mask |= 0x00008000, NumPut(Font.RevAuthor=""?CFont.RevAuthor:Font.RevAuthor, CHARFORMAT2, 114, "UChar")
+		, Mask |= 0x00400000, NumPut(Font.Weight=""?CFont.Weight:Font.Weight, CHARFORMAT2, 90, "UShort")
+		, NumPut(_getcolor(Font.UnderlineColor=""?CFont.UnderlineColor:Font.UnderlineColor, true), CHARFORMAT2, 115, "UChar")
+		, NumPut(Mask, CHARFORMAT2, 4, "UInt"), NumPut(Effects, CHARFORMAT2, 8, "UInt"), SendMessage(this.hWnd, 0x0444, "Int", !!Selected,, &CHARFORMAT2)
+		if !(End="") || !(Start="")
+			this.SetSel(s, e)
+	}
+	
+	;establecer seleccion, por defecto selecciona todo el texto.
+	SetSel(Start := 1, End := 0, ScrollCaret := false) {
+		VarSetCapacity(CHARRANGE, 8, 0), NumPut(Start-1, CHARRANGE, 0, "Int"), NumPut(End-1, CHARRANGE, 4, "Int")
+		SendMessage(this.hWnd, 0x0437,,,, &CHARRANGE)
+		if (ScrollCaret)
+			this.ScrollCaret()
+	}
+	
+	;obtener posición de los carácteres seleccionados, opcional el texto seleccionado
+	GetSel(ByRef Start := "", ByRef End := "", ByRef SelText := "") {
+		VarSetCapacity(CHARRANGE, 8, 0), SendMessage(this.hWnd, 0x0434,,,, &CHARRANGE)
+		, Start := NumGet(CHARRANGE, 0, "Int"), End := NumGet(CHARRANGE, 4, "Int"), Start := Start?Start+1:0, End := End?End+1:0
+		if IsByRef(SelText) && (End>0) && !(Start=End)
+			VarSetCapacity(SelText, End * 2, 0), SendMessage(this.hWnd, 0x043E,,, "Str", SelText), VarSetCapacity(SelText, -1)
+		return [Start, End]
+	}
+	
+	;obtener parte editable
+	GetRect(ByRef x := "", ByRef y := "", ByRef w := "", ByRef h := "") {
+		return Edit_GetRect(this.hWnd, x, y, w, h)
+	}
+
+	;establecer parte editable
+	SetRect(x := "", y := "", w := "", h := "") {
+		return Edit_SetRect(this.hWnd, x, y, w, h)
+	}
+	
+	;establecer el formato de párrafo
+	SetTextParaFormat(Format) {
+		CFormat := this.GetTextParaFormat(), Mask := 0
+		, VarSetCapacity(PARAFORMAT2, 188, 0), NumPut(188, PARAFORMAT2, 0, "UInt")
+		, Mask |= 0x00000008, NumPut(Format.Alignment=""?CFormat.Alignment:Format.Alignment, 24, "UShort")
+		, Mask |= 0x100, NumPut(Format.LineSpacingRule=""?CFormat.LineSpacingRule:Format.LineSpacingRule, PARAFORMAT2, 170, "UChar")
+		, Mask |= 0x00000100, NumPut(Abs(Format.LineSpacing=""?CFormat.LineSpacing:Format.LineSpacing)*20, PARAFORMAT2, 164, "Int")
+		NumPut(Mask, PARAFORMAT2, 4, "UInt"), SendMessage(this.hWnd, 0x0447,,,, &PARAFORMAT2)
+		MsgBox % this.GetTextParaFormat().LineSpacing
+	}
+
+	;obtener el formato de párrafo
+	GetTextParaFormat() {
+		VarSetCapacity(PARAFORMAT2, 188, 0), NumPut(0xD0FFFDFF, PARAFORMAT2, 4, "UInt")
+		, SendMessage(this.hWnd, 0x043D,,,, &PARAFORMAT2), Format := {}
+		, Format.Alignment := NumGet(PARAFORMAT2, 24, "UShort")
+		, Format.LineSpacing := NumGet(PARAFORMAT2, 164, "Int")
+		, Format.LineSpacingRule := NumGet(PARAFORMAT2, 170, "UChar")
+		return Format
+	}
+	
+	;dialogo para abrir archivo
+	LoadFileDlg() {
+		Filename := FileSelect("*" this.LoadFileDefaultPath)
+		return ErrorLevel?false:this.LoadFile(this.LoadFileDefaultPath:=Filename)
+	}
+	
+	;dialogo para guardar archivo
+	SaveFileDlg() {
+		Filename := FileSave(this.SaveFileDefaultPath)
+		return ErrorLevel?false:this.SaveFile(this.SaveFileDefaultPath:=Filename)
+	}
+
+	;cargar texto desde archivo
+	;Mode: espesificar el modo
+		;Open = reemplazar todo el texto
+		;Append = añadir al final
+		;Insert = añadir en / reemplazar selección
+	LoadFile(Filename, Mode := "Open") {
+		if !FileExist(Filename)
+			return false
+		SplitPath, Filename,,, Ext
+		if (Ext="RTF") {
+			if (Mode="Append")
+				this.SetSel(0, -1)
+			return this.LoadRTF(Filename, (Mode="Insert"||Mode="Append"))
+		} else {
+			if (Mode="Open")
+				this.Text := FileRead(Filename)
+			else if (Mode="Insert")
+				this.SelText := FileRead(Filename)
+			else if (Mode="Append")
+				this.SetSel(0, -1), this.SelText := FileRead(Filename)
+			return true
+	}} LoadRTF(Filename, Selection := false) {
+		if !(f := FileOpen(Filename, "r"))
+			return false
+		Address := RegisterCallback("__RichEditClass.LoadRTFProc"), VarSetCapacity(EDITSTREAM, (A_PtrSize * 2) + 4, 0)
+		, NumPut(f.__Handle, EDITSTREAM, 0, "Ptr"), NumPut(Address, EDITSTREAM, A_PtrSize + 4, "Ptr")
+		, Text := SendMessage(this.hWnd, 0x0449,, 0x4002 | (Selection ? 0x8000 : 0),, &EDITSTREAM), GlobalFree(Address)
+		return true, f.Close()
+	} LoadRTFProc(Buff, Bytes, BytesRead) {
+      return !DllCall("Kernel32.dll\ReadFile", "Ptr", this, "Ptr", Buff, "UInt", Bytes, "Ptr", BytesRead, "Ptr", 0)
+	}
+	
+	;guardar a un archivo
+	SaveFile(Filename) {
+		SplitPath, Filename,,, Ext
+		Text := Ext="RTF"?this.GetRTF():this.Text
+		if (f := FileOpen(Filename, "w`n"))
+			return true, f.Write(Text), f.Close()
+		return false
+	} GetRTF(Selection := false) {
+		Address := RegisterCallback("__RichEditClass.GetRTFProc"), VarSetCapacity(EDITSTREAM, (A_PtrSize * 2) + 4, 0)
+		, NumPut(this.hWnd, EDITSTREAM, 0, "Ptr"), NumPut(Address, EDITSTREAM, A_PtrSize + 4, "Ptr")
+		, SendMessage(this.hWnd, 0x044A,, 0x4022 | (1200 << 16) | (Selection ? 0x8000 : 0),, &EDITSTREAM)
+		return this.GetRTFProc("Get", 0, 0), GlobalFree(Address)
+	} GetRTFProc(Buff, Bytes, BytesRead) {
+		static RTF := ""
+		If (Bytes > 0)
+			return false, RTF .= StrGet(Buff, Bytes, "CP0")
+		if (Buff="Get") {
+			Text := RTF, VarSetCapacity(RTF, 0)
+			return Text
+		} return true
+	}
 }
 
 ;#############################################################################################################################################
@@ -14169,9 +15441,9 @@ return
 ;color para ListView controles
 #Include *i <Class_LV_Colors> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=1081
 ;otra opcion para las funciones con archivos INI
-#Include *i <Class_INIFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_INIFile
+	;#Include *i <Class_INIFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_INIFile
 ;clase para archivos
-#Include *i <Class_OpenFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_OpenFile
+	;#Include *i <Class_OpenFile> ;https://github.com/flipeador/AutoHotKey/blob/master/Class_OpenFile
 ;editar filas individuales en ListView
 #Include *i <Class_LV_InCellEdit> ;http://ahkscript.org/boards/viewtopic.php?p=15056#p15056
 
@@ -14183,7 +15455,7 @@ return
 ;otra opcion al TrayTip
 #Include *i <TrayTipEx> ;http://ahkscript.org/boards/viewtopic.php?f=42&t=5827
 ;otra opcion al ToolTip
-#Include *i <ToolTipEx> ;https://github.com/flipeador/AutoHotKey/blob/master/ToolTipEx
+	;#Include *i <ToolTipEx> ;https://github.com/flipeador/AutoHotKey/blob/master/ToolTipEx
 ;color de fondo para Picture controles
 #Include *i <LinearGradient> ;http://ahkscript.org/boards/viewtopic.php?f=6&t=3593
 ;dialogo para seleccionar un icono
@@ -14199,3 +15471,12 @@ return
 ;--------------------------------------
 #NoEnv ;evita comprobar las variables vacías para ver si son variables de entorno (recomendado para todos los nuevos scripts).
 #MaxMem 4095 ;establece la capacidad máxima de cada variable, en megabytes.
+
+/* 
+Example: https://msdn.microsoft.com/en-us/library/windows/desktop/bb776891(v=vs.85).aspx#Shellink_Resolving_Shortcut
+GUID --> https://github.com/postgrespro/pgwininstall/blob/master/nsis/common_macro.nsh
+IShellLink := ComObjCreate("{00021401-0000-0000-C000-000000000046}", "{000214F9-0000-0000-C000-000000000046}")
+IPersistFile := ComObjQuery(IShellLink, "{000214F9-0000-0000-C000-000000000046}") ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms687223(v=vs.85).aspx
+--> Load() https://msdn.microsoft.com/en-us/library/windows/desktop/ms687284(v=vs.85).aspx
+Load() mode https://msdn.microsoft.com/en-us/library/windows/desktop/aa380337(v=vs.85).aspx
+*/
