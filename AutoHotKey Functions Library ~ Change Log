@@ -42,6 +42,7 @@ Mejoras:
 	• FontSelect(). agegado opcion código de idioma.
 	
 Correcciones:
+	• OpenFolderAndSelectItems()
 	• CoTaskMemFree()
 	• GetKnownFolderPath()
 	• Array_Count()
