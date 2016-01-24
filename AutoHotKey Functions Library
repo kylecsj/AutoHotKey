@@ -1041,7 +1041,7 @@ OpenFolderAndSelectItems(DirName, Files, Flags := 0x0) {
 		return false, ErrorLevel := 2
 	DllCall("Ole32.dll\CoInitialize", "Ptr", 0), VarSetCapacity(PidlArray, Files.MaxIndex() * A_PtrSize, 0), FolderPidl := ParseDisplayName(DirName)
 	for k, v in Files
-		NumPut(ParseDisplayName(DirName "\" v), PidlArray, (k - 1) * A_PtrSize, "Ptr")
+		NumPut(ParseDisplayName(v), PidlArray, (k - 1) * A_PtrSize, "Ptr")
 	r := DllCall("Shell32.dll\SHOpenFolderAndSelectItems", "Ptr", FolderPidl, "UInt", Files.MaxIndex(), "Ptr", &PidlArray, "UInt", Flags)
 	for k, v in Files
 		DllCall("Ole32.dll\CoTaskMemFree", "Ptr", NumGet(PidlArray, (k - 1) * A_PtrSize), "Ptr")
