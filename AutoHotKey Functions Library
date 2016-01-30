@@ -48,6 +48,7 @@ Funciones:
 	• Servicios de Escritorio Remoto
 	• Programas de Inicio Automático
 	• Shell Interface (IShellItems & ShellItemArray)
+	• Variables.
 	• Otros (funciones variadas)
 Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variables, IVirtualDesktopManager:=1):
 	• IVirtualDesktopManager
@@ -55,7 +56,7 @@ Clases (evitar sobreescribirlas, como por ejemplo, usandolas como simples variab
 	• __RichEditClass
 Link (reporta problemas o sugerencias para nuevas funciones): http://ahkscript.org/boards/viewtopic.php?f=42&t=5535
 AutoHotKey: 1.1.23.00+
-Actualizado: AHK1.1.23.01 U32 & U64 || domingo, 24 de enero de 2016
+Actualizado: AHK1.1.23.01 U32 & U64 || sábado, 30 de enero de 2016
 Historial De Cambios: https://github.com/flipeador/AutoHotKey/blob/master/AutoHotKey%20Functions%20Library%20~%20Change%20Log
 Notas:
 	• si utiliza MUCHO las funciones que utilizan Gdip, iniciarlo antes usando GdiplusStartup().
@@ -92,16 +93,40 @@ _mnum(f,s,r:=true){
 			i := WinGetPID(h?h:x)
 		return i
 	} return __gsvalue.LastProcessId := ((InStr(h,".")||h=-1||h=-2)?ProcessExist(h):h=-3?__gsvalue.LastProcessId:h)
-}_gethwnd(ByRef h,ByRef c:=""){
-	if IsByRef(h)
-		__gsvalue.LastWindowId:=h:=(h=-1?IsWindow():h=-2?MouseGetPos(,, true)[3]:h=-3?__gsvalue.LastWindowId:h)
-	if IsByRef(c)
-		__gsvalue.LastControlId:=c:=(c=-1?ControlExist(h,ControlGetFocus(h)):c=-2?MouseGetPos(,,, true,2)[4]:c=-3?__gsvalue.LastControlId:ControlExist(h,c))
 }
+
+_gethwnd(ByRef hWnd, ByRef Control := "") {
+	if (hWnd=-1)
+		__gsvalue.LastWindowId := hWnd := IsWindow()
+	else if (hWnd=-2) {
+		MouseGetPos,,, hWnd
+		__gsvalue.LastWindowId := hWnd
+	} else if (hWnd=-3)
+		hWnd := __gsvalue.LastWindowId
+	if IsByRef(Control) {
+		if (Control=-1)
+			__gsvalue.LastControlId := Control := ControlFocus(hWnd)
+		else if (Control=-2) {
+			MouseGetPos,,,, Control, 2
+			__gsvalue.LastControlId := Control
+		} else if (Control=-3)
+			Control := __gsvalue.LastControlId
+		else Control := (Control+0)=""?ControlExist(hWnd, Control):Control
+}	}
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 ;####################################################################################################################
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -738,7 +763,6 @@ FileCreateShortcut(Target, ShortcutFile, WorkingDir := "", Args := "", Descripti
 	;MsgBox % "Tomar Posesión: " FileSetOwner(A_SysDir() "\calc.exe") ;primero tomar posesión
 	;MsgBox % "Control Total: " FileSetSecurity(A_SysDir() "\calc.exe") ;segundo modificar los permisos
 ;Return: 0|1
-;ErrorLevel: 0|1
 FileSetSecurity(Path, Trustee := "", AccessMask := 0x1F01FF, Flags := 1, AccesFlag := 0) { ;WIN_V+
 	Trustee := Trustee=""?A_UserNameEx():Trustee, Path := GetFullPathName(Path)
 	, oADsSecurityUtility := ComObjCreate("ADsSecurityUtility")
@@ -756,7 +780,7 @@ FileSetSecurity(Path, Trustee := "", AccessMask := 0x1F01FF, Flags := 1, AccesFl
 	, oADsSecurityUtility.SetSecurityDescriptor(Path, 1, oADsSecurityDescriptor, 1)
 }
 
-;establecer el propietario
+;establecer el propietario a archivo/directorio
 ;Sintaxis: FileSetOwner( [archivo], [usuario] )
 ;Parámetros:
 	;Usuario: espesificar el dominio\usuario o el SID del usuario. por defecto usa el usuario actual.
@@ -1039,14 +1063,18 @@ ReadFile(hFile, ByRef OutputVar, Bytes, ByRef BytesRead := "", ByRef Overlapped 
 OpenFolderAndSelectItems(DirName, Files, Flags := 0x0) {
 	if !(DirExist(DirName)) || !(Files:=GetValidArrayFiles(Files,, DirName "\"))
 		return false, ErrorLevel := 2
-	DllCall("Ole32.dll\CoInitialize", "Ptr", 0), VarSetCapacity(PidlArray, Files.MaxIndex() * A_PtrSize, 0), FolderPidl := ParseDisplayName(DirName)
+	VarSetCapacity(ITEMLIST, Files.MaxIndex() * A_PtrSize, 0), FolderPidl := ParseDisplayName(DirName)
 	for k, v in Files
-		NumPut(ParseDisplayName(v), PidlArray, (k - 1) * A_PtrSize, "Ptr")
-	r := DllCall("Shell32.dll\SHOpenFolderAndSelectItems", "Ptr", FolderPidl, "UInt", Files.MaxIndex(), "Ptr", &PidlArray, "UInt", Flags)
+		NumPut(ParseDisplayName(v), ITEMLIST, (A_Index - 1) * A_PtrSize, "Ptr")
+	r := DllCall("Shell32.dll\SHOpenFolderAndSelectItems", "Ptr", FolderPidl, "UInt", Files.MaxIndex(), "Ptr", &ITEMLIST, "UInt", Flags)
 	for k, v in Files
-		DllCall("Ole32.dll\CoTaskMemFree", "Ptr", NumGet(PidlArray, (k - 1) * A_PtrSize), "Ptr")
-	return !r, DllCall("Ole32.dll\CoTaskMemFree", "Ptr", FolderPidl), DllCall("Ole32.dll\CoUninitialize"), ErrorLevel := r
+		CoTaskMemFree(NumGet(ITEMLIST, (A_Index - 1) * A_PtrSize, "Ptr"))
+	return !r, CoTaskMemFree(FolderPidl), ErrorLevel := r
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762232(v=vs.85).aspx
+
+
+
+
 
 
 
@@ -1298,21 +1326,19 @@ RunWait(Target, WorkingDir := "", Options := "", ByRef OutputVarPID := "") {
 	;• cuando se espesifica tiempo fuera, primero busca y cierra todas las demás ventanas
 		;de propiedades abiertas por el proceso actual; ya que sino, esperaría a que todas las
 		;ventanas se cierren, y solo queremos esperar la que espesificamos para el archivo.
-;Ejemplo: Properties(comspec, false, true), ExitApp()
+;Ejemplo: Properties(comspec, false, true)
 Properties(Target, WaitClose := -1, AlwaysOnTop := false) {
 	if !FileExist(Target)
 		return 0, ErrorLevel := 2
 	if (WaitClose>-1) {
-		CurrentProcessId := ProcessExist()
-		, WinCloseEx(, "#32770", CurrentProcessId, true)
+		WinCloseEx(, "#32770", ProcessExist(), true)
 		, Run("Properties " Chr(34) Target Chr(34))
-		, hWnd := WinWait(, 5, "#32770", CurrentProcessId)
-		if (AlwaysOnTop)
-			WinSet(hWnd, "+AlwaysOnTop")
+		, hWnd := WinWait(, 5, "#32770", ProcessExist(),, IsWindows8OrGreater())
+		, WinAlwaysOnTop(hWnd, AlwaysOnTop)
 		return WinWaitClose(hWnd, WaitClose)
 	} r := Run("Properties " Chr(34) Target Chr(34))
-	if (AlwaysOnTop&&(hWnd:=WinWait(, 5, "#32770", ProcessExist())))
-		WinSet(hWnd, "+AlwaysOnTop")
+	if (AlwaysOnTop) && (hWnd:=WinWait(, 5, "#32770", ProcessExist(),, IsWindows8OrGreater()))
+		WinAlwaysOnTop(hWnd, true)
 	return hWnd?hWnd:r, ErrorLevel := !r
 }
 
@@ -1352,24 +1378,34 @@ ExecScript(Script, Params := "", Filename := "") {
 ;--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CloseHandle(HANDLE*) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724211(v=vs.85).aspx
 	Error := ErrorLevel, Ok := 0
-	Loop, % (HANDLE.MaxIndex())
-		Ok += !!DllCall("Kernel32.dll\CloseHandle", "Ptr", HANDLE[A_Index], "UInt")
+	for k, v in HANDLE
+		Ok += !!DllCall("Kernel32.dll\CloseHandle", "Ptr", v, "UInt")
 	return Ok=HANDLE.MaxIndex(), ErrorLevel := Error
 }
 
-GetHandleInformation(Handle) { ;Return: HANDLE_FLAG_INHERIT=1 | HANDLE_FLAG_PROTECT_FROM_CLOSE=2 | 0
-	r := DllCall("Kernel32.dll\GetHandleInformation", "Ptr", Handle, "UIntP", Flags)
-	return Flags, ErrorLevel := !r ;ErrorLevel = 1 => Invalid HANDLE
+;obtener ciertas propiedades de un HANDLE
+;Sintaxis: GetHandleInformation( [HANDLE], [flags] )
+;Parámetros:
+	;Flags: puede ser uno de los siguientes valores.
+	;0x00000000
+	;0x00000001 = HANDLE_FLAG_INHERIT
+	;0x00000002 = HANDLE_FLAG_PROTECT_FROM_CLOSE
+;Return: 0|1
+;ErrorLevel:
+	;1 = OK
+	;6 = el HANDLE es inválido
+	;[otro] = ver https://msdn.microsoft.com/en-us/library/ms681382(v=vs.85).aspx
+GetHandleInformation(Handle, ByRef Flags := "") {
+	Ok := DllCall("Kernel32.dll\GetHandleInformation", "Ptr", Handle, "UIntP", Flags)
+	return !!Ok, ErrorLevel := Ok?false:A_LastError
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724329(v=vs.85).aspx
 
-;establece ciertas propiedades de un objeto HANDLE
-;Sintaxis: SetHandleInformation( [HANDLE], [opciones] )
-;Parámetros:
-	;Opciones:
-		;0x00000001 = HANDLE_FLAG_INHERIT
-		;0x00000002 = HANDLE_FLAG_PROTECT_FROM_CLOSE
+;establece siertas propiedades de un HANDLE
+;Sintaxis: SetHandleInformation( [HANDLE], [flags] )
+;Return / ErrorLevel / Parámetros: ver GetHandleInformation()
 SetHandleInformation(Handle, Flags := 0x00000000) {
-	return DllCall("Kernel32.dll\SetHandleInformation", "Ptr", Handle, "UInt", Flags, "UInt", Flags, "UInt")
+	Ok := DllCall("Kernel32.dll\SetHandleInformation", "Ptr", Handle, "UInt", Flags, "UInt", Flags)
+	return !!Ok, ErrorLevel := Ok?false:A_LastError
 }
 
 
@@ -1793,7 +1829,7 @@ Links:
 	• https://raw.githubusercontent.com/aviaryan/autohotkey-scripts/master/Functions/Maths.ahk
 Funciones que aceptan números infinitos (nota: debe expresar el número como string si tiene mas de 18 cifras):
 	• Divide()
-	• MulDiv() (solo si se usa 18 cifras o mas en cualquiera de los parámetros)
+	• MulDivEx()
 	• Power()
 	• Prefect()
 	• Greater()
@@ -1801,17 +1837,16 @@ Funciones que aceptan números infinitos (nota: debe expresar el número como st
 	• Multiply()
 	• BitShiftLeft()
 	• BitShiftRight()
+	• RoundEx()
 #############################################################################################################################################
 */
-;multiplica dos valores y luego divide el resultado por un tercer valor. el resultado final se redondea al entero más cercano=>Places=0
+;multiplica dos valores y luego divide el resultado por un tercer valor. el resultado final se redondea al entero más cercano
 ;Sintaxis: MulDiv( [multiplicando], [multiplicador], [deniminador], [decimales=0] )
 MulDiv(Number, Numerator, Denominator := 1, Places := 0) {
-	if (StrLen(Number)>=18) || (StrLen(Numerator)>=18) || (StrLen(Denominator)>=18)
-		return RoundEx(Divide(Multiply(Number, Numerator), Denominator, Places), Places)
 	return Round((Number*Numerator)/Denominator, Places)
-	;multiplica dos valores de 32 bits y luego divide el resultado de 64 bits por un tercer valor de 32 bits. el resultado final se redondea al entero más cercano
-	;return DllCall("Kernel32.dll\MulDiv", "Int", Number, "Int", Numerator, "Int", Denominator, "Int")
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa383718(v=vs.85).aspx
+} MulDivEx(Number, Numerator, Denominator := 1, Places := 0) {
+	return RoundEx(Divide(Multiply(Number, Numerator), Denominator, Places), Places)
+}
 
 ;elevar un numero (potenciación)
 ;Sintaxis: Power( [base], [exponente] )
@@ -1854,17 +1889,17 @@ Prefect(n) {
 ;Sintaxis: RoundEx( [num], [decimales] )
 RoundEx(n, d := 0) {
 	if InStr(n, ".") {
-		if ((f:=StrLen(n)-(Instr(n, ".")=0?StrLen(n):InStr(n, ".")))>d) {
-			if ((s:=Substr(n, Instr(n, ".")+d+1, 1))>=5)
+		if ((f:=StrLen(n)-(InStr(n, ".")=0?StrLen(n):InStr(n, ".")))>d) {
+			if ((s:=SubStr(n, InStr(n, ".")+d+1, 1))>=5)
 				Loop, % (d-1)
 					z .= "0"
-		n := Add(Substr(n, 1, Instr(n, ".")+d), (s >= 5) ? "0." z "1" : "0")
-	} else {
-		Loop, % (d - f)
-			z .= "0"
-		n .= z
-	} return, Rtrim(n, ".")
-} else return n
+			n := Add(SubStr(n, 1, InStr(n, ".")+d), (s >= 5) ? "0." z "1" : "0")
+		} else {
+			Loop, % (d - f)
+				z .= "0"
+			n .= z
+		} return RTrim(n, ".")
+	} return n
 }
 
 ;multiplicar
@@ -2104,14 +2139,17 @@ Abs64(Num) {
 		;0 = -
 		;[distinto de cero, -1 y vacío] = +
 		;[vacío] = [vacío]
+;ErrorLevel:
+	;0 = OK
+	;1 = el valor devuelto es igual al valor base.
 _cvtvalue(Base, Value, Mod := "*") {
 	if !(Mod="*")
 		Value := (Mod=-1?"^":Mod?"+":Mod=0?"-":"") Trim(Value)
 	else Value := Trim(Value)
-	Mod := SubStr(Value, 1, 1), Value := (Mod="+"||Mod="-"||Mod="^")?SubStr(Value, 2):Value
-	return Mod="-"?(Base&Value?Base-Value:Base)
+	Mod := SubStr(Value, 1, 1), Value := (Mod="+"||Mod="-"||Mod="^")?SubStr(Value, 2):Value, Base := (Base+0)=""?0:Base
+	return l := (Mod="-"?(Base&Value?Base-Value:Base)
 		: Mod="+"?(Base&Value?Base:Base+Value)
-		: Mod="^"?(Base&Value?Base-Value:Base+Value) : (Value)
+		: Mod="^"?(Base&Value?Base-Value:Base+Value) : (Value)), ErrorLevel := l=Base
 }
 
 ;----------------------------------------------------------------------------------------------------------------
@@ -2129,11 +2167,6 @@ Between(value, low, high, nval*) {
 	return ((value>=low)&&(value<=high))
 }
 
-;si el número es par devuelve 1, caso contrario 0 (impar)
-IsEven(num) {
-	return !(num&1) ;Mod(num, 2)
-}
-
 ;determina si es Número
 ;Sintaxis: IsNumber( [número], [carácteres no permitidos separados por coma] )
 ;EJEMPLO: MsgBox % IsNumber(-23.02) "`n" IsNumber("*1") "`n" IsNumber(-1) "`n" IsNumber(0xF,"*") "`n" IsNumber(+1)
@@ -2141,6 +2174,7 @@ IsNumber(num, IfChars := "*,x") {
 	return ((Contains(num,IfChars)||((num+0)=""))?false:true)
 }
 
+;determina si es un número primo
 IsPrime(N) {
   Loop, % Floor(Sqrt(N))
     If (A_Index > 1 && !Mod(N, A_Index))
@@ -2153,7 +2187,7 @@ IsPrime(N) {
 ;convertir a hexadecimal
 ;Sintaxis: Hex( [num], [max], [may], [prefix] )
 ;Parámetros:
-	;Num: espesificar el número a convertir, puede ser de la siguiente forma: FF000000
+	;Num: espesificar el número a convertir, puede ser de la siguiente forma: FF000000.
 	;Max: espesificar la longitúd que debe tener, se rellena con ceros.
 	;May: espesificar 1 para usar mayúsculas.
 	;Prefix: prefijo a añadir antes del número, por defecto usa "0x".
@@ -2869,7 +2903,7 @@ GdipGetImageDimensions(pBitmap, ByRef Width := "", ByRef Height := "") {
 	;x|y|w|h = coordenadas
 GdipBitmapFromScreen(Screen := 0, Raster := 0x00CC0020, hWnd := 0) {
 	if (Screen=0) && (Pos:=[])
-		Pos[1] := SysGet(76), Pos[2] := SysGet(77), Pos[3] := SysGet(78), Pos[4] := SysGet(79)
+		Pos := GetSystemMetrics(76, 77, 78, 79)
 	else Pos := StrSplit(Screen, "|", A_Space A_Tab)
 	hDC := CreateCompatibleDC(), hbm := CreateDIBSection(Pos[3], Pos[4], hDC), hSelObject := SelectObject(hDC, hbm)
 	, hDC2 := GetDC(hWnd, 0, hWnd?3:0), BitBlt(hDC,,, Pos[3], Pos[4], hDC2, Pos[1], Pos[2], Raster)
@@ -3246,12 +3280,10 @@ VirtualFree(hProcess := 0, Address := 0, Bytes := 0, AllocationType := 0x8000) {
 
 ;libera un bloque de memoria de una tarea asignada previamente a través de una llamada a la función CoTaskMemAlloc() o CoTaskMemAlloc().
 ;Sintaxis: CoTaskMemFree( [hMem] )
-CoTaskMemFree(ByRef hMem, Cap := "") {
+CoTaskMemFree(ByRef hMem) {
 	Error := ErrorLevel
-	Ok := DllCall("Ole32.dll\CoTaskMemFree", "UPtr", hMem)
-	if !(Cap="")
-		VarSetCapacity(hMem, Cap)
-	return Ok=""?true:!!Ok, ErrorLevel := Error
+	, Ok := DllCall("Ole32.dll\CoTaskMemFree", "UPtr", hMem)
+	return !!Ok, VarSetCapacity(hMem, 0), ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms680722(v=vs.85).aspx
 
 ;asigna un bloque de memoria de trabajo
@@ -3266,6 +3298,26 @@ CoTaskMemAlloc(Bytes) {
 CoTaskMemRealloc(hMem, Bytes) {
 	return DllCall("Ole32.dll\CoTaskMemRealloc", "Ptr", hMem, "UPtr", Bytes, "Ptr")
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms687280(v=vs.85).aspx
+
+;ajusta la capacidad de una variable a su contenido.
+;Ejemplo:
+	;VarSetCapacity(OutputVar, 104857600, 0) ;asiga 100 MB a OutputVar
+	;OutputVar := "123456789" ;asigna una cadena de carácteres a OutputVar
+	;MsgBox % "Contenido: " OutputVar "`nCapacidad: " VarSetCapacity(OutputVar) ;muestra el contenido y la capacidad actual de OutputVar, en bytes.
+	;VarAdjustCapacity(OutputVar) ;aplicando el ajuste.
+	;MsgBox % "Contenido: " OutputVar "`nCapacidad: " VarSetCapacity(OutputVar) ;vuelve a mostrar el contenido y la capacidad actual de OutputVar, en bytes.
+VarAdjustCapacity(ByRef Var) {
+	return Capacity := VarSetCapacity(Var, -1)
+	, OutputVar := Var, VarSetCapacity(Var, 0)
+	, VarSetCapacity(Var, Capacity), Var := OutputVar
+}
+
+
+
+
+
+
+
 
 
 
@@ -3827,21 +3879,22 @@ RGBToBGR(RGB) {
 }   
 
 ;convertir RGB a ARGB.
-;Sintaxis: RGBToARGB( [RGB], [00~FF] )
+;Sintaxis: RGBToARGB( [RGB], [0~255] )
 ;Return: ARGB con el prefijo 0x
 ;Notas:
-	;si se espesifica un color RGB, la transparencia por defecto es FF.
+	;si se espesifica un color RGB, la transparencia por defecto es 0xFF (255).
 	;si espesifica un color ARGB, la transparencia por defecto es la misma (no la modifica).
-	;el prefijo 0x no tiene importancia.
+	;el prefijo 0x no tiene importancia, puede espesificar un entero, en el color y en la transparencia.
+	;el valor de la transparencia va de 0 (0x00) a 255 (0xFF), donde 0 en transparente total y 255 un color sólido.
 ;Ejemplo:
 	;MsgBox % RGBToARGB("0x8000FF") "," RGBToARGB("8000FF")
 	;	. "`n" RGBToARGB("0xFF8000FF") "," RGBToARGB("FF8000FF")
 	;	. "`n`n" RGBToARGB("0x8000FF", 0) "," RGBToARGB("8000FF", 0)
 	;	. "`n" RGBToARGB("0xFF8000FF", 0) "," RGBToARGB("FF8000FF", 0)
 RGBToARGB(RGB, Transparent := -1) { ;ARGB (A=alpha channel, transparency). FF=color solido. 00=Transparente.
-	RGB := SubStr(RGB, 1, 2)="0x"?SubStr(RGB, 3):RGB, Transparent := Transparent=0?"00":Transparent
-	return "0x" StrUpper(StrLen(RGB)=8?(Transparent=-1?RGB:Transparent SubStr(RGB, 3))
-	: ((Transparent=-1?"FF":Transparent) Hex("0x" RGB, 6,, "")))
+	RGB := SubStr(RGB:=Hex(RGB, 6), 1, 2)="0x"?SubStr(RGB, 3):RGB, Transparent := Transparent=0?"00":Transparent
+	return "0x" CharUpper(StrLen(RGB)=8?(Transparent=-1?RGB:Hex(Transparent, 2,, "") SubStr(RGB, 3))
+	: ((Transparent=-1?"FF":Hex(Transparent, 2,, "")) Hex("0x" RGB, 6,, "")))
 }
 
 ;convertir ARGB a RGB.
@@ -3850,13 +3903,12 @@ RGBToARGB(RGB, Transparent := -1) { ;ARGB (A=alpha channel, transparency). FF=co
 ;Notas:
 	;si se espesifica un color RGB, no lo modifica.
 	;si espesifica un color ARGB, se quita la transparencia.
-	;el prefijo 0x no tiene importancia.
+	;el prefijo 0x no tiene importancia, puede espesificar un número entero.
 ;Ejemplo:
 	;MsgBox % ARGBToRGB("0x8000FF") "," ARGBToRGB("8000FF")
 	;	. "`n" ARGBToRGB("0xFF8000FF") "," ARGBToRGB("FF8000FF")
 ARGBToRGB(ARGB) {
-	RGB := SubStr(ARGB, 1, 2)="0x"?SubStr(ARGB, 3):ARGB
-	return StrLen(RGB)<7?Hex("0x" RGB, 6, 1):"0x" StrUpper(SubStr(RGB, -5))
+	return Hex(SubStr(SubStr(ARGB:=Hex(ARGB, 8), 1, 2)="0x"?SubStr(ARGB, 3):ARGB, -5), 6, true)
 }
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4005,6 +4057,13 @@ GetFontTextDimension(hFont, Text, ByRef Width := "", ByRef Height := "", c := 1)
 CreateSolidBrush(RGB) {
 	return DllCall("Gdi32.dll\CreateSolidBrush", "UInt", _getcolor(RGB, true), "UPtr")
 } ;https://msdn.microsoft.com/en-us/library/dd183518(v=vs.85).aspx
+
+;obtiene un HADLE a un pincel lógico que tiene el color asociado al indice espesificado.
+;Index: https://msdn.microsoft.com/en-us/library/ms724371(v=vs.85).aspx
+GetSysColorBrush(Index) {
+	return DllCall("User32.dll\GetSysColorBrush", "Int", Index, "UPtr")
+} ;https://msdn.microsoft.com/en-us/library/dd144927(v=vs.85).aspx
+
 
 
 
@@ -4378,7 +4437,7 @@ CLSIDFromString(Str, ByRef CLSID := "") {
 ;Sintaxis: StringFromCLSID( [&CLSID] )
 StringFromCLSID(CLSID) {
 	DllCall("Ole32.dll\StringFromCLSID", "Ptr", CLSID, "PtrP", OutputVar)
-	return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar, 0)
+	return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar)
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683917(v=vs.85).aspx
 
 ;copia un determinado número de caracteres de una cadena de origen en un búfer.
@@ -4424,18 +4483,17 @@ StrPutVar(Str, ByRef OutputVar := "", Encoding := "UTF-16", Min := 0, Max := 0, 
 	return IsByRef(OutputVar)?Bytes:OutputVar
 }
 
-StrNormalize(String) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093%28v=vs.85%29.aspx
-    len := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", String, "Int", StrLen(String), "Ptr", 0, "Int", 0)
+StrNormalize(Char) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093%28v=vs.85%29.aspx
+    Size := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", Char, "Int", Len := StrLen(Char), "Ptr", 0, "Int", 0)
     Loop {
-        VarSetCapacity(buf, len * 2)
-        , len := DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", String, "Int", StrLen(String), "Ptr", &buf, "Int", len)
-        if (len >= 0)
-            break
-        if (A_LastError != 122) ;ERROR_INSUFFICIENT_BUFFER
+        VarSetCapacity(OutputVar, Size * 2)
+		if ((Size:=DllCall("Normaliz.dll\NormalizeString", "Int", 2, "WStr", Char, "Int", Len, "Ptr", &OutputVar, "Int", Size)) >= 0)
+			break
+        if (A_LastError != 122)
             return
-        len *= -1
-    } return RegExReplace(StrGet(&buf, len, "UTF-16"), "\pM")
-}
+        Size *= -1
+    } return RegExReplace(StrGet(&OutputVar, Size, "UTF-16"), "\pM")
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/dd319093(v=vs.85).aspx
 
 ;quitar caracteres de izquierda a derecha
 ;Sintaxis : StrTrimLeft( [Var], [Limite] )
@@ -4454,7 +4512,7 @@ StrTrimRight(String, Length := 1) {
 StrLeft(String, Length := 1) {
 	return SubStr(String, 1, Length)
 }
-	
+
 ;obtener caracteres de derecha a izquierda
 ;Sintaxis : StrRight( [Var], [Limite] )
 StrRight(String, Length := 1) {
@@ -4481,60 +4539,36 @@ Contains(Haystack, Needle, Delimiter := ",", OmitChars := "", CaseSensitive := f
 	return false
 }
 
-;obtener un nombre válido para un archivo
-ValidateName(ByRef IpName) {
-	return IpName := RegExReplace(IpName, "[\Q*/\:?" Chr(34) "<>|`n\E]")
-}
-
-;obtener una ruta válida para un directorio
-;EJEMPLOS: 
-	;MsgBox % ValidatePath( "\<`n||\ " A_WinDir "\/\ \ *Sys/t<e>m?32\c::md.:exe|`n\\" )
-	;MsgBox % SetWorkingDir(A_WinDir) ValidatePath( "\system32\\cmd.:exe\ " )
-ValidatePath(ByRef IpPath) {
-	IpPath := RegExReplace(IpPath, "[\Q*/?" Chr(34) "<>|`n\E]")
-	, IpPath := Trim(IpPath), IpPath := Trim(IpPath, "\"), IpPath := Trim(IpPath)
-	, IpDrive := StrLeft(IpPath, 2) 
-	if FileExist( IpDrive ) AND InStr(IpDrive, ":")
-		IpPath := IpDrive StrReplace( StrTrimLeft( IpPath, 2 ), ":" )
-	else
-		IpPath := A_WorkingDir "\" StrReplace( IpPath, ":" )
-	IpPath := StrReplace(IpPath, "\\", "\"), IpPath := StrReplace(IpPath, " \ ", "\")
-	, IpPath := Trim(IpPath), IpPath := Trim(IpPath, "\"), IpPath := Trim(IpPath)
-	return IpPath := StrReplace(IpPath, "\\", "\")
-}
-
-Sort(VarName, Options := "") {
-	Sort, VarName, %Options%
-	return VarName
-}
-
-;convertir texto en minúscula 
-StrLower(String, T := false) {
-	return Format(T?"{:T}":"{:L}", String)
-}
-
 ;comprueba si es minúscula
-IsLower(String) {
-	if String is LOWER
-		return true
-	return false
-}
-
-;convertir texto en mayúscula
-StrUpper(String, T := false) {
-	return Format(T?"{:T}":"{:U}", String)
+;Sintaxis: IsCharLower( [Char], [carácteres a omitir] )
+IsCharLower(Char, OmitChars := "d") {
+	Loop, Parse, % Char,, % OmitChars=="d"?A_Space A_Tab "`n`r":OmitChars
+	{	Char := A_LoopField
+		if !DllCall("User32.dll\IsCharLower", "UShort", NumGet(Char, 0, "UShort"), "Int")
+			return false
+	} return true
 }
 
 ;comprueba si es mayúscula
-IsUpper(String) {
-	if String is UPPER
-		return true
-	return false
+;Sintaxis: IsCharUpper( [Char], [carácteres a omitir] )
+IsCharUpper(Char, OmitChars := "d") {
+	Loop, Parse, % Char,, % OmitChars=="d"?A_Space A_Tab "`n`r":OmitChars
+	{	Char := A_LoopField
+		if !DllCall("User32.dll\IsCharUpper", "UShort", NumGet(Char, 0, "UShort"), "Int")
+			return false
+	} return true
 }
 
-;reemplaza variables literales.
-;Sintaxis: ReplaceLiteralVar( [Var], [archivo] )
-;Ejemplo: MsgBox % ReplaceLiteralVar("Version: %A_FileVersion%`nSystem: %SysDir%`nCopyright: %LegalCopyright%", ComSpec)
+;Convierte carácteres a mayúsculas.
+CharUpper(Char) {
+	return DllCall("User32.dll\CharUpperW", "Ptr", &Char, "Str")
+}
+
+;Convierte carácteres a minúsulas.
+CharLower(Char) {
+	return DllCall("User32.dll\CharLowerW", "Ptr", &Char, "Str")
+}
+
 ReplaceLiteralVar(String, FileName := false) {
 	static _ := []
 	static Env, St
@@ -4542,7 +4576,7 @@ ReplaceLiteralVar(String, FileName := false) {
 		Env := {"HKCU": "Environment", "HKLM": "SYSTEM\ControlSet001\Control\Session Manager\Environment"}
 	for k, v in Env
 		Loop, Reg, %k%\%v%, V
-			String := StrReplace(String, "%" A_LoopRegName "%", _[A_LoopRegName]?_[A_LoopRegName]:(_[A_LoopRegName]:=EnvGet(A_LoopRegName)))
+			String := StrReplace(String, "%" A_LoopRegName "%", _[A_LoopRegName]?_[A_LoopRegName]:(_[A_LoopRegName]:=GetEnvironmentVariable(A_LoopRegName)))
 	if !St
 		St := {"Temp": (_0:=A_Temp), "ProgramFiles" : (_9:=A_ProgramFiles), "CommonProgramFiles": (i7:=A_ProgramsCommon), "AppData": (i0:=A_AppData), "OS": (_8:=A_OSVersion)
 		, "COMPUTERNAME": (i5:=A_ComputerName), "HOMEDRIVE": SubStr(_1:=A_WinDir, 1, 2), "LOCALAPPDATA": (_2:=A_AppDataCommon), "desktop": (i2:=A_Desktop)
@@ -4577,7 +4611,32 @@ ReplaceLiteralVar(String, FileName := false) {
 	}} return String
 }
 
+;obtener un nombre válido para un archivo
+ValidateName(ByRef IpName) {
+	return IpName := RegExReplace(IpName, "[\Q*/\:?" Chr(34) "<>|`n\E]")
+}
 
+;obtener una ruta válida para un directorio
+;EJEMPLOS: 
+	;MsgBox % ValidatePath( "\<`n||\ " A_WinDir "\/\ \ *Sys/t<e>m?32\c::md.:exe|`n\\" )
+	;MsgBox % SetCurrentDirectory(A_WinDir) ValidatePath( "\system32\\cmd.:exe\ " )
+ValidatePath(ByRef IpPath) {
+	IpPath := RegExReplace(IpPath, "[\Q*/?" Chr(34) "<>|`n\E]")
+	, IpPath := Trim(IpPath), IpPath := Trim(IpPath, "\"), IpPath := Trim(IpPath)
+	, IpDrive := StrLeft(IpPath, 2) 
+	if FileExist( IpDrive ) AND InStr(IpDrive, ":")
+		IpPath := IpDrive StrReplace( StrTrimLeft( IpPath, 2 ), ":" )
+	else
+		IpPath := A_WorkingDir "\" StrReplace( IpPath, ":" )
+	IpPath := StrReplace(IpPath, "\\", "\"), IpPath := StrReplace(IpPath, " \ ", "\")
+	, IpPath := Trim(IpPath), IpPath := Trim(IpPath, "\"), IpPath := Trim(IpPath)
+	return IpPath := StrReplace(IpPath, "\\", "\")
+}
+
+Sort(VarName, Options := "") {
+	Sort, VarName, %Options%
+	return VarName
+}
 
 
 
@@ -4658,13 +4717,13 @@ Base32Encode(Decoded, UseHex := 0, Len := 0) {
 	return Encoded
 }
 
-Base64Encode(Text) {
-	VarSetCapacity(Bin, StrPut(Text, "UTF-8")), nSize := StrPut(Text, &Bin, "UTF-8") - 1
-	, DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Bin, "UInt", nSize, "UInt", 0x40000001, "Ptr", 0, "UInt*", Length)
+Base64Encode(Str, Encoding := "UTF-8") {
+	Size := StrPutVar(Str, Binary, Encoding)
+	, DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Binary, "UInt", Size, "UInt", 0x40000001, "Ptr", 0, "UIntP", Length)
 	, VarSetCapacity(OutputVar, Length * 2)
-	, r:=DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Bin, "UInt", nSize, "UInt", 0x40000001, "Str", OutputVar, "UInt*", Length)
-	return OutputVar, ErrorLevel := !r
-}
+	, Ok := DllCall("Crypt32.dll\CryptBinaryToStringW", "Ptr", &Binary, "UInt", Size, "UInt", 0x40000001, "Str", OutputVar, "UIntP", Length)
+	return OutputVar, ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379887(v=vs.85).aspx
 
 ;codificar URL
 UriEncode(Uri, Encoding := "CP0") {
@@ -4707,12 +4766,12 @@ Base32Decode(Encoded, UseHex := 0, ByRef Decoded := "") {
 	} return IsByRef(Decoded) ? I : StrGet(&Decoded, I, "UTF-8")
 }
 
-Base64Decode(Text) {
-	DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Text, "UInt", StrLen(Text), "UInt", 0x1, "Ptr", 0, "UInt*", Length, "Ptr", 0, "Ptr", 0)
+Base64Decode(Str, Encoding := "UTF-8") {
+	DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Str, "UInt", StrLen(Str), "UInt", 0x1, "Ptr", 0, "UIntP", Length, "Ptr", 0, "Ptr", 0)
 	, VarSetCapacity(OutputVar, Length)
-	, r:=DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Text, "UInt", StrLen(Text), "UInt", 0x1, "Str", OutputVar, "UInt*", Length, "Ptr", 0, "Ptr", 0)
-	return StrGet(&OutputVar, Length, "UTF-8"), ErrorLevel := !r
-}
+	, Ok := DllCall("Crypt32.dll\CryptStringToBinaryW", "Ptr", &Str, "UInt", StrLen(Str), "UInt", 0x1, "Ptr", &OutputVar, "UIntP", Length, "Ptr", 0, "Ptr", 0)
+	return StrGet(&OutputVar, Length, Encoding), ErrorLevel := !Ok
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa380285(v=vs.85).aspx
 
 ;decodificar URL
 UriDecode(Uri, Enc := "CP0") {
@@ -5056,37 +5115,6 @@ ProcessElevation(ProcessName, ByRef Owner := "") {
 	return NumGet(TOKEN_ELEVATION, 0, "UInt"), CloseHandle(hToken, hProcess)
 }
 
-;suspender
-ProcessSuspend(ProcessName) {
-	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0800)
-	, DllCall("ntdll.dll\NtSuspendProcess", "Ptr", hProcess)
-	return hProcess, CloseHandle(hProcess)
-}
-	
-;reanudar
-ProcessResume(ProcessName) {
-	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0800)
-	, DllCall("ntdll.dll\NtResumeProcess", "Ptr", hProcess)
-	return hProcess, CloseHandle(hProcess)
-}
-
-;obtiene el SID, opcional también el nombre de usuario y dominio del proceso
-;Sintaxis: ProcessGetSid( [proceso], [nombre de usuario (salida)], [dominio (salida)] )
-;MsgBox % ProcessGetSid("chrome.exe", un, ud) "`n" un "`n" ud
-;ExitApp
-ProcessGetSid(ProcessName, ByRef UserName := "", ByRef Domain := "") {
-	ProcessId := _getpid(ProcessName), hProcess := OpenProcess(ProcessId, 0x0400)
-	, hToken := OpenProcessToken(hProcess, 0x00000008)
-	, Ok := GetTokenInformation(hToken, 1, TOKEN_USER)
-	, pSID := NumGet(TOKEN_USER, 0, "UInt")
-	if IsByRef(UserName) || IsByRef(Domain)
-		LookupAccountSid(pSID, UserName, Domain)
-	;Size := DllCall("Advapi32.dll\GetLengthSid", "Ptr", pSID, "UInt")
-	;VarSetCapacity(SID, Size * 2, 0)
-	;MsgBox % DllCall("Advapi32.dll\ConvertSidToStringSidW", "Ptr", pSID, "UPtrP", &SID, "UInt")
-	return pSID, CloseHandle(hToken, hProcess), ErrorLevel := !Ok
-}
-
 ;obtener una lista de los Threads del proceso espesificado
 ;Sintaxis: ProcessThreadList( [ID], [Delimitador] )
 ;EJEMPLO:
@@ -5113,16 +5141,24 @@ ProcessThreadList(ProcessName := "", Delimiter := "`n") {
 }}
 
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;OTRAS FUNCIONES (para uso interno)
+;OTRAS FUNCIONES CON HANDLE
 ;Parámetros:
-	;process_id = ProcessExist( [process_name] )
+	;Process = Id o Nombre del proceso. -1 para el proceso actual.
 	;hProces = OpenProcess()
 	;hThread = OpenThread()
+	;hToken = OpenProcessToken()
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Sintaxis: OpenProcess( [process_id], [acceso] )
-;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms684880(v=vs.85).aspx
+;Sintaxis: OpenProcess( [Process], [acceso] )
+;Parámetros:
+	;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms684880(v=vs.85).aspx
+		;PROCESS_QUERY_INFORMATION = 0x0400
+		;PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+		;PROCESS_TERMINATE = 0x0001
+		;PROCESS_SET_INFORMATION  = 0x0200
 ;Return: hProcess
-OpenProcess(ProcessId, DesiredAccess := 0x001F0FFF, InheritHandle := false) { ;0x001F0FFF=ALL
+OpenProcess(ProcessId := -1, DesiredAccess := 0x001F0FFF, InheritHandle := false) { ;0x001F0FFF=ALL
+	if ((ProcessId+0)="") || (ProcessId=-1)
+		ProcessId := ProcessExist(ProcessId)
 	return DllCall("Kernel32.dll\OpenProcess", "UInt", DesiredAccess, "Int", !!InheritHandle, "UInt", ProcessId, "Ptr")
 } 
 
@@ -5138,6 +5174,7 @@ OpenProcess(ProcessId, DesiredAccess := 0x001F0FFF, InheritHandle := false) { ;0
 	;TOKEN_ADJUST_GROUPS = 0x0040
 	;TOKEN_ADJUST_DEFAULT = 0x0080
 	;TOKEN_ADJUST_SESSIONID = 0x0100
+;Return: hToken
 OpenProcessToken(hProcess, DesiredAccess := 0xF01FF) { ;0xF01FF=ALL
 	DllCall("Advapi32.dll\OpenProcessToken", "Ptr", hProcess, "UInt", DesiredAccess, "UIntP", hToken)
 	return hToken
@@ -5159,6 +5196,71 @@ CreateProcess(ApplicationName := "", ByRef CommandLine := "", ProcessAttributes 
 	return r?{HANDLE: NumGet(PROCESS_INFORMATION, 0, "Ptr"), hThread: NumGet(PROCESS_INFORMATION, A_PtrSize, "Ptr")
 	, ID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?8:16, "Ptr"), ThreadID: NumGet(PROCESS_INFORMATION, A_PtrSize=4?12:24, "Ptr")}:0, ErrorLevel := !r
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;obtiene el propietario actual del proceso
+;Sintaxis: GetProcessOwner( [hToken], [out UserName], [out Domain] )
+;Return: SID
+;Accesos Requeridos:
+	;hProcess: 0x0400
+	;hToken: 0x0008
+;Ejemplo:ver SetProcessOwner()
+GetProcessOwner(hToken, ByRef UserName := "", ByRef Domain := "") {
+	GetTokenInformation(hToken, 4, TOKEN_OWNER), pSID := NumGet(TOKEN_OWNER, 0)
+	if IsByRef(UserName) || IsByRef(Domain)
+		LookupAccountSid(pSID, UserName, Domain)
+	return ConvertSidToStringSid(pSID)
+}	
+
+;establecer propietario para el proceso
+;Sintaxis: SetProcessOwner( [hToken], [SID] )
+;Accesos Requeridos:
+	;hProcess: 0x0200
+	;hToken: 0x0080
+;Parámetros:
+	;SID: puede espesificar un SID, un pSID o dejar en -1 para usar el usuario actual
+;Ejemplo:
+	;hProcess := OpenProcess(, 0x0400|0x0200)
+	;hToken := OpenProcessToken(hProcess, 0x0008	|	0x0080 | 0x00080000)
+	;SID := GetProcessOwner(hToken, UserName, Domain)
+	;MsgBox % SID "`n" UserName "`n" Domain
+	;MsgBox % SetProcessOwner(hToken)
+	;SID := GetProcessOwner(hToken, UserName, Domain)
+	;MsgBox % SID "`n" UserName "`n" Domain
+SetProcessOwner(hToken, pSID := -1) {
+	if (pSID=-1) || ((pSID+)="")
+		pSID := ConvertStringSidToSid(pSID=-1?GetCurrentUserInfo().SID:SID)
+	VarSetCapacity(TOKEN_OWNER, A_PtrSize, 0), NumPut(pSID, TOKEN_OWNER, 0)
+	, Ok := DllCall("Advapi32.dll\SetTokenInformation", "Ptr", hToken, "UInt", 4, "Ptr", &TOKEN_OWNER, "UInt", A_PtrSize)
+	return Ok, ErrorLevel := Ok?false:A_LastError
+}
+
+;obtiene el SID, opcional también el nombre de usuario y dominio del proceso
+;Sintaxis: GetProcessSID( [hToken], [out UserName], [out Domain] )
+;Return: SID
+;Acceso Requerido:
+	;hProcess = PROCESS_QUERY_INFORMATION
+	;hToken = TOKEN_QUERY
+GetProcessSID(hToken, ByRef UserName := "", ByRef Domain := "") {
+	Ok := GetTokenInformation(hToken, 1, TOKEN_USER), pSID := NumGet(TOKEN_USER, 0, "UInt")
+	if IsByRef(UserName) || IsByRef(Domain)
+		LookupAccountSid(pSID, UserName, Domain)
+	return ConvertSidToStringSid(pSID)
+}
+
+;determina si el proceso está siendo ejecutado sobre WOW64
+;Sintaxis: IsWow64Process( [hProcess] )
+;Acceso Requerido: PROCESS_QUERY_INFORMATION o PROCESS_QUERY_LIMITED_INFORMATION
+;Return:
+	;-1 = error.
+	;0 = el proceso se ejecuta sobre 32-bit Windows o el proceso es una aplicación de 64-bit
+	;1 = el proceso es ejecutado sobre WOW64
+;Ejemplo: MsgBox % IsWow64Process(OpenProcess(, 0x1000))
+IsWow64Process(hProcess) {
+	Ok := DllCall("Kernel32.dll\IsWow64Process", "Ptr", hProcess, "IntP", Wow64Process)
+	return Ok?!!Wow64Process:-1
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms684139(v=vs.85).aspx
 
 ;lee datos de un área de memoria en un proceso determinado. toda la zona a leer debe ser accesible o la operación fallará
 ;Sintaxis: ReadProcessMemory( [hProcess], [BaseAddress], [data (out)], [tamaño, en bytes], [NumberOfBytesRead (in_out)], [ReturnType] )
@@ -5201,17 +5303,68 @@ GetExitCodeProcess(hProcess) {
 	return ExitCode, ErrorLevel := !Ok
 }
 
+;suspender proceso
+;Acceso Requerido: PROCESS_SUSPEND_RESUME
+SuspendProcess(hProcess) {
+	return DllCall("ntdll.dll\NtSuspendProcess", "Ptr", hProcess)
+}
 
+;reanudar proceso
+;Acceso Requerido: PROCESS_SUSPEND_RESUME
+ResumeProcess(hProcess) {
+	return DllCall("ntdll.dll\NtResumeProcess", "Ptr", hProcess)
+}
 
+;terminar proceso
+;Sintaxis: TerminateProcess( [hProcess], [código de salida] )
+;Acceso Requerido: PROCESS_TERMINATE
+TerminateProcess(hProcess, ExitCode := 0) {
+	return DllCall("Kernel32.dll\TerminateProcess", "Ptr", hProcess, "UInt", ExitCode)
+}
 
+;obtener prioridad del proceso
+;Sintaxis: GetProcessPriority( [hProcess] )
+;Return: ver SetProcessPriority()
+;Acceso Requerido: PROCESS_QUERY_INFORMATION
+GetProcessPriority(hProcess) {
+	return DllCall("Kernel32.dll\GetPriorityClass", "Ptr", hProcess)
+}
 
+;establecer prioridad al proceso
+;Sintaxis: SetProcessPriority( [hProcess], [Priority] )
+;Parámetros:
+	;Priority: espesificar uno de los siguientes valores, ordenados de mas alta a mas baja.
+		;0x00000100 = REALTIME_PRIORITY_CLASS
+		;0x00000080 = HIGH_PRIORITY_CLASS
+		;0x00008000 = ABOVE_NORMAL_PRIORITY_CLASS
+		;0x00000020 = NORMAL_PRIORITY_CLASS
+		;0x00004000 = BELOW_NORMAL_PRIORITY_CLASS
+		;0x00000040 = IDLE_PRIORITY_CLASS
+;Acceso Requerido: PROCESS_SET_INFORMATION
+SetProcessPriority(hProcess, Priority := 0x00000020) {
+	return DllCall("Kernel32.dll\SetPriorityClass", "Ptr", hProcess, "UInt", Priority)
+}
 
+;establecer prioridad al thread
+;Sintaxis: SetThreadPriority( [hThread], [Priority] )
+;Parámetros:
+	;Priority: espesificar uno de los siguientes valores, ordenados de mas alta a mas baja.
+		;15 = THREAD_PRIORITY_TIME_CRITICAL
+		;2 = THREAD_PRIORITY_HIGHEST
+		;1 = THREAD_PRIORITY_ABOVE_NORMAL
+		;0 = THREAD_PRIORITY_NORMAL
+		;-2 = THREAD_PRIORITY_LOWEST
+		;-15 = THREAD_PRIORITY_IDLE
+;Acceso Requerido: THREAD_SET_INFORMATION o THREAD_SET_LIMITED_INFORMATION 
+SetThreadPriority(hThread, Priority := 0) {
+	return DllCall("Kernel32.dll\SetThreadPriority", "Ptr", hThread, "UInt", Priority)
+}
 
-
-
-
-
-
+;obtener priorided del thread
+;Sintaxis: SetThreadPriority( [hThread] )
+GetThreadPriority(hThread) {
+	return DllCall("Kernel32.dll\GetThreadPriority", "Ptr", hThread)
+}
 
 
 
@@ -5266,9 +5419,10 @@ GetExitCodeProcess(hProcess) {
 ;Parámetros:
 	;pSID = pointer a una estructura SID. https://msdn.microsoft.com/en-us/library/windows/desktop/aa379594(v=vs.85).aspx
 	;SID = SID STRING
+	;SECURITY_DESCRIPTOR = pointer a la estructura https://msdn.microsoft.com/en-us/library/windows/desktop/aa379561(v=vs.85).aspx
 ;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/aa375742(v=vs.85).aspx
 ;#############################################################################################################################################
-;obtiene información de un Token
+;obtiene información desde hToken
 ;Sintaxis: GetTokenInformation( [hToken], [TokenInformationClass], [TokenInformation (out)], [ReturnLength] )
 ;Parámetros:	
 	;hToken: usar OpenProcessToken()
@@ -5280,11 +5434,9 @@ GetExitCodeProcess(hProcess) {
 	;TOKEN_QUERY = para todo lo demás
 GetTokenInformation(hToken, TokenInformationClass, ByRef TOKEN_INFORMATION, ByRef ReturnLength := "") {
 	DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", TokenInformationClass, "Ptr", 0, "UInt", 0, "UIntP", ReturnLength)
-	, VarSetCapacity(TOKEN_INFORMATION, ReturnLength * 2, 0)
-	, Ok := DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", TokenInformationClass
-		, "Ptr", &TOKEN_INFORMATION, "UInt", ReturnLength, "UIntP", ReturnLength, "UInt")
-	return Ok, ErrorLevel := !Ok
-}
+	, VarSetCapacity(TOKEN_INFORMATION, ReturnLength, 0)
+	return DllCall("Advapi32.dll\GetTokenInformation", "Ptr", hToken, "UInt", TokenInformationClass, "Ptr", &TOKEN_INFORMATION, "UInt", ReturnLength, "UIntP", ReturnLength)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa446671(v=vs.85).aspx
 
 ;obtener LUID de un privilegio
 ;Sintaxis: LookupPrivilegeValue( [str privilegio] )
@@ -5292,24 +5444,41 @@ GetTokenInformation(hToken, TokenInformationClass, ByRef TOKEN_INFORMATION, ByRe
 LookupPrivilegeValue(PrivilegeName) {
 	Ok := DllCall("Advapi32.dll\LookupPrivilegeValueW", "Ptr", 0, "Ptr", &PrivilegeName, "Int64P", PrivilegeValue, "UInt")
 	return PrivilegeValue, ErrorLevel := !Ok
-}
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379180(v=vs.85).aspx
 
 ;obtener una cadena de carácteres que reprecenta al privilegio
 ;Sintaxis: LookupPrivilegeName( [lpLuid] )
 ;Return: String
 LookupPrivilegeName(lpLuid) {
-	Loop, Parse, % "SeChangeNotifyPrivilege|SeCreateGlobalPrivilege|SeDebugPrivilege|SeShutdownPrivilege|SeSystemtimePrivilege|SeCreatePagefilePrivilege"
-		. "|SeImpersonatePrivilege|SeIncreaseQuotaPrivilege|SeTimeZonePrivilege|SeIncreaseBasePriorityPrivilege|SeManageVolumePrivilege|SeRemoteShutdownPrivilege"
-		. "|SeCreateSymbolicLinkPrivilege|SeSecurityPrivilege|SeTakeOwnershipPrivilege|SeBackupPrivilege|SeProfileSingleProcessPrivilege|SeRestorePrivilege"
-		. "|SeSystemEnvironmentPrivilege|SeSystemProfilePrivilege|SeUndockPrivilege|SeIncreaseWorkingSetPrivilege|SeLoadDriverPrivilege|SeMachineAccountPrivilege", |
-		if (lpLuid=LookupPrivilegeValue(A_LoopField))
-			return A_LoopField
-}
+	VarSetCapacity(Luid, 8, 0), NumPut(lpLuid, Luid, 0, "Int64")
+	, DllCall("Advapi32.dll\LookupPrivilegeNameW", "Ptr", 0, "Ptr", &Luid, "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, (Size + 1) * 2)
+	, DllCall("Advapi32.dll\LookupPrivilegeNameW", "Ptr", 0, "Ptr", &Luid, "Str", OutputVar, "UIntP", Size + 1)
+	return OutputVar
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379176(v=vs.85).aspx
 
 ;comprueba si es un SID válido
 ;Sintaxis: IsValidSid( [pSID] )
 IsValidSid(pSID) {
-	return DllCall("Advapi32.dll\IsValidSid", "Ptr", pSID, "UInt")
+	return DllCall("Advapi32.dll\IsValidSid", "Ptr", pSID)
+}
+
+;convertir sid a formato string
+;Sintaxis: ConvertSidToStringSid( [pSID], [out SID] )
+;Return: SID
+ConvertSidToStringSid(pSID) {
+	Size := DllCall("Advapi32.dll\GetLengthSid", "Ptr", pSID)
+	, VarSetCapacity(SID, Size * 2)
+	, Ok := DllCall("Advapi32.dll\ConvertSidToStringSidW", "Ptr", pSid, "UPtr", &SID)
+	return Ok?StrGet(l:=NumGet(SID), Size * 2, "UTF-16"):false,  LocalFree(l)
+}
+
+;convertir un SID en formato string a un SID válido
+;Sintaxis: ConvertStringSidToSid( [SID] )
+;Return: pSID
+ConvertStringSidToSid(SID) {
+	Ok := DllCall("Advapi32.dll\ConvertStringSidToSidW", "Ptr", &SID, "PtrP", pSID)
+	return Ok?pSID:false, LocalFree(pSID)
 }
 
 ;obtiene el nombre de usuario y dominio
@@ -5326,6 +5495,38 @@ FreeSid(pSID) {
 		Ok += DllCall("Advapi32.dll\FreeSid", "Ptr", v, "Ptr")=0
 	return Ok=pSID.MaxIndex(), ErrorLevel := Error
 }
+
+;asigna e inicializa un nuevo descriptór de seguridad con hasta 8 subautoridades
+;Sintaxis: InitializeSecurityDescriptor( [out SECURITY_DESCRIPTOR] )
+InitializeSecurityDescriptor(ByRef SECURITY_DESCRIPTOR) {
+	VarSetCapacity(SECURITY_DESCRIPTOR, 20, 0) ;SECURITY_DESCRIPTOR_MIN_LENGTH = 20
+	, DllCall("Advapi32.dll\InitializeSecurityDescriptor", "Ptr", &SECURITY_DESCRIPTOR, "UInt", 1)
+	return DllCall("Advapi32.dll\IsValidSecurityDescriptor", "Ptr", &SECURITY_DESCRIPTOR)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa378863(v=vs.85).aspx
+
+;inicializa un identificador de seguridad (SID)
+;Sintaxis: AllocateAndInitializeSid( [IdentifierAuthority], [SubAuthorities*] )
+;Parámetros:
+	;IdentifierAuthority: proporciona el identificador de autoridad de nivel superior a establecer en el SID. puede ser uno de los siguientes valores.
+		;0 = SECURITY_NULL_SID_AUTHORITY
+		;1 = SECURITY_WORLD_SID_AUTHORITY
+		;2 = SECURITY_LOCAL_SID_AUTHORITY
+		;3 = SECURITY_CREATOR_SID_AUTHORITY
+		;4 = SECURITY_NON_UNIQUE_AUTHORITY
+		;5 = SECURITY_NT_AUTHORITY
+		;9 = SECURITY_RESOURCE_MANAGER_AUTHORITY
+	;SubAuthorities: espesificar las subautoridades hasta un máximo de 8.
+AllocateAndInitializeSid(IdentifierAuthority := 1, SubAuthorities*) {
+	VarSetCapacity(SID_IDENTIFIER_AUTHORITY, 6, 0), NumPut(IdentifierAuthority, SID_IDENTIFIER_AUTHORITY, 0, "UChar"), Count := 0
+	Loop, 8 {
+		Authority := "SubAuthority" (A_Index - 1)
+		if (SubAuthorities[A_Index]="")
+			%Authority% := 0
+		else Count := Count + 1, %Authority% := SubAuthorities[A_Index]
+	} Ok := DllCall("Advapi32.dll\AllocateAndInitializeSid", "Ptr", &SID_IDENTIFIER_AUTHORITY, "UChar", Count, "UInt", SubAuthority0, "UInt", SubAuthority1
+		, "UInt", SubAuthority2, "UInt", SubAuthority3, "UInt", SubAuthority4, "UInt", SubAuthority5, "UInt", SubAuthority6, "UInt", SubAuthority7, "PtrP", pSID)
+	return Ok?pSID:false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa375213(v=vs.85).aspx
 
 
 
@@ -5876,7 +6077,7 @@ RecycleBinGetSize(Path, Units := "", ByRef i64NumItems := "") {
 ;vacía la Papelera de reciclaje en la unidad especificada.
 ;Sintaxis: RecycleBinEmpty( [unidad], [¿ocultar dialgos de confirmacion?], [¿ocultar dialogos de progreso?], [¿no reproducir sonidos?] )
 RecycleBinEmpty(Path, NoConfirmation := true, NoProgressUI := true, NoSound := true) {
-	r := DllCall("Shell32.dll\SHEmptyRecycleBinW", "Ptr", A_ScriptHwnd, "Str", StrLeft(Trim(Path)) ":\"
+	r := DllCall("Shell32.dll\SHEmptyRecycleBinW", "Ptr", A_ScriptHwnd, "Str", StrLeft(Trim(Path)) ":"
 	, "UInt", (NoConfirmation?0x00000001:0)|(NoProgressUI?0x00000002:0)|(NoSound?0x00000004:0))
 	return !r, ErrorLevel := r
 }
@@ -5935,11 +6136,10 @@ ShowStartMenu() {
 ;muestra el escritorio y establece foco en él
 ;Sintaxis: ShowDesktop( [¿esperar? (segundos)], [¿redibujar?] )
 ShowDesktop(Wait := -1, Redraw := false) {
-	ComObjCreate("shell.application").ToggleDesktop()
-	, i := WinActivate(GetDesktop(), Wait, true)
+	ComObjCreate("shell.application").ToggleDesktop(), WinActivate(GetDesktop(), true)
+	, WinWaitActive(GetDesktop(), Wait)
 	if (Redraw)
 		DesktopRedraw()
-	return i, ErrorLevel := !i
 }
 
 ;obtener hWnd del control SysListView32 del escritorio (control de los iconos)
@@ -6256,27 +6456,25 @@ RegisterSessionNotification(Status, Session := 1, Func := "") { ;http://ahkscrip
 ;-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;MENSAJES
 ;-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-;SendMessage / PostMessage
-;Sintaxis 1: SendMessage( [hWnd], [mensaje], [wType], [wParam (in_out)], [lType], [lParam (in_out)], [ReturnType], [tiempo fuera] )
-;Sintaxis 2: PostMessage( [hWnd], [mensaje], [wType], [wParam], [lType], [lParam] )
-;Parámetros:
-	;hWnd: ID de la ventana a la que enviar el mensaje
-	;Mensaje: tipo de mensaje
-	;wType: tipo de valor espesificado en wParam. por defecto usa Ptr.
-	;wParam: valor wParam dependiendo del mensaje
-	;lType: tipo de valor espesificado en lParam. por defecto usa Ptr.
-	;lParam: valor lParam dependiendo del mensaje
-	;ReturnType: tipo de datos a devolver, necesario dependiendo del mensaje
-	;Tiempo Fuera: espesificar el tiempo fuera, en ms. este es el tiempo máximo a esperar para procesar el mensaje si la ventana no responde
-;Return: Datos (depende del mensaje)
-;ErrorLevel: 0(OK) | 1(ERROR) | 2(LA VENTANA NO RESPONDE. se ha alcanzado el tiempo fuera)
-SendMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef IParam := 0, ReturnType := "UPtrP", Timeout := 5000) {
+PostMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef IParam := 0) {
+	Error := !DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam, "Int")
+	return !Error, ErrorLevel := Error
+}
+
+SendMsg(hWnd, Msg, ByRef wParam := 0, ByRef lParam := 0, ReturnType := "UPtrP", Timeout := 5000, Flags := 0x0002) {
+	if IsObject(wParam)
+		wType := wParam.1, wParam := wParam.2
+	else wType := (wParam+0)=""?"Str":"Ptr"
+	if IsObject(lParam)
+		lType := lParam.1, lParam := lParam.2
+	else lType := (lParam+0)=""?"Str":"Ptr"
+		MsgBox % wType "," lType
+	Ok := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", Abs(Msg), wType, wParam, lType, lParam, "UInt", Flags, "UInt", Timeout, ReturnType, OutputVar)
+	return OutputVar, ErrorLevel := Ok?false:A_LastError
+} SendMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef IParam := 0, ReturnType := "UPtrP", Timeout := 5000) {
 	Error := !DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", Msg
 	, wType, wParam, IType, IParam, "UInt", 0x0002, "UInt", Timeout, ReturnType, OutputVar, "UInt")
 	return OutputVar, ErrorLevel := Error?(Error+(A_LastError=124)):false ;ERROR_TIMEOUT = 124
-} PostMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef IParam := 0) {
-	Error := !DllCall("User32.dll\PostMessageW", "Ptr", hWnd, "UInt", Msg, wType, wParam, IType, IParam, "Int")
-	return !Error, ErrorLevel := Error
 }
 
 WM_COPYDATA(hWnd, dwData := 1, Size := 0, lpData := 0) {
@@ -6375,11 +6573,13 @@ GetPathFromIDList(PIDL, UsesShortFileNames := false) {
 ;crear ShellItemArray desde un Array con PIDLs o Paths (o espesificar directamente el PIDL o Path si es uno solo).
 ;Sintaxis: CreateShellItemArrayFromIDLists( [IDLists] )
 CreateShellItemArrayFromIDLists(IDLists) { 
-	VarSetCapacity(ITEMIDLIST, IDLists.MaxIndex() * A_PtrSize, 0), IDLists := IsObject(IDLists)?IDLists:[IDLists] ;PIDL = PTR = A_PtrSize c/u
+	VarSetCapacity(ITEMIDLIST, IDLists.MaxIndex() * A_PtrSize, 0), IDLists := IsObject(IDLists)?IDLists:[IDLists], Count := 0
 	for Index, PIDL in IDLists {
-		PIDL := (PIDL+0)=""?ParseDisplayName(PIDL):PIDL ;if PIDL+0="" / PIDL = Path | else PIDL = PIDL
-		, NumPut(PIDL, ITEMIDLIST, (A_Index - 1) * A_PtrSize, "Ptr") ;1° = 0, 2° = A_PtrSize, 3° = 2*A_PtrSize, 4° = 3*A_PtrSize, etc...
-	} Error := DllCall("Shell32.dll\SHCreateShellItemArrayFromIDLists", "UInt", IDLists.MaxIndex(), "Ptr", &ITEMIDLIST, "PtrP", IShellItemArray)
+		if (PIDL := ((PIDL+0)=""?ParseDisplayName(PIDL):PIDL))
+			NumPut(PIDL, ITEMIDLIST, (A_Index - 1) * A_PtrSize, "Ptr"), Count += 1
+	} Error := DllCall("Shell32.dll\SHCreateShellItemArrayFromIDLists", "UInt", Count, "Ptr", &ITEMIDLIST, "PtrP", IShellItemArray)
+	Loop, % (Count)
+		CoTaskMemFree(NumGet(ITEMIDLIST, (A_Index - 1) * A_PtrSize, "Ptr"))
 	return IShellItemArray, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762146(v=vs.85).aspx
 
@@ -6401,7 +6601,7 @@ GetIDListsFromShellItemArray(IShellItemArray, ConvertToPath := false) {
 		;IShellItemArray::GetItemAt method (https://msdn.microsoft.com/en-us/library/windows/desktop/bb761100(v=vs.85).aspx)
 		if (DllCall(NumGet(NumGet(IShellItemArray+0), 8*A_PtrSize), "Ptr", IShellItemArray, "UInt", A_Index-1, "PtrP", IShellItem) = 0) {
 			if (ConvertToPath) ;PIDL --> Path
-				Path := GetPathFromIDList(GetIDListFromObject(IShellItem)), List.Push(Path), CoTaskMemFree(Path, 0)
+				Path := GetPathFromIDList(GetIDListFromObject(IShellItem)), List.Push(Path), CoTaskMemFree(Path)
 			else List.Push(GetIDListFromObject(IShellItem))
 			ObjRelease(IShellItem)
 	}	} return Error?false:(Count?List:false), ErrorLevel := Error?true:(Count?false:-1)
@@ -6427,7 +6627,7 @@ CreateShellItem(pidlParent, psfParent := 0, PIDL := 0) {
 		PIDL := ParseDisplayName(PIDL), free := true
 	Error := DllCall("Shell32.dll\SHCreateShellItem", "Ptr", pidlParent, "Ptr", psfParent, "Ptr", PIDL, "PtrP", IShellItem)
 	if (free)
-		CoTaskMemFree(PIDL, 0)
+		CoTaskMemFree(PIDL)
 	return Error?false:IShellItem
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762143(v=vs.85).aspx
 
@@ -6441,7 +6641,7 @@ CreateItemFromIDList(PIDL, RIID) {
 		CLSIDFromString(RIID, CLSID), RIID := &CLSID
 	Error := DllCall("Shell32.dll\SHCreateItemFromIDList", "Ptr", PIDL, "Ptr", RIID, "PtrP", IShellItem)
 	if (free)
-		CoTaskMemFree(PIDL, 0)
+		CoTaskMemFree(PIDL)
 	return Error?false:IShellItem
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762133(v=vs.85).aspx
 
@@ -6568,7 +6768,7 @@ GetKnownFolderPath(GUID) {
 	if ((GUID+0)="") {
 		CLSIDFromString(GUID, CLSID)
 		Error := DllCall("Shell32.dll\SHGetKnownFolderPath", "Ptr", &CLSID, "UInt", 0, "Ptr", 0, "PtrP", OutputVar)
-		return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar, 0), ErrorLevel := Error
+		return StrGet(OutputVar, "UTF-16"), CoTaskMemFree(OutputVar), ErrorLevel := Error
 	} Error := DllCall("Shell32.dll\SHGetFolderPathW", "Ptr", 0, "Int", GUID, "Ptr", 0, "UInt", 0, "Str", OutputVar)
 	return OutputVar, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762188(v=vs.85).aspx
@@ -6934,7 +7134,7 @@ EmptyClipboard() {
 	;Cut: el 1er parámetro es interpretado como archivos y carpetas a mover (mismo efecto que «Cortar» desde el explorador de windows)
 ;Ejemplos:
 	;#1 (copiar texto) = OpenClipboard(), SetClipboardText("Hola, øomo estás?"), CloseClipboard()
-	;#2 (copiar archivos) = OpenClipboard(), MsgBox(SetClipboardText(ComSpec "`n" A_WinDir "\explorer.exe",, "Copy")), ExitApp()
+	;#2 (copiar archivos) = OpenClipboard(), MsgBox(SetClipboardText(ComSpec "`n" A_WinDir "\explorer.exe",, "Copy"))
 SetClipboardText(Text, Encoding := "CP0", Mode := "Str") {
 	EmptyClipboard() ;necesario vaciar el portapepeles
 	if (Mode="Str") { ;Text
@@ -7316,6 +7516,17 @@ Array_Remove(Array, Str, CaseSensitive := false, InStr := false, Max := -1) {
 		} return Array
 }
 
+;hacer una copia de un array que, al modificarlo, no se ve afectado el original
+;Sintaxis: Array_Clone( [Array] )
+;Return: Array
+;AHK: Clone := Object.Clone()
+Array_Clone(Array) {
+	OutArray := []
+	for k, v in Array
+		OutArray.Push(v)
+	return OutArray
+}
+
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;MANIPULACIÓN DE ARRAY
 ;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ms221145(v=vs.85).aspx
@@ -7371,19 +7582,386 @@ SafeArrayGetVartype(SafeArray) {
 	return BaseType, ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms221539(v=vs.85).aspx
 
-;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;OTRAS FUNCIONES COMO REFERENCIA
-;Nota: estas funciones ya estan incorpotadas en AHK, es solo como referencia y en "Incorporado" se aclara como hacerlo.
-;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;hacer una copia de un array que, al modificarlo, no se ve afectado el original
-;Sintaxis: Array_Clone( [Array] )
-;Return: Array
-;Incorporado: Clone := Object.Clone()
-Array_Clone(Array) {
-	OutArray := []
-	for k, v in Array
-		OutArray.Push(v)
-	return OutArray
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;**********************************************************************************************************************************************************************************************************************************
+; ------> Variables.
+;**********************************************************************************************************************************************************************************************************************************
+;define el contenido de la variable de entorno especificada para el proceso actual.
+;Sintaxis: EnvAdd( [nombre], [valor], [user|system] )
+;Nota: espesificar un Valor vacío para eliminar.
+SetEnvironmentVariable(VarName, Value := "", Mode := "") {
+	if (Mode="User")
+		return RegWrite(, "HKCU\Environment", VarName, Value)
+	if (Mode="System")
+		return RegWrite(, "HKLM\SYSTEM\ControlSet001\Control\Session Manager\Environment", VarName, Value)
+	return DllCall("Kernel32.dll\SetEnvironmentVariableW", "Ptr", &VarName, "Ptr", Value=""?0:&Value)
+}	
+
+;Recupera el contenido de la variable especificada desde el bloque de entorno del proceso invocador
+GetEnvironmentVariable(EnvVarName, ByRef UserEnv := "", ByRef SystemEnv := "") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683188%28v=vs.85%29.aspx
+	if IsByRef(UserEnv)
+		RegRead, UserEnv, HKCU\Environment, % EnvVarName
+	if IsByRef(SystemEnv)
+		RegRead, SystemEnv, HKLM\SYSTEM\ControlSet001\Control\Session Manager\Environment, % EnvVarName
+	Size := DllCall("Kernel32.dll\GetEnvironmentVariableW", "Ptr", &EnvVarName, "Ptr", 0, "UInt", 0)
+	, VarSetCapacity(OutpuVar, Size * 2, 0)
+	, Ok := DllCall("Kernel32.dll\GetEnvironmentVariableW", "Ptr", &EnvVarName, "Str", OutpuVar, "UInt", Size)
+	return OutpuVar, ErrorLevel := !Ok
+}
+
+;Notifica el sistema operativo y todas las aplicaciones que se ejecutan que las variable(s) del sistema han cambiado .
+UpdateEnvironmentVariable() {
+	SendMsg(0xFFFF, 0x001A,, "Environment")
+	return !ErrorLevel
+}
+
+;Recupera la ruta a la raíz del directorio del usuario actual
+A_UserProfile() {
+	return GetEnvironmentVariable("USERPROFILE")
+}
+
+A_AllUsersProfile() {
+	DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Str", OutputVar, "UIntP", Size)
+	return OutputVar
+}
+
+A_Profiles() {
+	DllCall("Userenv.dll\GetProfilesDirectoryW", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Userenv.dll\GetProfilesDirectoryW", "Str", OutputVar, "UIntP", Size)
+	return OutputVar
+}
+
+A_DefaultUserProfile() {
+	DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Str", OutputVar, "UIntP", Size)
+	return OutputVar
+}
+
+A_UserName() {
+	DllCall("Advapi32.dll\GetUserNameW", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, (Size * 2) + 1)
+	, DllCall("Advapi32.dll\GetUserNameW", "Str", OutputVar, "UIntP", Size + 1)
+	return OutputVar
+} 
+
+;obtiene el dominio y nombre de usuario
+A_UserNameEx() {
+	DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, (Size * 2) + 1)
+	, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", OutputVar, "UIntP", Size + 1)
+	return OutputVar
+}
+
+;recupera el dominio del usuario actual
+A_UserDomain(ByRef UserName := "") {
+	DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, (Size * 2) + 1)
+	, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", OutputVar, "UIntP", Size + 1)
+	return StrSplit(OutputVar, "\").1, UserName := StrSplit(OutputVar, "\").2
+}
+
+;Recupera/Establece el nombre NetBIOS del equipo local.
+;Este nombre se estableció al inicio del sistema, cuando el sistema lo lee desde el registro.
+A_ComputerName(NewName := " ") {
+	if !(NewName=" ")
+		return DllCall("Kernel32.dll\SetComputerNameW", "Ptr", &NewName)
+	DllCall("Kernel32.dll\GetComputerNameW", "Ptr", 0, "UIntP", Size)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetComputerNameW", "Str", OutputVar, "UIntP", Size)
+	return OutputVar
+}
+
+;recupera la ruta del directorio de sistema utilizado por WOW64.
+;NOTA: Este directorio no está presente en Windows de 32 bits.
+A_SysDir64() {
+	Size := DllCall("Kernel32.dll\GetSystemWow64DirectoryW", "Ptr", 0, "UInt", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetSystemWow64DirectoryW", "Str", OutputVar, "UInt", Size)
+	return OutputVar
+}
+
+;recupera la ruta del directorio de sistema.
+;El directorio del sistema contiene los archivos del sistema, como las bibliotecas y los controladores de vínculos dinámicos.
+A_SysDir() {
+	Size := DllCall("Kernel32.dll\GetSystemDirectoryW", "Ptr", 0, "UInt", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetSystemDirectoryW", "Str", OutputVar, "UInt", Size)
+	return OutputVar
+}
+
+A_SysWinDir() { ;recupera la ruta del directorio compartido de Windows en un sistema multi-usuario.
+	Size := DllCall("Kernel32.dll\GetSystemWindowsDirectoryW", "Ptr", 0, "UInt", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetSystemWindowsDirectoryW", "Str", OutputVar, "UInt", Size)
+	return OutputVar
+}
+
+A_WinDir() {
+	Size := DllCall("Kernel32.dll\GetWindowsDirectoryW", "Ptr", 0, "UInt", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetWindowsDirectoryW", "Str", OutputVar, "UInt", Size)
+	return OutputVar
+}
+
+A_Temp() {
+	Size := DllCall("Kernel32.dll\GetTempPathW", "UInt", 0, "Ptr", 0)
+	, VarSetCapacity(OutputVar, (Size * 2) + 1)
+	, DllCall("Kernel32.dll\GetTempPathW", "UInt", Size + 1, "Str", OutputVar)
+	return RTrim(OutputVar, "\")
+}
+
+A_ComSpec() {
+	return GetEnvironmentVariable("ComSpec")
+}
+
+A_LocalAppData() {
+	return GetEnvironmentVariable("LOCALAPPDATA")
+}
+
+;tamaño de la zona de trabajo en el monitor de pantalla principal.
+;el área de trabajo es la parte de la pantalla que no está oculta por la barra de tareas o las barras de herramientas de escritorio de aplicaciones.
+;Sintaxis: A_MonitorWorkArea( [xpos], [ypos], [ancho], [alto] )
+A_MonitorWorkArea(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
+	VarSetCapacity(RECT, 8 * 2, 0), i := {}
+	, r := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0030, "UInt", 0, "Ptr", &RECT, "UInt", 0)
+	, i.x := x := NumGet(RECT, 0, "Int"), i.y := y := NumGet(RECT, 4, "Int")
+	, i.w := i.Width := Width := NumGet(RECT,  8, "Int") - x
+	, i.h := i.Height := Height := NumGet(RECT, 12, "Int") - y
+	return i, ErrorLevel := !r
+}
+
+A_Year(Year := "") {
+	return Year=""?A_Year:SystemSetTime([Year])
+} A_Mon(Mon := "") {
+	return Mon=""?A_Mon:SystemSetTime([, Mon])
+} A_DD(Day := "") {
+	return Day=""?A_DD:SystemSetTime([,, Day])
+} A_Hour(Hour := "") {
+	return Hour=""?A_Hour:SystemSetTime([,,, Hour])
+} A_Min(Min := "") {
+	return Min=""?A_Min:SystemSetTime([,,,, Min])
+} A_Sec(Sec := "") {
+	return Sec=""?A_Sec:SystemSetTime([,,,,, Sec])
+} A_MSec(MSec := "") {
+	return MSec=""?A_MSec:SystemSetTime([,,,,,, MSec])
+} A_WDay(WDay := "") {
+	return WDay=""?A_WDay:SystemSetTime([,,,,,,, WDay])
+}
+
+A_Time(Delimiter := "") {
+	CurrentTime := SplitTime()
+	return CurrentTime[1] Delimiter CurrentTime[2] Delimiter CurrentTime[3] Delimiter
+		. CurrentTime[4] Delimiter CurrentTime[5] Delimiter CurrentTime[6]
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------
+
+A_ProgramFiles() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{905e63b6-c1bf-494e-b29c-65b732d3d21a}":0x0026)
+}
+
+A_Programs() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}":0x0002)
+}
+
+A_ProgramsCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}":0X0017)
+}
+
+A_AppData() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}":0x001a)
+}
+
+A_AppDataCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}":0x0023)
+}
+
+A_Desktop() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}":0x0010)
+}
+
+A_DesktopCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}":0x0019)
+}
+
+A_StartMenu() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}":0x000b)
+}
+
+A_StartMenuCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A4115719-D62E-491D-AA7C-E74B8BE3B067}":0x0016)
+}
+
+A_Startup() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B97D20BB-F46A-4C97-BA10-5E3608430854}":0x0007)
+}
+
+A_StartupCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{82A5EA35-D9CD-47C5-9629-E15D2F714E6E}":0x0018)
+}
+
+A_MyDocuments() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{FDD39AD0-238F-46AF-ADB4-6C85480369C7}":0x0005)
+}
+
+A_DocumentsCommon() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{ED4824AF-DCE4-45A8-81E2-FC7965083634}":0x002e)
+}
+
+A_MyMusic() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{4BD8D571-6D19-48D3-BE97-422220080E43}":0x000d)
+}
+
+A_MyPictures() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{33E28130-4E1E-4676-835A-98395C3BC3BB}":0x0027)
+}
+
+A_MyVideo() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{18989B1D-99B5-455B-841C-AB7C74E4DDFC}":0x000e)
+}
+
+A_Recent() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{AE50C081-EBD2-438A-8655-8A092E34987A}":0x0008)
+}
+
+A_SendTo() {
+	return GetKnownFolderPath(IsWindowsVistaOrGreater()?"{8983036C-27C0-404B-8F08-102D10DCFD74}":0x0009)
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------
+
+;espacio
+A_Space(Count := 1) {
+	Loop, %Count%
+		_ .= Chr(32)
+	return _
+}
+
+;tabulación
+A_Tab(Count := 1) {
+	Loop, %Count%
+		_ .= Chr(9)
+	return _
+}
+
+;comilla
+A_Quote(Count := 1) {
+	Loop, %Count%
+		_ .= Chr(34)
+	return _
+}
+
+;obtiene un array con los parámetros usados para ejecutar el script
+;EJEMPLO: MsgBox( A_Args()[1] "`n" A_Args()[2] "`n" A_Args()[3] "`n" A_Args()[4] "`n" A_Args()[5] "`n`nTotal: " A_Args()[0] )
+A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
+	static Args
+	if (Args)
+		return Args
+	CommandLineString := DllCall("Kernel32.dll\GetCommandLineW", "Str"), Args := [], Skip := A_IsCompiled ? 1 : 2
+	, pArgs := DllCall("Shell32.dll\CommandLineToArgvW", "WStr", CommandLineString, "PtrP", nArgs) 
+	Loop, %nArgs% {
+		if (A_Index > Skip)
+			hArgs := NumGet( (A_Index - 1) * A_PtrSize + pArgs )
+			, Args[A_Index - Skip] := StrGet( hArgs, "UTF-16" )
+	} return Args, Args[0] := nArgs-Skip, DllCall("Kernel32.dll\LocalFree", "Ptr", pArgs)
 }
 
 
@@ -7458,19 +8036,9 @@ Array_Clone(Array) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-;#############################################################################################################################################
-; ::::::::::::::::::::::::::::::::::::::::::::: OTROS ::::::::::::::::::::::::::::::::::
-;#############################################################################################################################################
+;**********************************************************************************************************************************************************************************************************************************
+; ------> Otros.
+;**********************************************************************************************************************************************************************************************************************************
 ;cambiar el icono del área de notificación por un número.
 ;Sintaxis: SetTrayIconNumber( [Number], [TextColor], [BKColor] )
 ;Parámetros:
@@ -7495,44 +8063,7 @@ SetTrayIconNumber(Number := 0, TextColor := "0xFFFFFF", BKColor := "0x00000000")
 	catch
 		return false
 	return true, DestroyIcon(hIcon)
-	;, Size := VarSetCapacity(NOTIFYICONDATA, A_PtrSize=4?820:836, 0), NumPut(Size, NOTIFYICONDATA, 0)
-	;, NumPut(A_ScriptHwnd, NOTIFYICONDATA, 4, "Ptr"), NumPut(1028, NOTIFYICONDATA, 4+A_PtrSize, "UInt")
-	;, NumPut(hIcon, NOTIFYICONDATA, 16+A_PtrSize, "Ptr"), NumPut(0x2, NOTIFYICONDATA, 8+A_PtrSize, "UInt")
-	;return DllCall("shell32.dll\Shell_NotifyIcon", "UInt", 0x1, "Ptr", &NOTIFYICONDATA, "Int"), DestroyIcon(hIcon)
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/bb762159(v=vs.85).aspx
-
-;ejecuta el script como administrador
-RunAsAdmin() {
-	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (IsWindowsVistaOrGreater()) {
-		_ := A_IsCompiled?A_ScriptFullPath:A_AhkPath
-		Run, *RunAs "%_%" "%A_ScriptFullPath%" "%A_ScriptFullPath%",, UseErrorLevel
-		if !(ErrorLevel)
-			ExitApp
-		return false
-	} return true
-} RunAsAdminInit() { ;} ;<-- //RunAsAdmin
-	static RunAsAdminInit := RunAsAdminInit()
-	ProcessSetPrivilege := ProcessAdjustPrivileges(-1, "SeDebugPrivilege,SeShutdownPrivilege,SeTakeOwnershipPrivilege"
-		. ",SeIncreaseBasePriorityPrivilege,SeIncreaseWorkingSetPrivilege,SeLockMemoryPrivilege,SeSecurityPrivilege,SeSystemtimePrivilege"
-		. ",SeTakeOwnershipPrivilege,SeTimeZonePrivilege,SeUndockPrivilege")
-	ComObjError(false) ;desactivar las notificaciones de errores COM (Component Object Model).
-	SetWorkingDir, %A_ScriptDir% ;establece el directorio de trabajo.
-	SetBatchLines, -1 ;hace que el script trabaje a la máxima velocidad posible (afecta y es afectada por al uso de CPU).
-	SetTitleMatchMode, 2 ;el título de una ventana puede contener «WinTitle» en cualquier lugar dentro para ser valido.
-	SendMode, Input ;SendInput es generalmente mas rápido y mas fiable.
-	CoordMode, Mouse, Screen
-	SetControlDelay, 10 ;establece algunos retrasos para mejorar la fiabilidad y/o velocidad de respuesta entre cada comando. -->
-	SetKeyDelay, 10, 10, 10
-	SetMouseDelay, 0
-	SetWinDelay, 50 ;<--
-}
-
-PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
-	if (x="")||(y="")
-		MouseGetPos(x_, y_)
-	PixelGetColor, OutputVar, % (x="")?x_:x, % (y="")?y_:y, %AltSlowRGB%
-	return OutputVar
-}
 
 ;determina si el script ya se está ejecutando en el mismo directorio y con igual nombre.
 ;Ejemplo de uso:
@@ -7549,69 +8080,6 @@ Instance(Close := false) {
 		, ErrorLevel := hMutex=""?true:(A_LastError=0x00000005?true+1:false)
 }
 
-;bloquear mouse y teclado
-;Sintaxis: BlockInput( [Enable|Disable] )
-BlockInput(OnOff, Delay := 500, DisableTaskManager := true, Suspend := true) {
-	static TaskManager
-	static BlockInput := Func("BlockInput").Bind("Enable")
-	if (OnOff="Enable"||OnOff="Disable") { ;Enable | Disable = bloquear/desbloquear normal
-		return DllCall("User32.dll\BlockInput", "Int", OnOff="Enable"?true:false)
-	} else if (OnOff=0||OnOff="Off") { ;Off = desbloquear
-		SetTimer(BlockInput,  "Off")
-		if (DisableTaskManager) {
-			if !(TaskManager)
-				RegDelete( "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger" )
-			else RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", TaskManager)
-		} if (Suspend)
-			Suspend, Off
-		return DllCall("User32.dll\BlockInput", "Int", false)
-	} else if (OnOff=1||OnOff="On") { ;On = bloquear
-		if (Suspend)
-			Suspend, On
-		if (Delay>0)
-			SetTimer(BlockInput, Delay)
-		if (DisableTaskManager)
-			TaskManager := RegRead("HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger")
-			, RegWrite(, "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe", "Debugger", "Disable")
-		return DllCall("User32.dll\BlockInput", "Int", true)
-}}
-
-;Define el contenido de la variable de entorno especificada para el proceso actual.
-;Sintaxis: EnvAdd( [nombre], [valor], [user|system] )
-EnvAdd(lpName, lpValue, Type := "") {
-	return Type="User"?RegWrite(, "HKCU\Environment", lpName, lpValue)
-		: Type="System"?RegWrite(, "HKLM\SYSTEM\ControlSet001\Control\Session Manager\Environment", lpName, lpValue)
-		: DllCall("Kernel32.dll\SetEnvironmentVariableW", "Str", lpName, "Str", lpValue)
-}	
-
-;Recupera el contenido de la variable especificada desde el bloque de entorno del proceso invocador
-EnvGet(EnvVarName, ByRef UserEnv := "", ByRef SystemEnv := "") { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms683188%28v=vs.85%29.aspx
-	UserEnv := IsByRef(UserEnv)?RegRead("HKCU\Environment", EnvVarName):""
-	, SystemEnv := IsByRef(SystemEnv)?RegRead("HKLM\SYSTEM\ControlSet001\Control\Session Manager\Environment", EnvVarName):""
-	, nSize := DllCall("Kernel32.dll\GetEnvironmentVariableW", "Str", EnvVarName, "Ptr", 0, "UInt", 0)
-	, VarSetCapacity(lpBuffer, nSize * 2, 0) ;max 32767
-	, DllCall("Kernel32.dll\GetEnvironmentVariableW", "Str", EnvVarName, "Str", lpBuffer, "UInt", nSize)
-	return lpBuffer, ErrorLevel := !nSize
-}
-
-;Notifica el sistema operativo y todas las aplicaciones que se ejecutan que las variable(s) del sistema han cambiado .
-EnvUpdate() {
-	return SendMessage(0xFFFF, 0x001A,,, "Str", "Environment")
-}
-
-;obtener sugerencias de una palabra vía google
-GoogleSuggest(query) { ;http://ahkscript.org/boards/viewtopic.php?f=6&t=7182
-	if !query
-		return
-    i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-		, i.Open("GET", "http://suggestqueries.google.com/complete/search?output=firefox&q=" query, 1)
-		, i.Send(), i.WaitForResponse()
-    s := StrReplace(i.ResponseText, Chr(34) ",[" Chr(34), "`r`n")
-		, s := StrReplace(s, Chr(34) "," Chr(34), "`r`n"), s := StrReplace(s, Chr(34))
-		, s := StrReplace(s, "["), s := StrReplace(s, "]"), s := StrReplace(s, query,,, 1)
-	return StrReplace(s, "`r`n",,, 1)
-}
-
 ;hModule := GetModuleHandle("User32.dll"), hModule := hModule?hModule:LoadLibrary("User32.dll")
 ;Address := GetProcAddress(hModule, "GetSysColor") ;DllCall("User32.dll\GetSysColor", "Int", 16, "UInt")
 ;MsgBox % DllCall(Address, "Int", 16, "UInt") ". ErrorLevel: " ErrorLevel "`n`nFreeLibrary: " FreeLibrary(hModule)
@@ -7619,131 +8087,90 @@ GetModuleHandle(DllFile, Flags := 0x00000002) { ;GetModuleHandle( [dll] )
 	Error := ErrorLevel
 	Ok := DllCall("Kernel32.dll\GetModuleHandleExW", "UInt", Flags, "Str", DllFile, "PtrP", hModule, "UInt")
 	return Ok?hModule:false, ErrorLevel := Error
-} GetProcAddress(hModule, Function) { ;GetProcAddress( [hModule --> GetModuleHandle()/LoadLibrary()], [func] )
+}
+
+GetProcAddress(hModule, Function) { ;GetProcAddress( [hModule --> GetModuleHandle()/LoadLibrary()], [func] )
 	Error := ErrorLevel
 	return DllCall("Kernel32.dll\GetProcAddress", "Ptr", hModule, "AStr", Function, "Ptr"), ErrorLevel := Error
-} LoadLibrary(DllFile, Flags := 0x000000) { ;LoadLibrary( [file] )
+}
+
+LoadLibrary(DllFile, Flags := 0x000000) { ;LoadLibrary( [file] )
 	Error := ErrorLevel
 	return DllCall("Kernel32.dll\LoadLibraryExW", "Str", DllFile, "UInt", 0, "UInt", Flags, "Ptr"), ErrorLevel := Error
-} FreeLibrary(hModule) {
+}
+
+FreeLibrary(hModule) {
 	Error := ErrorLevel
 	return DllCall("Kernel32.dll\FreeLibrary", "Ptr", hModule), ErrorLevel := Error
 }
 
-SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0) {
-	SetTimer, % Label, % PeriodOnOffDelete, % ThreadPriority
-}
-
-;saltar a la etiqueta, hotkey o hotstring espesificada.
-;Sintaxis: gosub( [etiqueta], [0|1] )
-gosub(Label, Check := true) {
-	if (Check&&IsLabel(Label))
-		gosub, %Label%
-}
-
-;esperar (ms)
-;Sintaxis: Sleep( [milisegundos], [¿usar mayor precisión?] )
-;Nota: para usar mayor precisión por defecto, usar Sleep( [-2 | -3] )
-Sleep(Delay := 0, pc := false) {
-	static Frequency, DefaultMode
-	if (Delay>=-1) {
-		if !(pc) && !(DefaultMode) {
-			Sleep, %Delay%
-		} else {
-			if !Frequency
-				DllCall("Kernel32.dll\QueryPerformanceFrequency", "Int64*", Frequency)
-			DllCall("Kernel32.dll\QueryPerformanceCounter", "Int64*", Start)
-			, Finish := Start+(Frequency*(Delay/1000))
-			Loop
-				DllCall("Kernel32.dll\QueryPerformanceCounter", "Int64*", Current)
-			until (Current >= Finish)
-	}} else if (Delay=-2||Delay=-3) ;-2 = QueryPerformanceCounter. -3 = Normal
-		DefaultMode := Delay=-2?true:false
-}
-
-;reiniciar script
-Reload(Force := false, ExitCode := 0) {
-	Instance(true)
-	if (Force) {
-		if A_IsCompiled
-			Run, "%A_ScriptFullPath%"
-		else Run, "%A_AhkPath%" "%A_ScriptFullPath%"
-		ExitApp( Force, ExitCode )
-	} Reload
-}
-
-;termina el script
-;Sintaxis: ExitApp( [¿forzar?], [codigo de salida (-2147483648~2147483647)] )
-ExitApp(Force := false, ExitCode := 0) {
-	if (Force)
-		ProcessClose(ProcessExist(),,, ExitCode)
-	ExitApp, %ExitCode% ;DllCall("User32.dll\PostQuitMessage", "Int", 0)
-}
-
-;tiempo fuera en el que el script finaliza
-;Sintaxis: ExitAppTimer( [segundos], [¿forzar?], [codigo de salida (-2147483648~2147483647)] )
-;EJEMPLO:
-	;ExitAppTimer(5)
-	;Loop {
-		;ToolTip % ExitAppTimer()
-		;Sleep 100
-	;}
-ExitAppTimer(Seconds := "", Force := 0, ExitCode := 0) { ;http://ahkscript.org/boards/viewtopic.php?p=46906#p46906
-    static ending
-	static ExitAppTimer := Func("ExitAppTimer")
-    if (Seconds="ExitApp")
-        ExitApp(Force, ExitCode)
-    if !(Seconds)
-        return (ending - A_TickCount) / 1000.0
-    SetTimer(ExitAppTimer.Bind("ExitApp", Force, ExitCode), -(Seconds*1000))
-    ending := A_TickCount+(Seconds*1000)
-}
-
-;recupera el tiempo que ha pasado (ms) desde que el script se inició
-GetTickCount(ByRef TickCount := "") {
-	return TickCount := DllCall("Kernel32.dll\GetTickCount")
-}
-
 ;establece el directorio de trabajo.
-SetWorkingDir(DirName) {
-	return DllCall("kernel32.dll\SetCurrentDirectoryW", "Str", DirName)
+SetCurrentDirectory(DirName) {
+	return DllCall("Kernel32.dll\SetCurrentDirectoryW", "Ptr", &DirName)
 }
 
 ;obtiene el directorio de trabajo
-GetWorkingDir() {
-	uSize := VarSetCapacity(lpBuffer, (260 + 1) * 2) / 2
-	, DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt*", uSize, "Str", lpBuffer)
-	return lpBuffer
+GetCurrentDirectory() {
+	Size := DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt", 0, "Ptr", 0)
+	, VarSetCapacity(OutputVar, Size * 2)
+	, DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt", Size, "Str", OutputVar)
+	return OutputVar
 }
 
-GetLastError(ByRef FormatMessage := "", dwFlags := 0x1000) {
-	return LastError := DllCall("Kernel32.dll\GetLastError")
-		, FormatMessage := IsByRef(FormatMessage)?FormatMessage(LastError, dwFlags):""
-} SetLastError(num) {
-	return DllCall("User32.dll\SetLastErrorEx", "UInt", num, "UInt", 0)
-} FormatMessage(dwMessageId := "", dwFlags := 0x1000) {
-	dwMessageId := dwMessageId!=""?dwMessageId:GetLastError()
-	, nSize := VarSetCapacity(lpBuffer, 2024) - 1524
-	, DllCall("Kernel32.dll\FormatMessageW", "UInt", dwFlags, "Ptr", 0, "UInt", dwMessageId, "UInt", 0x800, "Str", lpBuffer, "UInt", nSize, "UInt", 0)
-	return lpBuffer
+;obtener último error
+GetLastError(ByRef Description := "") {
+	LastError := DllCall("Kernel32.dll\GetLastError", "UInt")
+	if IsByRef(Description)
+		, VarSetCapacity(Description, 0), VarSetCapacity(Description, 64000 * 2)
+		, DllCall("Kernel32.dll\FormatMessageW", "UInt", 0x1000, "Ptr", 0, "UInt", LastError, "UInt", 0x800, "Ptr", &Description, "UInt", 64000, "UInt", 0)
+		, VarAdjustCapacity(Description)
+	return LastError
 }
 
-FormatTime(Time, Format := "yyyyMMddHmmss") {
+;establecer último error
+SetLastError(ErrorCode) {
+	DllCall("User32.dll\SetLastErrorEx", "UInt", ErrorCode, "UInt", 0)
+}
+
+SetTimer(Label := "", PeriodOnOffDelete := "On", ThreadPriority := 0) {
+	SetTimer, % Label, % PeriodOnOffDelete, % ThreadPriority
+} gosub(Label, Check := true) {
+	if (Check&&IsLabel(Label))
+		gosub, %Label%
+} Sleep(Delay := -1) {
+	Sleep, % Delay
+} RunAsAdmin() {
+	if !(A_IsAdmin) && (%true%!=A_ScriptFullPath) && (IsWindowsVistaOrGreater()) {
+		_ := A_IsCompiled?A_ScriptFullPath:A_AhkPath
+		Run, *RunAs "%_%" "%A_ScriptFullPath%" "%A_ScriptFullPath%",, UseErrorLevel
+		if !(ErrorLevel)
+			ExitApp
+		return false
+	} return true
+} RunAsAdminInit() { ;} ;<-- //RunAsAdmin
+	static RunAsAdminInit := RunAsAdminInit()
+	ProcessSetPrivilege := ProcessAdjustPrivileges(-1, "SeDebugPrivilege,SeShutdownPrivilege"
+		. ",SeIncreaseBasePriorityPrivilege,SeIncreaseWorkingSetPrivilege,SeLockMemoryPrivilege,SeSecurityPrivilege,SeSystemtimePrivilege"
+		. ",SeTakeOwnershipPrivilege,SeTimeZonePrivilege,SeUndockPrivilege,SeAssignPrimaryTokenPrivilege,SeCreateTokenPrivilege"
+		. ",SeManageVolumePrivilege,SeTrustedCredManAccessPrivilege,SeBackupPrivilege,SeRestorePrivilege")
+	ComObjError(false) ;desactivar las notificaciones de errores COM (Component Object Model).
+	SetWorkingDir, %A_ScriptDir% ;establece el directorio de trabajo.
+	SetBatchLines, -1 ;hace que el script trabaje a la máxima velocidad posible (afecta y es afectada por al uso de CPU).
+	SetTitleMatchMode, 2 ;el título de una ventana puede contener «WinTitle» en cualquier lugar dentro para ser valido.
+	SendMode, Input ;SendInput es generalmente mas rápido y mas fiable.
+	CoordMode, Mouse, Screen
+	SetControlDelay, 10 ;establece algunos retrasos para mejorar la fiabilidad y/o velocidad de respuesta entre cada comando. -->
+	SetKeyDelay, 10, 10, 10
+	SetMouseDelay, 0
+	SetWinDelay, 50 ;<--
+} PixelGetColor(x := "", y := "", AltSlowRGB := 0) {
+	if (x="")||(y="")
+		MouseGetPos(x_, y_)
+	PixelGetColor, OutputVar, % (x="")?x_:x, % (y="")?y_:y, %AltSlowRGB%
+	return OutputVar
+} FormatTime(Time, Format := "yyyyMMddHmmss") {
 	FormatTime, hTime, %Time%, % Format=""?"dd/MM/yyyy (HH:mm:ss tt)":Format
 	return hTime
-}
-
-;traducir texto vía google translate
-;Sintaxis: Translate( [texto], [entrada], [salida] )
-;EJEMPLO: MsgBox % Translate("Hello, this is a test", "en", "es")
-Translate(String, From := "", To := "") { ;no fiable
-	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	, url := "https://translate.google.com/translate_a/single?client=t&sl=" From "&tl=" To
-	     . "&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&dt=at&ie=UTF-8&oe=UTF-8&otf=2&srcrom=0&ssel=0&tsel=3&q=" string
-	, i.Open("GET", url, true)
-	, i.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko)")
-	, i.Send(), i.WaitForResponse()
-	return RegExReplace(i.ResponseText, "^.*?" Chr(34) "(.*?)" Chr(34) ".*$")
 }
 
 ;separar tiempo
@@ -7758,32 +8185,18 @@ SplitTime(Time := "", ByRef Year := "", ByRef Mon := "", ByRef Day := "", ByRef 
 	return Time
 }
 
-;obtener color de fondo por defecto usado por autohotkey en las ventanas (gui)
-GetGuiDefaultColor() {
-	return RGB((((l:=DllCall("User32.dll\GetSysColor","Int",15,"UInt"))>>16)&0xFF)|(l&0x00FF00)|((l&0xFF)<<16))
+;traducir texto vía google translate
+;Sintaxis: Translate( [texto], [entrada], [salida] )
+;EJEMPLO: MsgBox % Translate("Hello, this is a test", "en", "es")
+Translate(String, From := "", To := "") { ;no fiable
+	i := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+	, url := "https://translate.google.com/translate_a/single?client=t&sl=" From "&tl=" To
+	     . "&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&dt=at&ie=UTF-8&oe=UTF-8&otf=2&srcrom=0&ssel=0&tsel=3&q=" string
+	, i.Open("GET", url, true)
+	, i.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko)")
+	, i.Send(), i.WaitForResponse()
+	return RegExReplace(i.ResponseText, "^.*?" Chr(34) "(.*?)" Chr(34) ".*$")
 }
-
-;crear ventana
-;Sinstaxis: CreateWindow( [x], [y], [ancho], [alto], [titulo], [estilo], [estilo extendido], [parent], [menu], [clase] )
-;Return: devuelve el hWnd
-;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600(v=vs.85).aspx
-;Estilos exentido: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543(v=vs.85).aspx
-CreateWindow(x, y, Width, Height, Caption := "", Style := 0x10cb0000, ExStyle := 0x0, Parent := 0x0, Menu := 0x0, Class := "MDIClient") {
-	hWnd := DllCall("User32.dll\CreateWindowExW", "UInt", ExStyle, "Ptr", &Class, "Ptr", &Caption, "UInt", Style
-		, "Int", x, "Int", y, "Int", Width, "Int", Height, "Ptr", Parent, "Ptr", Menu, "Ptr", A_ScriptHwnd, "PtrP", 0)
-	return hWnd, ErrorLevel := !hWnd
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632680(v=vs.85).aspx
-
-;crear control
-;Sintaxis: CreateControl( [hWnd ventana], [clase], [x], [y], [ancho], [alto], [texto], [estilo], [estilo extendido] )
-;Return: devuelve el hWnd
-;Clases: Button, ComboBox, Edit, ListBox, RichEdit, RICHEDIT_CLASS, SCROLLBAR, STATIC
-CreateControl(hWnd, Class, x, y, Width, Height, Caption := "", Style := 0x56000000, ExStyle := 0x0) {
-	return CreateWindow(x, y, Width, Height, Caption, Style, ExStyle, hWnd,, Class)
-} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632679(v=vs.85).aspx
-
-
-
 
 
 
@@ -7846,14 +8259,402 @@ CreateControl(hWnd, Class, x, y, Width, Height, Caption := "", Style := 0x560000
 
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: REGISTRO ::::::::::::::::::::::::::::::::::
+;Parámetros:
+	;Key: espesificar una de las siguientes. HKCR, HKCU, HKLM, HKU o HKCC.				HKPD
+	;SubKey: espesificar la subclave.
+	;FullKey: Key\SubKey.
+	;ValueName: nombre de un valor en la clave espesificada. dejar vacío para afectar al valor por defecto o no espesificar el parámetro para no usar.
+	;ValueType: tipo del valor. puede ser uno de los siguientes. https://msdn.microsoft.com/en-us/library/windows/desktop/ms724884(v=vs.85).aspx
+		;REG_SZ 					= 1		(string)
+		;REG_EXPAND_SZ 	= 2		(string, enviroment)
+		;REG_BINARY 			= 3		(any binary format data)
+		;REG_DWORD 			= 4		(32-Bit, max: 0xFFFFFFFF)
+		;REG_MULTI_SZ 		= 7		(string, multiline)
+		;REG_QWORD			= 11		(64-Bit, max: 0xFFFFFFFFFFFFFFFF)
+	;----------------------------------------------------------------------------------------------
+	;hKey: HANDLE a la Clave y/o SubClave. si la función tiene el parámetro SubKey y éste se espesifica, hKey debe hacer referencia solo a la Clave
+		;Notas:
+			;para obtener el HANDLE a la clave, usar RegOpenKey()
+			;no es necesario que espesifique el HANDLE, también puede espesificar Key o FullKey.
+	;DesiredAccess: acceso deseado para la clave. https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878%28v=vs.85%29.aspx
+		;0x0002 = KEY_SET_VALUE
+		;0x00010000 = DELETE
+		;0x0008 = KEY_ENUMERATE_SUB_KEYS
+		;0x0001 = KEY_QUERY_VALUE
+		;0x20019 = KEY_READ 
+;Registry Element Size Limits: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724872(v=vs.85).aspx
+;Link: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724875(v=vs.85).aspx
+;Notas:
+	;todas las funciones trabajan con WIN_XP exepto cuando se utiliza el parámetro SubKey, si lo permite o cuando se espesifica WIN_V+ en la funcion.
+		;Este parámetro está para hacer mas facíl trabajar con varias subclaves, ya que solo se estaria abriendo la clave principal, lo que mejora el rendimiento.
+		;por ejemplo, si va a utilizar cualquier clave bajo HKCU, solo debe usar RegOpenKey("HKCU") una sola vez, y solo pasar hKey como HANDLE; Todo esto en vez de abrir clave\subclave por cada subclave en la clave.
 ;#############################################################################################################################################
-SetRegView(RegView := "Default") {
-	SetRegView, %RegView%
+;abre una clave
+;Sintaxis: RegOpenKey( [Key_Or_FullKey], [DesiredAccess], [in_out CreateIfNotExist] )
+;Parámetros:
+	;CreateIfNotExist:
+		;In: espesificar TRUE para crear la clave si no existe.
+		;Out: devuelve uno de los siguientes valores.
+			;0x00000001 = REG_CREATED_NEW_KEY (la clave no existía y fué creada).
+			;0x00000002 = REG_OPENED_EXISTING_KEY (la clave existe y fue abierta sin cambios).
+;Return: hKey
+RegOpenKey(FullKey, DesiredAccess := 0xF003F, ByRef CreateIfNotExist := false) {
+	static RootKeys := {"HKEY_CLASSES_ROOT": 0x80000000, "HKCR": 0x80000000
+		, "HKEY_CURRENT_USER": 0x80000001, "HKCU": 0x80000001
+		, "HKEY_LOCAL_MACHINE": 0x80000002, "HKLM": 0x80000002
+		, "HKEY_USERS": 0x80000003, "HKU": 0x80000003
+		, "HKEY_PERFORMANCE_DATA": 0x80000004, "HKPD": 0x80000004
+		, "HKEY_CURRENT_CONFIG": 0x80000005, "HKCC": 0x80000005}
+	RegView := GetRegViewMode(), SplitKey(FullKey, Key, SubKey)
+	if !RootKeys.HasKey(Key)
+		return false
+	if (CreateIfNotExist)
+		Error := DllCall("Advapi32.dll\RegCreateKeyExW", "UInt", RootKeys[Key], "Ptr", &SubKey, "UInt", 0, "Ptr", 0, "UInt", 0, "UInt", DesiredAccess|RegView, "Ptr", 0, "PtrP", hKey, "UIntP", CreateIfNotExist:=0)
+	else Error := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", RootKeys[Key], "Ptr", &SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "PtrP", hKey)
+	return Error?false:hKey
+} RegCloseKey(hKey*) {
+	Error := ErrorLevel, Ok := 0
+	for k, v in hKey
+		Ok += DllCall("Advapi32.dll\RegCloseKey", "Ptr", v)=0 ;ERROR_SUCCESS = 0
+	return Ok=hKey.MaxIndex(), ErrorLevel := Error
 }
 
-;leer en el registro
-;Sintáxis: RegRead( [Clave\SubClave], [Valor] )
-;Nota: para leer el valor por defecto, no espesificar el 2do parámetro.
+;separa una clave en clave, subclave y remueve espacios de la clave.
+;Return: Clave\SubClave
+;Sintaxis: SplitKey( [FullKey], [out Key], [out SubKey] )
+SplitKey(ByRef FullKey, ByRef Key := "", ByRef SubKey := "") {
+	FullKey := RTrim(FullKey, "\")
+	return FullKey := ((Key:=Trim((KeyPos:=InStr(FullKey, "\"))?SubStr(FullKey, 1, KeyPos-1):FullKey))
+		. (KeyPos?"\":"") (SubKey:=KeyPos?SubStr(FullKey, (KeyPos+1)):"", "\"))
+}
+
+;transforma una clave en su forma larga/corta
+;Sintaxis: RegFormatKey( [Key], [Long] )
+;Parámetros:
+	;Long: establecer en TRUE para usar la forma larga.
+RegFormatKey(Key, Long := 0) {
+	static _0 := {"HKEY_CLASSES_ROOT": "HKCR", "HKEY_CURRENT_CONFIG": "HKCC", "HKEY_CURRENT_USER": "HKCU", "HKEY_LOCAL_MACHINE": "HKLM", "HKEY_USERS": "HKU"}
+	static _1 := {"HKCR": "HKEY_CLASSES_ROOT", "HKCC": "HKEY_CURRENT_CONFIG", "HKCU": "HKEY_CURRENT_USER", "HKLM": "HKEY_LOCAL_MACHINE", "HKU": "HKEY_USERS"}
+	if (p:=InStr(Key:=Trim(Key, "`r`n" A_Space "\" A_Tab), "\"))
+		s := StrTrimLeft(Key, p-1), Key := StrLeft(Key, p-1)
+	return (Long?(_1[Key]?_1[Key]:Key):(_0[Key]?_0[Key]:Key)) s
+}
+
+;eliminar valor por defecto, o valor espesífico
+;Sintáxis: RegDeleteKeyValue( [hKey], [SubKey], [ValueName] )
+;Acceso Requerido: KEY_SET_VALUE
+;Return: 0|1
+;Notas:
+	;cuando usa el parámetro SubKey, solo es válido para WIN_V+. Para hacerlo comparible con WIN_XP+ espesificar la clave y subclave en hKey.
+;Ejemplo: eliminar valor y valor por defecto.
+	;MsgBox % RegDeleteKeyValue("HKCU\Software",, "ValueName") ;eliminar valor ValueName de la subclave Software
+	;MsgBox % RegDeleteKeyValue("HKCU\Software") ;eliminar valor por defecto de la subclave Software
+	;MsgBox % RegDeleteKeyValue("HKCU") ;eliminar valor por defecto de la clave HKCU
+RegDeleteKeyValue(hKey, SubKey := "", ValueName := "") {
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0002))
+		return false, ErrorLevel := -1
+	if (SubKey = "")
+		Error := DllCall("Advapi32.dll\RegDeleteValueW", "Ptr", hKey, "Ptr", &ValueName)
+	else Error := DllCall("Advapi32.dll\RegDeleteKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName)
+	if (Close)
+		RegCloseKey(hKey)
+	return Error=0, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724848(v=vs.85).aspx
+
+;eliminar clave junto con todas las subclaves y valores
+;Sintaxis: RegDeleteTree( [hKey], [SubKey], [Recurse] )
+;Parámetros:
+	;Recurse: establecer en FALSE para evitar eliminar la clave y sus valores si tiene subclaves.
+;Acceso Requerido:
+	;Para eliminar una clave y sus valores: KEY_SET_VALUE | DELETE
+	;Para eliminar la clave junto con todas sus subclaves y valores: KEY_SET_VALUE | DELETE | KEY_ENUMERATE_SUB_KEYS | KEY_QUERY_VALUE
+;Return: 0|1
+RegDeleteTree(hKey, SubKey := "", Recurse := true) { ;WIN_V+
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0002|0x00010000|(Recurse?0x0008|0x0001:0)))
+		return false, ErrorLevel := -1
+	if !(Recurse) {
+		Error := DllCall("Advapi32.dll\RegDeleteKeyExW", "Ptr", hKey, "Ptr", &SubKey, "UInt", GetRegViewMode(), "Ptr", 0)
+	} else { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724847(v=vs.85).aspx
+		Error := DllCall("Advapi32.dll\RegDeleteTreeW", "Ptr", hKey, "Ptr", &SubKey)
+		if (SubKey="")
+			Error := DllCall("Advapi32.dll\RegDeleteKeyExW", "Ptr", hKey, "Ptr", &SubKey, "UInt", GetRegViewMode(), "Ptr", 0)
+	} if (Close)
+		RegCloseKey(hKey)
+	return Error=0, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379776(v=vs.85).aspx
+
+;copia una clave junto con todas sus subclaves y valores
+;Sintaxis: RegCopyTree( [hKey], [SubKey], [in_out KeyDest], [Recurse] )
+;Parámetros:
+	;KeyDest: 
+		;In: espesificar la clave\subclave destino. si no existe la crea.
+		;Out: además de espesificar una clave, espesificar un variable de salida para devolver un HANDLE a la nueva clave.
+			;Nota: para devolver el HANDLE, sumar 2 al 4to parámetro (Recurse).
+	;Recurse: establecer en FALSE para copiar solo la clave, sus valores y el valor por defecto. solo válido cuando se usa FullKey en hKey (no usar HANDLE)
+;Acceso Requerido: KEY_READ 
+;Notas:
+	;si la clave destino ya existe, los valores que coincidan con el mismo nombre son reescritos, los demás no los modifica.
+	;cuando usa el parámetro SubKey, solo es válido para WIN_V+. Para hacerlo comparible con WIN_XP+ espesificar la clave y subclave en hKey.
+;Ejemplo: usar el ejemplo de RegSetKeyValue() para crear los valores para copiar con este ejemplo.
+	;MsgBox % RegCopyTree("HKCU\SubKey",, "HKCU\NewSubKey")
+	;MsgBox % RegCopyTree("HKCU\SubKey2",, "HKCU\NewSubKey", false)
+RegCopyTree(hKey, SubKey := "", ByRef KeyDest := "", Recurse := true) { 
+	if (Recurse) && ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x20019))
+		return false, ErrorLevel := -1
+	if !(hKeyDest:=RegOpenKey(KeyDest,, true)) || !hKey
+		return false, ErrorLevel := -2
+	if (Recurse) { ;copiar clave, subclaves y valores
+		if (SubKey = "")
+			Error := DllCall("Shlwapi.dll\SHCopyKeyW", "Ptr", hKey, "Ptr", 0, "Ptr", hKeyDest, "UInt", 0)
+		else Error := DllCall("Advapi32.dll\RegCopyTreeW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", hKeyDest)
+	} else { ;copiar clave y valores
+		hKey := RegOpenKey(hKey "\" SubKey, 0x0001), Close := true, Index := 0
+		while RegEnumValue(hKey, Index++, ValueName,,, ValueType) ;busca todos los valores en la clave y los copia.
+			Data := RegGetValue(hKey,, ValueName), RegSetKeyValue(ValueType, hKeyDest,, ValueName, Data)
+		Data := RegGetValue(hKey,,, ValueType), Error := ErrorLevel?!RegDeleteKeyValue(hKeyDest):!RegSetKeyValue(ValueType, hKeyDest,,, Data)
+	} if (Close)
+		RegCloseKey(hKey)
+	if !((Recurse=2) || (Recurse=3)) || !IsByRef(KeyDest)
+		RegCloseKey(hKeyDest)
+	else KeyDest := hKeyDest
+	return Error=0, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379768(v=vs.85).aspx
+
+;establecer datos y tipo a un valor espesífico en el registro
+;Sintaxis: RegSetKeyValue( [ValueType], [hKey], [SubKey], [ValueName], [Datos] )
+;Acceso Requerido: KEY_SET_VALUE
+;Notas:
+	;para establecer valores de tipo REG_BINARY, debe espesificarlo en hexadecimal, para convertir string a hex usar StrToHex()
+	;cuando usa el parámetro SubKey, solo es válido para WIN_V+. Para hacerlo comparible con WIN_XP+ espesificar la clave y subclave en hKey.
+;Ejemplo:
+/*
+	MsgBox % RegSetKeyValue("REG_SZ", "HKCU\SubKey",,, "Default Value")
+		MsgBox % RegGetValue("HKCU\SubKey",,, ValueType) "`n`n" ValueType
+	MsgBox % RegSetKeyValue("REG_SZ", "HKCU\SubKey",, "ValueName 1", "Data")
+		MsgBox % RegGetValue("HKCU\SubKey",, "ValueName 1", ValueType) "`n`nValueType: " ValueType
+	MsgBox % RegSetKeyValue("REG_EXPAND_SZ", "HKCU\SubKey",, "ValueName 2", "Data")
+		MsgBox % RegGetValue("HKCU\SubKey",, "ValueName 2", ValueType) "`n`nValueType: " ValueType
+	MsgBox % RegSetKeyValue("REG_MULTI_SZ", "HKCU\SubKey",, "ValueName 3", "Line 1`nLine 2")
+		MsgBox % RegGetValue("HKCU\SubKey",, "ValueName 3", ValueType) "`n`nValueType: " ValueType
+	MsgBox % RegSetKeyValue("REG_DWORD", "HKCU\SubKey",, "ValueName 4", 0xFFFFFFFF)
+		MsgBox % RegGetValue("HKCU\SubKey",, "ValueName 4", ValueType) "`n`nValueType: " ValueType
+	MsgBox % RegSetKeyValue("REG_QWORD", "HKCU\SubKey",, "ValueName 5", 0xFFFFFFFFFFFFFFFF)
+		MsgBox % RegGetValue("HKCU\SubKey",, "ValueName 5", ValueType) "`n`nValueType: " ValueType
+	MsgBox % RegSetKeyValue("REG_BINARY", "HKCU\SubKey",, "ValueName 6", StrToHex("--> REG_BINARY DATA <-- ", ""))
+		MsgBox % HexToStr(RegGetValue("HKCU\SubKey",, "ValueName 6", ValueType)) "`n`nValueType: " ValueType "`n`nErrorLevel: " ErrorLevel
+	ExitApp
+*/ 
+RegSetKeyValue(ValueType, hKey, SubKey := "", ValueName := "", Data := "") {
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0002, true))
+		return false, ErrorLevel := -1
+	if (ValueType="REG_SZ") || (ValueType=1) {
+		if (SubKey = "")
+			Error := DllCall("Advapi32.dll\RegSetValueExW", "Ptr", hKey, "Ptr", &ValueName, "UInt", 0, "UInt", 1, "Ptr", &Data, "UInt", (StrLen(Data)*2) + 1)
+		else Error := DllCall("Advapi32.dll\RegSetKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 1, "Ptr", &Data, "UInt", (StrLen(Data)*2) + 1)
+	} else if (ValueType="REG_EXPAND_SZ") || (ValueType=2) {
+		if (SubKey = "")
+			Error := DllCall("Advapi32.dll\RegSetValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UInt", 2, "Ptr", &Data, "UInt", (StrLen(Data)*2) + 1)
+		else Error := DllCall("Advapi32.dll\RegSetKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 2, "Ptr", &Data, "UInt", (StrLen(Data)*2) + 1)
+	} else if (ValueType="REG_BINARY") || (ValueType=3) {
+		Loop, % Size := (VarSetCapacity(Data2, StrLen(Data)) / 2)
+			NumPut(Int("0x" SubStr(Data, 1, 2)), Data2, A_Index - 1, "UChar"), Data := SubStr(Data, 3)
+		if (SubKey = "")
+			Error := DllCall("Advapi32.dll\RegSetValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UInt", 3, "Ptr", &Data2, "UInt", Size)
+		else Error := DllCall("Advapi32.dll\RegSetKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 3, "Ptr", &Data2, "UInt", Size)
+	} else if (ValueType="REG_DWORD") || (ValueType="REG_QWORD") || (ValueType=11) || (ValueType=4) {
+		Data := Hex(Data), Data := (Data+0)=""?0:Data, Type := (ValueType="REG_QWORD"||ValueType=11)?11:4, Size := (ValueType="REG_QWORD"||ValueType=11)?8:4
+		if (SubKey = "")
+			Error := DllCall("Advapi32.dll\RegSetValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UInt", Type, "PtrP", Data, "UInt", Size)
+		else Error := DllCall("Advapi32.dll\RegSetKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", Type, "PtrP", Data, "UInt", Size)
+	} else if (ValueType="REG_MULTI_SZ") || (ValueType=7) {
+		Loop, Parse, % Data, `n, `r
+			Data2 .= A_LoopField=""?"":A_LoopField "`r`n"
+		if (SubKey = "")
+			Error := DllCall("Advapi32.dll\RegSetValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UInt", 7, "Ptr", &Data2, "UInt", (StrLen(Data2)*2) + 2)
+		else Error := DllCall("Advapi32.dll\RegSetKeyValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 7, "Ptr", &Data2, "UInt", (StrLen(Data2)*2) + 2)
+	} else Error := -2
+	if (Close)
+		RegCloseKey(hKey)
+	return Error=0, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724921(v=vs.85).aspx
+
+;obtener datos de un valor
+;Sintaxis: RegGetValue( [hKey], [SubKey], [ValueName], [out ValueType] )
+;Acceso Requerido: KEY_QUERY_VALUE
+;Notas:
+	;los valores de tipo REG_BINARY se obtienen en hexadecimal, para converit a string usar HexToStr()
+	;cuando usa el parámetro SubKey, solo es válido para WIN_V+. Para hacerlo comparible con WIN_XP+ espesificar la clave y subclave en hKey.
+	;al parecer, la función RegGetValue (usada cuando usa el parámetro SubKey, WIN_V+) devuelve un ValueType incorrecto para REG_EXPAND_SZ (devuelve REG_SZ), usar RegExistValue() para obtener el tipo correcto.
+RegGetValue(hKey, SubKey := "", ValueName := "", ByRef ValueType := "") { 
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0001))
+		return "", ErrorLevel := -1
+	if (SubKey = "")
+		DllCall("Advapi32.dll\RegQueryValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "Ptr", 0, "Ptr", 0, "UIntP", Size)
+	else DllCall("Advapi32.dll\RegGetValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 0x0000FFFF, "Ptr", 0, "Ptr", 0, "UIntP", Size)
+	VarSetCapacity(Data, Size, 0), Offset := 0, VarSetCapacity(ValueType, 0)
+	if (SubKey = "")
+		Error := DllCall("Advapi32.dll\RegQueryValueExW", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UIntP", ValueType, "Ptr", &Data, "UIntP", Size)
+	else Error := DllCall("Advapi32.dll\RegGetValueW", "Ptr", hKey, "Ptr", &SubKey, "Ptr", &ValueName, "UInt", 0x0000FFFF, "UIntP", ValueType, "Ptr", &Data, "UIntP", Size)
+	ValueType := RegFormatValueType(ValueType, Type)
+	if (ValueType = "REG_SZ") || (ValueType = "REG_EXPAND_SZ") || (ValueType = "REG_MULTI_SZ") {
+		Loop {
+			if (Length := StrLen(Data2 := StrGet(&Data + Offset, Size, "UTF-16")))
+				Data3 .= Data2 "`n", Offset += Length * 2 + 2
+		} until !(Length)
+		Data := Trim(Data3, "`n")
+	} else if (ValueType = "REG_QWORD") || (ValueType = "REG_DWORD") {
+		Data := NumGet(Data, 0, Type)
+	} else if (ValueType = "REG_BINARY") {
+		Loop, % (Size)
+			Data2 .= Hex(NumGet(Data, (A_Index - 1) * 1, "UChar"), 2, true, "")
+		Data := Data2
+	} else Error := -2
+	if (Close)
+		RegCloseKey(hKey)
+	return Error=0?Data:"", ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724868(v=vs.85).aspx
+
+;busca valor por valor en una clave espesífica con el Indice espesificado
+;Sintaxis: RegEnumValue( [hKey], [Index, en base 0], [out ValueName], [opt sizeof_ValueName, en carácteres], [0], [out ValueType], [out Data], [sizeof_Data] )
+;Return:
+	;0 = ERROR
+	;1 = OK o ErrorLevel=255
+;ErrorLevel:
+	;0 = OK
+	;255 = se ha encontrado el valor en el Index espesificado.
+	;[X] = ERROR
+RegEnumValue(hKey, dwIndex, ByRef lpValueName, lpcchValueName := 0, lpReserved := 0, ByRef lpType := 0, ByRef lpData := 0, lpcbData := 0) {
+	if (lpcchValueName=0) ;si no se espesificó el tamaño para ValueName, establecerlo en 32767 bytes, que es el máximo.
+		VarSetCapacity(lpValueName, 0), lpcchValueName := VarSetCapacity(lpValueName, 32767 * 2 + 1, 0)
+	Error := DllCall("Advapi32.dll\RegEnumValueW", "Ptr", hKey, "UInt", dwIndex, "Ptr", &lpValueName, "UIntP", lpcchValueName
+		, "Ptr", lpReserved, "UIntP", lpType, "Ptr", lpData, "Ptr", lpcbData), VarAdjustCapacity(lpValueName)
+	return Error=0||Error=256, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724865(v=vs.85).aspx
+
+;guardar clave junto con todas las subclaves y valores a un archivo
+;Sintaxis: RegSaveKey( [FullKey], [Filename], [Overwrite] )
+;Privilegio Requerido: SeBackupPrivilege
+RegSaveKey(FullKey, Filename, Overwrite := true) {
+	if FileExist(Filename) {
+		if !(Overwrite)
+			return false, ErrorLevel := -1
+		FileDelete(Filename)
+	} FullKey := SplitKey(FullKey, Key, SubKey)
+	, hKey := RegOpenKey(FullKey, 0x0001|0x0008)
+	if (Key="HKCR") ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724917(v=vs.85).aspx
+		Error := DllCall("Advapi32.dll\RegSaveKeyW", "Ptr", hKey, "Ptr", &Filename, "Ptr", 0)
+	else Error := DllCall("Advapi32.dll\RegSaveKeyExW", "Ptr", hKey, "Ptr", &Filename, "Ptr", 0, "UInt", 2)
+	return Error=0, ErrorLevel := Error, RegCloseKey(hKey)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724919(v=vs.85).aspx
+
+;restaurar todas las subclaves y valores a una clave espesífica desde un archivo
+;Sintaxis: RegSaveKey( [FullKey], [Filename] )
+;Privilegio Requerido: SeRestorePrivilege
+RegRestoreKey(FullKey, Filename) {
+	hKey := RegOpenKey(FullKey, 0x0004|0x0002, true)
+	, Error := DllCall("Advapi32.dll\RegRestoreKeyW", "Ptr", hKey, "Ptr", &Filename, "UInt", 0x00000008)
+	return Error=0, ErrorLevel := Error, RegCloseKey(hKey)
+}
+
+;abrir Regedit y navegar hasta la clave espesificada
+;Sintaxis: RegOpen( [FullKey] )
+;Ejemplo: MsgBox % RegOpen("HKLM\SOFTWARE\Classes\*")
+RegOpen(FullKey) {
+	FullKey := RegFormatKey(FullKey, true)
+	for k, v in ProcessEnum()
+		if (ProcessPath(v.ProcessId)=A_WinDir "\regedit.exe")
+			ProcessClose(v.ProcessId)
+	if !RegSetKeyValue(1, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit",, "LastKey", FullKey)
+		return false
+	Run, %A_WinDir%\regedit.exe, %A_WinDir%, UseErrorLevel, PID
+	return ErrorLevel?false:PID
+}
+
+;obtener informción de una clave
+;Sintaxis: RegQueryInfoKey( [hKey], [out SubKeys], [out Values] )
+;Parámetros:
+	;SubKeys: devuelve al cantidad de subclaves en la clave espesificada
+	;Values: devuelve la cantidad de valores en la clave espesificada, incluido el valor por defecto, si lo tiene.
+;Ejemplo: MsgBox % RegQueryInfoKey("HKCU", SubKeys, Values) "`nSubKeys: " SubKeys "`nValues: " Values
+RegQueryInfoKey(hKey, ByRef SubKeys := 0, ByRef Values := 0) {
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0001))
+		return false, ErrorLevel := -1
+	Error := DllCall("Advapi32.dll\RegQueryInfoKeyW", "Ptr", hKey, "Ptr", 0, "Ptr", 0, "Ptr", 0, IsByRef(SubKeys)?"UIntP":"Ptr", SubKeys
+		, "Ptr", 0, "Ptr", 0, IsByRef(Values)?"UIntP":"Ptr", Values, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+	if (Close)
+		RegCloseKey(hKey)
+	return Error=0, ErrorLevel := Error
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724902(v=vs.85).aspx
+
+;comprueba si existe una clave 
+;Sintaxis: RegExistKey( [FullKey], [¿buscar en subclaves?] )
+;Return: Key
+RegExistKey(Key, Recurse := false) {
+	hKey := RegOpenKey(Key, 0x0001)
+	return !!hKey, RegCloseKey(hKey)
+}
+
+;comprueba si existe un valor en la clave espesificada
+;Sintaxis: RegExistValue( [hKey], [valor] )
+;Return: ValueType
+;Nota: dejar el 2do parámetro vacío para comprobar si existe el valor predeterminado.
+RegExistValue(hKey, ValueName := "") {
+	if ((hKey+0)="") && (Close := true) && !(hKey := RegOpenKey(hKey, 0x0001))
+		return false
+	Error := DllCall("Advapi32.dll\RegQueryValueEx", "Ptr", hKey, "Ptr", &ValueName, "Ptr", 0, "UIntP", ValueType, "Ptr", 0, "Ptr", 0)
+	if (Close)
+		RegCloseKey(hKey)
+	return Error=0?RegFormatValueType(ValueType):false
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;FUNCIONES PARA USO INTERNO
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Return: 
+	;0x0000 = DEFAULT
+	;0x0200 = KEY_WOW64_32KEY  (as 32-Bit)
+	;0x0100 = KEY_WOW64_64KEY  (as 64-Bit)
+GetRegViewMode() {
+	if (A_RegView=32)
+		return 0x0200
+	if (A_RegView=64) ;) || (A_PtrSize=8)
+		return 0x0100
+	return 0x0000
+}
+
+RegFormatValueType(ValueType, ByRef Type := "") {
+	static ValueTypes := {1: "REG_SZ", 2: "REG_EXPAND_SZ", 3: "REG_BINARY", 4: "REG_DWORD", 7: "REG_MULTI_SZ", 11: "REG_QWORD"}
+	if IsByRef(Type)
+		Type := (ValueType=1||ValueType=2||ValueType=7)?"UTF-16":ValueType=11?"UInt64":ValueType=4?"UInt":ValueType=3?"CP0":""
+	return ValueTypes[ValueType]?ValueTypes[ValueType]:-1
+}
+
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;OTRAS FUNCIONES
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;importar clave
+;Sintaxis: RegImport( [Filename], [Wait] )
+;Nota: recomendado usar RegRestoreKey()
+RegImport(Filename, Wait := false) {
+	if (Wait)
+		RunWait, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
+	else Run, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
+	return !ErrorLevel
+}
+
+;exportar clave
+;Sintaxis: RegExport( [Key], [Filename], [Wait], [OverWrite] )
+;Nota: recomendado usar RegSaveKey()
+RegExport(Key, Filename, Wait := false, OverWrite := true) {
+	if !(OverWrite) && (FileExist(Filename))
+		return false, ErrorLevel := -1
+	Key := RegFormatKey(Key, true)
+	if (Wait)
+		RunWait, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
+	else Run, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
+	return !ErrorLevel
+}
+
 RegRead(Key, ValueName*) {
 	if (ValueName.MaxIndex())
 		RegRead, Value, %Key%, % ValueName[1]
@@ -7861,10 +8662,6 @@ RegRead(Key, ValueName*) {
 	return Value
 }
 
-;elimina en el registro
-;Sintáxis: RegDelete( [Clave\SubClave], [Valores*] )
-;NOTAS: para eliminar el valor por defecto, espesificar un valor vacio
-	;para eliminar la clave entera, no espesificar el 2do parámetro.
 RegDelete(Key, ValueName*) {
 	if !(Key)
 		return false, ErrorLevel := true
@@ -7877,10 +8674,6 @@ RegDelete(Key, ValueName*) {
 	return ErrorLevel?false:Key
 }
 
-;escribe en el registro
-;Sintáxis 1: RegWrite( [Tipo], [Clave\SubClave], [Valor], [Datos] )
-;Sintáxis 2: RegWrite( [Clave\SubClave] )
-;Tipos: BINARY|DWORD|EXPAND|MULTI|SZ
 RegWrite(ValueType := 0, Key := "", ValueName := "", Value*) {
 	static ValueTypes := {"REG_BINARY": "REG_BINARY", "BINARY": "REG_BINARY"
 		, "REG_DWORD": "REG_DWORD", "DWORD": "REG_DWORD"
@@ -7899,29 +8692,6 @@ RegWrite(ValueType := 0, Key := "", ValueName := "", Value*) {
 		RegWrite, %Type%, %Key%, %ValueName%, % Value[1]
 	else RegWrite, %Type%, %Key%, %ValueName%
 	return ErrorLevel?false:Key
-}
-
-;importar clave
-;sintaxis: RegImport( [Archivo], [¿Esperar?] )
-RegImport(FileName, Wait := false) {
-	if !IsFile(FileName)
-		return false, ErrorLevel := true
-	if Wait
-		RunWait, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
-	else Run, %A_WinDir%\regedit.exe -v -s "%FileName%",, UseErrorLevel
-	return !ErrorLevel
-}
-
-;exportar clave
-;sintaxis: RegExport( [Clave], [Archivo], [¿Esperar?], [¿reescribir si ya existe el archivo?] )
-RegExport(Key, FileName, Wait := false, OverWrite := true) {
-	if !(OverWrite) && (FileExist(FileName))
-		return false, ErrorLevel := true
-	Key := RegFormatKey(Key, true)
-	if (Wait)
-		RunWait, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
-	else Run, %A_WinDir%\regedit.exe -e "%Filename%" "%Key%",, UseErrorLevel
-	return !ErrorLevel
 }
 
 ;renombrar una clave
@@ -7971,53 +8741,11 @@ RegCopyKey(Key, KeyDest, Recurse := true) { ;KEY_READ = 0x20019 | KEY_ALL_ACCESS
 	} return !Result, RegCloseKey(hRegKeyDest, hRegKey), ErrorLevel := Result
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa379768(v=vs.85).aspx | https://msdn.microsoft.com/en-us/library/windows/desktop/bb773482(v=vs.85).aspx
 
-;comprueba si existe una clave 
-;Sintaxis: RegExistKey( [clave], [¿buscar en subclaves?] )
-RegExistKey(Key, Recurse := false) {
-	SplitPath, Key, KeyName, BKey
-	Loop, Reg, %BKey%, % Recurse?"KR":"K"
-		if (A_LoopRegName=KeyName)
-			return true, ErrorLevel := false
-	return false, ErrorLevel := true
-}
-
-;comprueba si existe un valor en la clave espesificada
-;Sintaxis: RegExistValue( [clave], [valor] )
-;Nota: dejar el 2do parámetro vacío para comprobar si existe el valor predeterminado.
-RegExistValue(Key, ValueName := "") {
-	if (ValueName="") {
-		RegRead, OutputVar, %Key%
-		return !ErrorLevel
-	} Loop, Reg, %Key%, V
-		if (A_LoopRegName=ValueName)
-			return true, ErrorLevel := false
-	return false, ErrorLevel := true
-}
-
-;transforma una clave en su forma larga/corta
-;Sintaxis: RegFormatKey( [clave], [modo] )
-;Modos: 0 = forma corta | 1 = forma larga
-RegFormatKey(Key, Mode := 0) {
-	static _0 := {"HKEY_CLASSES_ROOT": "HKCR", "HKEY_CURRENT_CONFIG": "HKCC", "HKEY_CURRENT_USER": "HKCU", "HKEY_LOCAL_MACHINE": "HKLM", "HKEY_USERS": "HKU"}
-	static _1 := {"HKCR": "HKEY_CLASSES_ROOT", "HKCC": "HKEY_CURRENT_CONFIG", "HKCU": "HKEY_CURRENT_USER", "HKLM": "HKEY_LOCAL_MACHINE", "HKU": "HKEY_USERS"}
-	if (p:=InStr(Key:=Trim(Key, "`r`n" A_Space "\" A_Tab), "\"))
-		s := StrTrimLeft(Key, p-1), Key := StrLeft(Key, p-1)
-	return (Mode?(_1[Key]?_1[Key]:Key):(_0[Key]?_0[Key]:Key)) s
-}
-
-;separa una clave en clave, subclave
-;Sintaxis: SplitKey( [clave], [clave (salida)], [subclave (salida)] )
-SplitKey(_Key, ByRef Key := "", ByRef SubKey := "") {
-	_Key := Trim(_Key)
-	return (Key:=(KeyPos:=InStr(_Key, "\"))?SubStr(_Key, 1, KeyPos-1):_Key)
-		. (SubKey:=Trim(KeyPos?"\" SubStr(_Key, (KeyPos+1)):"", "\"))
-}
-
 ;devuelve una clave o valor que no exista
 ;Sintaxis: RegFNKey( [clave], [valor], [inicio], [fin] )
 ;Ejemplo:
 	;RegDelete("HKCU\Lol"),RegDelete("HKCU\Lol(1)"),MsgBox(RegFNKey("HKCU\Lol")),RegWrite("HKCU\Lol"),MsgBox(RegFNKey("HKCU\Lol"))
-	;,RegWrite("HKCU\Lol(1)"),MsgBox(RegFNKey("HKCU\Lol")),RegDelete("HKCU\Lol"),RegDelete("HKCU\Lol(1)"),ExitApp()
+	;,RegWrite("HKCU\Lol(1)"),MsgBox(RegFNKey("HKCU\Lol")),RegDelete("HKCU\Lol"),RegDelete("HKCU\Lol(1)")
 RegFNKey(Key, Value := "", Start := "(", End := ")") {
 	if (Value="") {
 		Loop {
@@ -8030,56 +8758,6 @@ RegFNKey(Key, Value := "", Start := "(", End := ")") {
 				tmpkey := tmpkey?StrReplace(tmpkey, Start (A_Index-1) End, Start A_Index End):Value Start 1 End
 			else return tmpkey?tmpkey:Value
 }}}
-
-;abrir clave en regedit
-;Sintaxis: RegOpen( [clave\subclave] )
-;Ejemplo: MsgBox % RegOpen("HKLM\SOFTWARE\Classes\*") "," ErrorLevel
-RegOpen(Key) {
-	if !(RegExistKey(Key:=Trim(Key)))
-		return false, ErrorLevel := true
-	Key := RegFormatKey(Key, true), ProcessClose("regedit.exe*")
-	, RegWrite(, "HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "LastKey", Key)
-	Run, %A_WinDir%\regedit.exe
-	return !ErrorLevel
-	;if !(PID:=ProcessWait("regedit.exe", 5)) ;seleccionar valores --->
-	;	return false, ErrorLevel := true
-	;Loop, 30 ;3s
-	;	Sleep, 100
-	;until (ID:=WinExist("ahk_pid " PID))
-	;if !(IsWindow(hWnd:=ControlExist(ID, "SysListView321")))
-	;	return false, ErrorLevel := true
-	;Loop, 50 ;5s
-	;	Sleep, 100
-	;until ((Count:=LV_GetItemCount(hWnd))>0)
-	;if !(Count>1) ;valor defecto + otro(s)
-	;	return true, ErrorLevel := false
-	;MsgBox % Count ;cantidad de valores en la clave actual {...} <--
-}
-
-;abre una clave
-;Sintaxis: RegOpenKey( [clave\subclave], [acceso], [¿crear la clave si no existe?] )
-;Accesos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878%28v=vs.85%29.aspx
-;Claves: HKCR|HKCU|HKLM|HKU|HKPD|HKCC
-RegOpenKey(Key, DesiredAccess := 0xF003F, CreateIfNotExist := false) {
-	static Keys := {"HKEY_CLASSES_ROOT": 0x80000000, "HKCR": 0x80000000
-		, "HKEY_CURRENT_USER": 0x80000001, "HKCU": 0x80000001
-		, "HKEY_LOCAL_MACHINE": 0x80000002, "HKLM": 0x80000002
-		, "HKEY_USERS": 0x80000003, "HKU": 0x80000003
-		, "HKEY_PERFORMANCE_DATA": 0x80000004, "HKPD": 0x80000004
-		, "HKEY_CURRENT_CONFIG": 0x80000005, "HKCC": 0x80000005}
-	RegView := A_RegView="32"?0x0200:A_RegView="64"?0x0100:0x0000, SplitKey(Key, Key, SubKey)
-	if !(Keys[Key]) ;KEY_WOW64_32KEY = 0x0200 | KEY_WOW64_64KEY = 0x0100 | Default = 0x0
-		return false, ErrorLevel := true
-	if (CreateIfNotExist) ;ERROR_SUCCESS = 0 (RegCreateKeyExW y RegOpenKeyExW devuelven 0 si no hubo errores)
-		Result := DllCall("Advapi32.dll\RegCreateKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "Ptr", 0, "UInt", 0, "UInt", DesiredAccess|RegView, "Ptr", 0, "PtrP", hRegKey, "Ptr", 0)
-	else Result := DllCall("Advapi32.dll\RegOpenKeyExW", "UInt", Keys[Key], "Str", SubKey, "UInt", 0, "UInt", DesiredAccess|RegView, "PtrP", hRegKey)
-	return hRegKey, ErrorLevel := Result 
-} RegCloseKey(Key*) {
-	Error := ErrorLevel, Ok := 0
-	Loop, % (Key.MaxIndex())
-		Ok += DllCall("Advapi32.dll\RegCloseKey", "Ptr", Key[A_Index], "UInt")=0 ;ERROR_SUCCESS = 0
-	return Ok=Key.MaxIndex(), ErrorLevel := Error
-}
 
 ;establecer seguridad para la clave
 ;Sintaxis: RegSetSecurity( [clave\subclave], [usuario], [acceso] )
@@ -9937,6 +10615,11 @@ UD_GetRange(hWnd, ByRef Min := "", ByRef Max := "") {
 ;#############################################################################################################################################
 ; ::::::::::::::::::::::::::::::::::::::::::::: GUI & DIALOGOS ::::::::::::::::::::::::::::::::::
 ;#############################################################################################################################################
+;obtener color de fondo por defecto usado por autohotkey en las ventanas (gui)
+GetGuiDefaultColor() {
+	return RGB((((l:=DllCall("User32.dll\GetSysColor","Int",15,"UInt"))>>16)&0xFF)|(l&0x00FF00)|((l&0xFF)<<16))
+}
+
 ;MessageBox
 ;Sintaxis: MsgBox( [opciones], [titulo], [texto], [tiempo fuera] )
 ;NOTA: la variable global A_MsgBoxResult contiene el resultado.
@@ -10543,27 +11226,31 @@ ControlSend(hWnd, Control, Keys, Count := 1, Delay := -2) {
 	return ControlSend(hWnd, Control, "{raw}" Text, Count, Delay)
 }
 
-;establece foco en un control
+;establece foco en un control / obtiene el foco del control de la ventana espesificada
 ;Sintaxis: ControlFocus( [hWnd], [Control] )
-ControlFocus(hWnd, Control) {
-	_gethwnd(hWnd, Control)
-	return WinActivate(Control,, true)
+;Nota: espesificar solo el 1er parámetro para obtener le hWnd al control que tiene el foco.
+ControlFocus(hWnd, Control := "GetFocus") {
+	if (Control="GetFocus") {
+		_gethwnd(hWnd)
+		return WinGetThreadInfo(hWnd).hwndFocus
+	} _gethwnd(hWnd, Control)
+	return WinActivate(Control, true)
 }
 
 ;establecer texto
 ;Sintaxis: ControlSetText( [hWnd], [Control], [Texto] )
 ControlSetText(hWnd, Control, NewText := "") {
 	_gethwnd(hWnd, Control)
-	return SendMessage(Control, 0x000C,,,, &NewText)?Control:false
+	return SendMsg(Control, 0x000C,, &NewText)?Control:false
 }
 
 ;obtener texto
 ;Sintaxis: ControlGetText( [hWnd], [Control] )
 ControlGetText(hWnd, Control) {
-	_gethwnd(hWnd, Control), Size := SendMessage(Control, 0x000E,,,,, "UIntP")
-	, VarSetCapacity(Text, (Size+1) * 2)
-	, SendMessage(Control, 0x000D, "UInt", Size + 1, "Str", Text)
-	return Text
+	_gethwnd(hWnd, Control), Size := SendMsg(Control, 0x000E)
+	, VarSetCapacity(OutputVar, (Size + 1) * 2)
+	, SendMsg(Control, 0x000D, Size + 1, &OutputVar), VarSetCapacity(OutputVar, -1)
+	return OutputVar
 } 
 
 ;recupera el control que tiene el foco, si lo hay.
@@ -10720,8 +11407,8 @@ ControlColor(hWnd, BackgroundColor := "White", TextColor := "") {
 		Controls.RemoveAt(hWNd, ""), BackgroundColor := _getcolor(BackgroundColor), TextColor := _getcolor(TextColor)
 		If !(BackgroundColor="") && !((B:=((BackgroundColor&0xFF0000)>>16)|(BackgroundColor&0x00FF00)|((BackgroundColor&0x0000FF)<<16))="")
 			Controls[hWnd] := {B: B, T: TextColor=""?"":((TextColor&0xFF0000)>>16)|(TextColor&0x00FF00)|((TextColor&0x0000FF)<<16)}
-		return r:=DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0405, "UInt"), ErrorLevel := !(r)
-	} return false, ErrorLevel := true
+		return DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0405)
+	} return false
 }
 
 ;obtener estilo del control
@@ -10756,7 +11443,13 @@ ControlSetExStyle(hWnd, Control, ExStyle) {
 	return !ErrorLevel
 }
 
-
+;crear control
+;Sintaxis: CreateControl( [hWnd ventana], [clase], [x], [y], [ancho], [alto], [texto], [estilo], [estilo extendido] )
+;Return: devuelve el hWnd
+;Clases: Button, ComboBox, Edit, ListBox, RichEdit, RICHEDIT_CLASS, SCROLLBAR, STATIC
+CreateControl(hWnd, Class, x, y, Width, Height, Caption := "", Style := 0x56000000, ExStyle := 0x0) {
+	return CreateWindow(x, y, Width, Height, Caption, Style, ExStyle, hWnd,, Class)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632679(v=vs.85).aspx
 
 
 
@@ -11028,7 +11721,7 @@ MouseGetText(x := "", y := "", Encoding := "UTF-16") {
 ;muestra/oculta el cursor
 ;Sintaxis: CursorShow( [Estado (0|1)], [Modo (0|1)], [Reestablecer (segundos)], [¿esperar?] )
 ;REESTABLECER: tiempo fuera en el que el cursor se muestra/oculta (dependiedo el estado espesificado)
-;EJEMPLO: CursorShow(0,, 5, true), ExitApp()
+;EJEMPLO: CursorShow(0,, 5, true)
 CursorShow(State, Mode := 0, TimeOut := 0, WaitTimeOut := false) {
 	;--------------------------------------------------------------------------------------------------------------
 	static hCursor, hCursorImage, Cursor, LastState, LastMode
@@ -11232,12 +11925,19 @@ GetFileVersionInfoEx(Filename) { ;WIN_V+
 ;Parámetros:
 	;Valores: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724385(v=vs.85).aspx
 ;Nota: todas las dimenciones son recuperadas en pixeles
-GetSystemMetrics(Index) {
-	return DllCall("User32.dll\GetSystemMetrics", "Int", Index, "Int")
-} SysGet(Subcommand, Param3 := "") {
-	SysGet, OutputVar, %Subcommand%, %Param3%
+GetSystemMetrics(Index*) {
+	if (Index.MaxIndex()=1)
+		return DllCall("User32.dll\GetSystemMetrics", "Int", Index.1, "Int")
+	OutputVar := []
+	for k, v in Index
+		OutputVar.Push(DllCall("User32.dll\GetSystemMetrics", "Int", v, "Int"))
 	return OutputVar
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724385(v=vs.85).aspx
+
+;recupera el identificador de idioma para el idioma de interfaz de usuario por defecto del sistema operativo.
+GetSystemDefaultUILanguage() {
+	return Hex(DllCall("Kernel32.dll\GetSystemDefaultUILanguage", "UShort"), 4, true)
+}
 
 ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;SISTEMA
@@ -11387,453 +12087,6 @@ SystemIconsReload() {
 	return i:=DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0058, "UInt", 0, "Ptr", 0, "UInt", 0), ErrorLevel := !i
 }
 
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-; ::::::::::::::::::::::::::::::::::::::::::::: VARIABLES ::::::::::::::::::::::::::::::::::
-;-------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Recupera la ruta a la raíz del directorio del usuario actual
-A_UserProfile() {
-	static UserProfile
-	if !(UserProfile) {
-		if !(IsDir(UserProfile:=EnvGet("USERPROFILE"))) {
-			SplitPath, A_AppData,, UserProfile
-			SplitPath, UserProfile,, UserProfile
-	}	} return UserProfile
-}
-
-;Recupera la ruta a la raíz del directorio que contiene los datos del programa compartidos por todos los usuarios.
-A_AllUsersProfile() {
-	static AllUsersProfile
-	if !(AllUsersProfile)
-		DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(AllUsersProfile, uSize * 2, 0)
-		, DllCall("Userenv.dll\GetAllUsersProfileDirectory", "Str", AllUsersProfile, "UInt*", uSize)
-	return AllUsersProfile
-}
-
-;Recupera la ruta de acceso al directorio raíz donde se almacenan los perfiles de usuario.
-A_Profiles() {
-	static Profiles
-	if !(Profiles)
-		DllCall("Userenv.dll\GetProfilesDirectoryW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(Profiles, uSize * 2, 0)
-		, DllCall("Userenv.dll\GetProfilesDirectoryW", "Str", Profiles, "UInt*", uSize)
-	return Profiles
-}
-
-;Recupera la ruta de acceso a la raíz del perfil de usuario predeterminado.
-A_DefaultUserProfile() {
-	static DefaultUserProfile
-	if !(DefaultUserProfile)
-		DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(DefaultUserProfile, uSize * 2)
-		, DllCall("Userenv.dll\GetDefaultUserProfileDirectoryW", "Str", DefaultUserProfile, "UInt*", uSize)
-	return DefaultUserProfile
-}
-
-;recupera el nombre del usuario actual
-A_UserName() {
-	static UserName
-	if !(UserName)
-		DllCall("Advapi32.dll\GetUserNameW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(UserName, (uSize * 2) + 1, 0)
-		, DllCall("Advapi32.dll\GetUserNameW", "Str", UserName, "UInt*", uSize + 1)
-	return UserName
-} 
-
-;obtiene el dominio y nombre de usuario
-A_UserNameEx() {
-	static UserNameEx
-	if !(UserNameEx)
-		DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Ptr", 0, "UIntP", Size)
-		, VarSetCapacity(UserNameEx, (Size * 2) + 1, 0)
-		, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", UserNameEx, "UIntP", Size + 1)
-	return UserNameEx
-}
-
-;recupera el dominio del usuario actual
-A_UserDomain(ByRef UserName := "") {
-	static UserDomain
-	if !(UserDomain)
-		DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(UserDomain, (uSize * 2) + 1, 0)
-		, DllCall("Secur32.dll\GetUserNameExW", "UInt", 2, "Str", UserDomain, "UInt*", uSize + 1)
-	return StrSplit(UserDomain, "\")[1], UserName := IsByRef(UserName)?StrSplit(UserDomain, "\")[2]:""
-}
-
-;Recupera/Establece el nombre NetBIOS del equipo local.
-;Este nombre se estableció al inicio del sistema, cuando el sistema lo lee desde el registro.
-A_ComputerName(lpComputerName*) {
-	static ComputerName
-	if (lpComputerName.MaxIndex())
-		return DllCall("Kernel32.dll\SetComputerNameW", "Str", lpComputerName[1])
-	if !(ComputerName)
-		DllCall("kernel32.dll\GetComputerNameW", "Ptr", 0, "UInt*", uSize)
-		, VarSetCapacity(ComputerName, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetComputerNameW", "Str", ComputerName, "UInt*", uSize)
-	return ComputerName
-}
-
-;recupera la ruta del directorio de sistema utilizado por WOW64.
-;NOTA: Este directorio no está presente en Windows de 32 bits.
-A_SysDir64() {
-	static SysDir64
-	if !(SysDir64)
-		uSize := DllCall("kernel32.dll\GetSystemWow64DirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(SysDir64, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetSystemWow64DirectoryW", "Str", SysDir64, "UInt", uSize)
-	return SysDir64
-}
-
-;recupera la ruta del directorio de sistema.
-;El directorio del sistema contiene los archivos del sistema, como las bibliotecas y los controladores de vínculos dinámicos.
-A_SysDir() {
-	static SysDir
-	if !(SysDir)
-		uSize := DllCall("kernel32.dll\GetSystemDirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(SysDir, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetSystemDirectoryW", "Str", SysDir, "UInt", uSize)
-	return SysDir
-}
-
-;recupera la ruta del directorio compartido de Windows en un sistema multi-usuario.
-A_SysWinDir() {
-	static SysWinDir
-	if !(SysWinDir)
-		uSize := DllCall("kernel32.dll\GetSystemWindowsDirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(SysWinDir, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetSystemWindowsDirectoryW", "Str", SysWinDir, "UInt", uSize)
-	return SysWinDir
-}
-
-;recupera la ruta de acceso del directorio de Windows.
-A_WinDir() {
-	static WinDir
-	if !(WinDir)
-		uSize := DllCall("kernel32.dll\GetWindowsDirectoryW", "Ptr", 0, "UInt", 0)
-		, VarSetCapacity(WinDir, uSize * 2, 0)
-		, DllCall("kernel32.dll\GetWindowsDirectoryW", "Str", WinDir, "UInt", uSize)
-	return WinDir
-}
-
-;Archivos Temporales
-A_Temp() {
-	static Temp
-	if !(Temp)
-		uSize := DllCall("kernel32.dll\GetTempPathW", "UInt", 0, "Ptr", 0)
-		, VarSetCapacity(Temp, (uSize * 2) + 1, 0)
-		, DllCall("kernel32.dll\GetTempPathW", "UInt", uSize + 1, "Str", Temp)
-	return Temp
-}
-
-;recupera/establece el directorio de trabajo
-A_WorkingDir(WorkingDir*) {
-	if (WorkingDir.MaxIndex())
-		return DllCall("kernel32.dll\SetCurrentDirectoryW", "Str", WorkingDir[1])
-	VarSetCapacity(WorkingDir, (260 * 2) + 1) / 2
-	, DllCall("Kernel32.dll\GetCurrentDirectoryW", "UInt*", 261, "Str", WorkingDir)
-	return WorkingDir
-}
-
-;recupera la ruta a la consola de windows (cmd.exe)
-A_ComSpec() {
-	static _ComSpec
-	return _ComSpec?_ComSpec:(_ComSpec:=EnvGet("ComSpec"))
-}
-
-;recupera el idioma por defecto del sistema
-A_Language() {
-	static Language
-	return Language?Language:(Language:=Format("{:04X}", DllCall("Kernel32.dll\GetSystemDefaultUILanguage", "UShort")))
-}
-
-A_AppDataLocal() {
-	static AppDataLocal
-	return AppDataLocal?AppDataLocal:(AppDataLocal:=EnvGet("LOCALAPPDATA"))
-} ;http://ahkscript.org/boards/viewtopic.php?f=13&p=52910#p52910
-
-;ancho del monitor actual
-A_ScreenWidth() {
-	return GetSystemMetrics(0)
-}
-
-;tamaño de la zona de trabajo en el monitor de pantalla principal.
-;el área de trabajo es la parte de la pantalla que no está oculta por la barra de tareas o las barras de herramientas de escritorio de aplicaciones.
-;Sintaxis: A_MonitorWorkArea( [xpos], [ypos], [ancho], [alto] )
-A_MonitorWorkArea(ByRef x := "", ByRef y := "", ByRef Width := "", ByRef Height := "") {
-	VarSetCapacity(RECT, 8 * 2, 0), i := {}
-	, r := DllCall("User32.dll\SystemParametersInfoW", "UInt", 0x0030, "UInt", 0, "Ptr", &RECT, "UInt", 0)
-	, i.x := x := NumGet(RECT, 0, "Int"), i.y := y := NumGet(RECT, 4, "Int")
-	, i.w := i.Width := Width := NumGet(RECT,  8, "Int") - x
-	, i.h := i.Height := Height := NumGet(RECT, 12, "Int") - y
-	return i, ErrorLevel := !r
-}
-
-;alto del monitor actual
-A_ScreenHeight() {
-	return GetSystemMetrics(1)
-}
-
-;ruta completa al script
-A_ScriptFullPath() {
-	return A_ScriptFullPath
-}
-
-;directorio del script
-A_ScriptDir() {
-	return A_ScriptDir
-}
-
-;nombre del script
-A_ScriptName() {
-	return A_ScriptName
-}
-
-;devuelve 1 si el script se está ejecutando como administrador
-A_IsAdmin() {
-	return A_IsAdmin
-}
-
-A_IPAddress1() {
-	return A_IPAddress1
-} A_IPAddress2() {
-	return A_IPAddress2
-} A_IPAddress3() {
-	return A_IPAddress3
-} A_IPAddress4() {
-	return A_IPAddress4
-}
-
-A_Cursor() {
-	return A_Cursor
-}
-
-A_OSVersion() {
-	return A_OSVersion
-} A_OSType() {
-	return A_OSType
-}
-
-A_TickCount(ByRef ElapsedTime := "") {
-	static Time
-	return _Time := A_TickCount, ElapsedTime := _Time-Time, Time := _Time
-}
-
-A_LastError(SetLastError*) {
-	return SetLastError.MaxIndex()?SetLastError(SetLastError[1]):A_LastError
-}
-
-A_DetectHiddenWindows() {
-	return A_DetectHiddenWindows="On"
-}
-
-A_Year(Year := "") {
-	return Year=""?A_Year:SystemSetTime([Year])
-} A_Mon(Mon := "") {
-	return Mon=""?A_Mon:SystemSetTime([, Mon])
-} A_DD(Day := "") {
-	return Day=""?A_DD:SystemSetTime([,, Day])
-} A_Hour(Hour := "") {
-	return Hour=""?A_Hour:SystemSetTime([,,, Hour])
-} A_Min(Min := "") {
-	return Min=""?A_Min:SystemSetTime([,,,, Min])
-} A_Sec(Sec := "") {
-	return Sec=""?A_Sec:SystemSetTime([,,,,, Sec])
-} A_MSec(MSec := "") {
-	return MSec=""?A_MSec:SystemSetTime([,,,,,, MSec])
-} A_WDay(WDay := "") {
-	return WDay=""?A_WDay:SystemSetTime([,,,,,,, WDay])
-}
-
-A_Time(Delimiter := "") {
-	CurrentTime := SplitTime()
-	return CurrentTime[1] Delimiter CurrentTime[2] Delimiter CurrentTime[3] Delimiter
-		. CurrentTime[4] Delimiter CurrentTime[5] Delimiter CurrentTime[6]
-}
-
-;------------------------------------------------------------------------------------------------------------------------------------------------
-
-;recupera el directorio de Archivos De Programa
-A_ProgramFiles() {
-	static _ProgramFiles
-	if !(_ProgramFiles)
-		_ProgramFiles := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{905e63b6-c1bf-494e-b29c-65b732d3d21a}":0x0026)
-	return _ProgramFiles
-}
-
-;ruta completa y el nombre de la carpeta de programas en el menú Inicio del usuario actual 
-A_Programs() {
-	static Programs
-	if !(Programs)
-		Programs := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}":0x0002)
-	return Programs
-}
-
-;ruta completa y el nombre de la carpeta de programas en el menú Inicio para todos los usuarios
-A_ProgramsCommon() {
-	static ProgramsCommon
-	if !(ProgramsCommon)
-		ProgramsCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}":0X0017)
-	return ProgramsCommon
-}
-
-;directorio de sistema de archivos que contiene los datos de aplicación para el usuario actual
-A_AppData() {
-	static AppData
-	if !(AppData)
-		AppData := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}":0x001a)
-	return AppData
-}
-
-;directorio de sistema de archivos que contiene los datos de aplicación para todos los usuarios
-A_AppDataCommon() {
-	static AppDataCommon
-	if !(AppDataCommon)
-		AppDataCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}":0x0023)
-	return AppDataCommon
-}
-
-;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio del usuario actual
-A_Desktop() {
-	static Desktop
-	if !(Desktop)
-		Desktop := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}":0x0010)
-	return Desktop
-}
-
-;ruta completa y el nombre de la carpeta que contiene los archivos de escritorio para todos los usuarios
-A_DesktopCommon() {
-	static DesktopCommon
-	if !(DesktopCommon)
-		DesktopCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}":0x0019)
-	return DesktopCommon
-}
-
-;ruta completa y el nombre de la carpeta del menú Inicio del usuario actua
-A_StartMenu() {
-	static StartMenu
-	if !(StartMenu)
-		StartMenu := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}":0x000b)
-	return StartMenu
-}
-
-;ruta completa y el nombre de la carpeta del menú Inicio para todos los usuarios
-A_StartMenuCommon() {
-	static StartMenuCommon
-	if !(StartMenuCommon)
-		StartMenuCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{A4115719-D62E-491D-AA7C-E74B8BE3B067}":0x0016)
-	return StartMenuCommon
-}
-
-;ruta completa y el nombre de la carpeta Inicio en el menú Inicio del usuario actual
-A_Startup() {
-	static Startup
-	if !(Startup)
-		Startup := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{B97D20BB-F46A-4C97-BA10-5E3608430854}":0x0007)
-	return Startup
-}
-
-;ruta completa y el nombre de la carpeta Inicio en el menú Inicio para todos los usuarios
-A_StartupCommon() {
-	static StartupCommon
-	if !(StartupCommon)
-		StartupCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{82A5EA35-D9CD-47C5-9629-E15D2F714E6E}":0x0018)
-	return StartupCommon
-}
-
-A_MyDocuments() {
-	static MyDocuments
-	if !(MyDocuments)
-		MyDocuments := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{FDD39AD0-238F-46AF-ADB4-6C85480369C7}":0x0005)
-	return MyDocuments
-}
-
-A_DocumentsCommon() {
-	static DocumentsCommon
-	if !(DocumentsCommon)
-		DocumentsCommon := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{ED4824AF-DCE4-45A8-81E2-FC7965083634}":0x002e)
-	return DocumentsCommon
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de música
-A_MyMusic() {
-	static MyMusic
-	if !(MyMusic)
-		MyMusic := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{4BD8D571-6D19-48D3-BE97-422220080E43}":0x000d)
-	return MyMusic
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de imagen
-A_MyPictures() {
-	static MyPictures
-	if !(MyPictures)
-		MyPictures := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{33E28130-4E1E-4676-835A-98395C3BC3BB}":0x0027)
-	return MyPictures
-}
-
-;directorio del sistema de archivos que sirve de repositorio común para los archivos de vídeo
-A_MyVideo() {
-	static MyVideo
-	if !(MyVideo)
-		MyVideo := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{18989B1D-99B5-455B-841C-AB7C74E4DDFC}":0x000e)
-	return MyVideo
-}
-
-;directorio de sistema de archivos que contiene accesos directos a los documentos usados recientemente del usuario
-A_Recent() {
-	static Recent
-	if !(Recent)
-		Recent := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{AE50C081-EBD2-438A-8655-8A092E34987A}":0x0008)
-	return Recent
-}
-
-;directorio de sistema de archivos que contiene Enviar a elementos de menú
-A_SendTo() {
-	static SendTo
-	if !(SendTo)
-		SendTo := GetKnownFolderPath(IsWindowsVistaOrGreater()?"{8983036C-27C0-404B-8F08-102D10DCFD74}":0x0009)
-	return SendTo
-}
-
-;------------------------------------------------------------------------------------------------------------------------------------------------
-
-;espacio
-A_Space(Count := 1) {
-	Loop, %Count%
-		_ .= Chr(32)
-	return _
-}
-
-;tabulación
-A_Tab(Count := 1) {
-	Loop, %Count%
-		_ .= Chr(9)
-	return _
-}
-
-;comilla
-A_Quote(Count := 1) {
-	Loop, %Count%
-		_ .= Chr(34)
-	return _
-}
-
-;obtiene un array con los parámetros usados para ejecutar el script
-;EJEMPLO: MsgBox( A_Args()[1] "`n" A_Args()[2] "`n" A_Args()[3] "`n" A_Args()[4] "`n" A_Args()[5] "`n`nTotal: " A_Args()[0] )
-A_Args() { ;http://ahkscript.org/boards/viewtopic.php?t=4357 || By SKAN
-	static Args
-	if (Args)
-		return Args
-	CommandLineString := DllCall("Kernel32.dll\GetCommandLineW", "Str"), Args := [], Skip := A_IsCompiled ? 1 : 2
-	, pArgs := DllCall("Shell32.dll\CommandLineToArgvW", "WStr", CommandLineString, "PtrP", nArgs) 
-	Loop, %nArgs% {
-		if (A_Index > Skip)
-			hArgs := NumGet( (A_Index - 1) * A_PtrSize + pArgs )
-			, Args[A_Index - Skip] := StrGet( hArgs, "UTF-16" )
-	} return Args, Args[0] := nArgs-Skip, DllCall("Kernel32.dll\LocalFree", "Ptr", pArgs)
-}
-
-;------------------------------------------------------------------------------------------------------------------------------------------------
-
 /* -------------------------------------------------------------------------------------------------------------------------------------------------------------
  ::::::::::::::::::::::::::::::::::::::::::::: VERSION HELPER FUNCTIONS ::::::::::::::::::::::::::::::::::
 • Ejemplo:
@@ -11947,7 +12200,15 @@ WindowsVersion(ByRef ServicePackMajor := "") {
 	return VersionInfo.MajorVersion "." VersionInfo.MinorVersion "." VersionInfo.BuildNumber
 }
 
-
+;obtiene la arquitectura del sistema operativo
+;Return: 32 || 64
+;Ejemplo: MsgBox % GetWindowsArchitecture()
+GetWindowsArchitecture() {
+	if (A_PtrSize=8)
+		return 64
+	Wow64Process := IsWow64Process(hProcess:=OpenProcess(, 0x1000)), CloseHandle(hProcess)
+	return 32 * (Wow64Process + 1)
+}
 
 
 
@@ -12155,14 +12416,14 @@ NOTAS:
 ;comprueba si la ventana no responde
 WinHugh(hWnd) {
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsHungAppWindow", "Ptr", hWnd, "Int")
+	return DllCall("User32.dll\IsHungAppWindow", "Ptr", hWnd)
 }
 
 ;comprueba si la ventana está habilitada
 ;Sintaxis: WinEnabled( [ID] )
 WinEnabled(hWnd) {
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsWindowEnabled", "Ptr", hWnd, "Int")
+	return DllCall("User32.dll\IsWindowEnabled", "Ptr", hWnd)
 }
 
 ;comprueba si la ventana existe / obtiene la ventana activa.
@@ -12178,9 +12439,15 @@ IsWindow(hWnd*) {
 				continue
 			if (hWnd[4]!="")&&(WinGetTitle(A_LoopField)!=hWnd[4])
 				continue
-			if hWnd[3]&&(_getpid(A_LoopField,hWnd[3])!=hWnd[3])
-				continue
-			return __gsvalue.LastWindowId := A_LoopField
+			if hWnd.5 {
+				p := WinGetPid(A_LoopField)
+				for k, v in ProcessEnum()
+					if (v.ProcessId=p) && (v.ParentProcessId=hWnd.3)
+						return __gsvalue.LastWindowId := A_LoopField
+			} else {
+				if hWnd[3]&&(_getpid(A_LoopField,hWnd[3])!=hWnd[3])
+					continue
+			} return __gsvalue.LastWindowId := A_LoopField
 	}} if !hWnd[1]||!DllCall("User32.dll\IsWindow", "Ptr", hWnd[1], "Int")
 	||(hWnd[2]&&(WinGetClass(hWnd[1])!=hWnd[2]))
 	||(hWnd[4]&&(WinGetTitle(hWnd[1])!=hWnd[4]))
@@ -12192,36 +12459,28 @@ IsWindow(hWnd*) {
 ;comprueba si la ventana es visible
 WinVisible(hWnd) {
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsWindowVisible", "Ptr", hWnd, "Int")
+	return DllCall("User32.dll\IsWindowVisible", "Ptr", hWnd)
 }
 
 ;comprueba si la ventana está minimizada
 WinMin(hWnd) {
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsIconic", "Ptr", hWnd, "Int")
+	return DllCall("User32.dll\IsIconic", "Ptr", hWnd)
 }
 
 ;comprueba si la ventana está maximizada
 WinMax(hWnd) {
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsZoomed", "Ptr", hWnd, "Int")
-}
-
-;devuelve 1 si la ventana: existe, no esta maximizada/minimizada, es visible
-WinNormal(hWnd) {
-	_gethwnd(hWnd)
-	if !IsWindow(hWnd)||WinMin(hWnd)||WinMax(hWnd)||!WinVisible(hWnd)
-		return 0, ErrorLevel := 1
-	return 1, ErrorLevel := 0
+	return DllCall("User32.dll\IsZoomed", "Ptr", hWnd)
 }
 
 ;comprueba si es una ventana hija
 ;Sintaxis: WinChild( [ID ventana padre], [ID ventana hija] )
 WinChild(hWnd, ChWnd*) {
 	if !ChWnd.MaxIndex()
-		return WinGetStyle(hWnd)&0x40000000?hWnd:WinGet(hWnd, "TopChild")
+		return WinGetStyle(hWnd)&0x40000000?hWnd:WinGetTopChild(hWnd)
 	_gethwnd(hWnd)
-	return DllCall("User32.dll\IsChild", "Ptr", hWnd, "Ptr", ChWnd[1], "Int")
+	return DllCall("User32.dll\IsChild", "Ptr", hWnd, "Ptr", ChWnd[1])
 }
 
 ;comprueba si la ventana está activa
@@ -12242,21 +12501,22 @@ IsWinActive(hWnd := "", Class := "", ProcessName := "", Title := "") {
 ;Sintaxis: WinAlwaysOnTop( [ID], [-1(alternar)|0|1] )
 WinAlwaysOnTop(hWnd, AlwaysOnTop := "") {
 	_gethwnd(hWnd)
-	if (AlwaysOnTop!="")
-		return WinSet(hWnd, "AlwaysOnTop", AlwaysOnTop=-1?!WinAlwaysOnTop(hWnd):AlwaysOnTop)
+	if (AlwaysOnTop=-1)
+		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -(WinAlwaysOnTop(hWnd)+1), "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+	if (AlwaysOnTop)
+		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+	if (AlwaysOnTop=0)
+		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -2, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
 	return (WinGetExStyle(hWnd)&0x00000008)?true:false
 }
 
 ;comprueba si la ventana tiene el estilo WS_SIZEBOX (+Resize)
-;Sintaxis: WinResized( [ID], [-1(alternar)|0|1], [¿redibujar?] )
+;Sintaxis: WinResized( [ID], [-1(alternar)|0|1] )
 WinResized(hWnd, Resize := "", Redraw := false) {
 	_gethwnd(hWnd)
-	if (Resize!="") {
-		r:=WinSetStyle(hWnd, (Resize=-1?(WinResized(hWnd)?"-":"+"):(Resize?"":"-")) 0x00040000)
-		if (Redraw)
-			WinRedraw(hWnd)
-		return r
-	} return (WinGetStyle(hWnd)&0x00040000)?true:false	
+	if (Resize!="")
+		return WinSetStyle(hWnd, (Resize=-1?(WinResized(hWnd)?"-":"+"):(Resize?"":"-")) 0x00040000, true)
+	return (WinGetStyle(hWnd)&0x00040000)?true:false	
 }
 
 ;comprueba si la ventana tiene el estilo extendido WS_EX_ACCEPTFILES
@@ -12268,17 +12528,30 @@ WinDragDrop(hWnd, ACCEPTFILES := "") {
 	return (WinGetExStyle(hWnd)&0x00000010)?true:false
 }
 
+;convierte en coordenadas de pantalla o relativo a la ventana, suma/quita bordes.
+;Sintaxis: WinClient( [ID], [x], [y], [ancho], [alto], [ScreenToClient|ClientToScreen|+/-Borders] )
+;Return: [x, y, ancho, alto]
+WinClient(hWnd, ByRef x := "", ByRef y := "", ByRef w := "", ByRef h := "", Mode := "ClientToScreen") {
+	if (Mode="+Borders") || (Mode="-Borders") {
+        WinGetPos(hWnd, _x, _y, _w, _h)
+        , w := Mode="+Borders"?(w=_w?w:w<_w?w+(_w-w):w):(w=_w?w:w>_w?w-(w-_w):w)
+        , h := Mode="+Borders"?(h=_h?h:h<_h?h+(_h-h):h>_h?(_h+(h-_h)):h):(h=_h?h:h>_h?h-(h-_h):h)
+		return [x := x=""?_x:x, y := y=""?_y:y, w, h]
+	} _gethwnd(hWnd), RECT(RECT, x, y, w, h), Error := !DllCall("User32.dll\" Mode, "Ptr", hWnd, "Ptr", &RECT)
+	return RECT(RECT, x, y, w, h), ErrorLevel := Error
+}
+
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
 ;obtiene una lista con todas las ventanas de nivel superior en la pantalla o controles en la ventana
 ;W8+: sólo ventanas de nivel superior de las aplicaciones de escritorio
 ;Sintaxis: WinEnum( [hWnd], [¿incluir ventanas ocultas?], [delimitador], [cantidad (salida)] )
-;hWnd: espesificar el hWnd de una ventana para obtener una lista con todos los controles
+;hWnd: espesificar el hWnd de una ventana para obtener una lista con todos sus controles
 WinEnum(hWnd := 0, dhw := true, Delimiter := "`n", ByRef Count := "") {
-	static EnumAddress := RegisterCallback("EnumWindowsProc", "Fast", 2) ;lpEnumFunc
-	_gethwnd(hWnd), Param := {List: "", dhw: dhw, Delimiter: Delimiter, Count: 0}, Error := ErrorLevel
+	EnumAddress := RegisterCallback("EnumWindowsProc", "Fast", 2)
+	, _gethwnd(hWnd), Param := {List: "", dhw: dhw, Delimiter: Delimiter, Count: 0}
 	, DllCall("User32.dll\EnumChildWindows", "Ptr", hWnd, "Ptr", EnumAddress, "Ptr", &Param)
-	return Param.List, Count := Param.Count, ErrorLevel := Error
+	return Param.List, Count := Param.Count, GlobalFree(EnumAddress)
 } EnumWindowsProc(hWnd, lParam) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms633494(v=vs.85).aspx
 	Param := Object(lParam)
 	if (Param.dhw) || (WinVisible(hWnd))
@@ -12343,6 +12616,17 @@ FindWindowEx(Parent := 0, ChildAfter := 0, ClassName := "", WindowName*) {
 	, "Ptr", WindowName.MaxIndex()?&WinName:0, "Ptr"), ErrorLevel := Error
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms633500(v=vs.85).aspx
 
+;crear ventana
+;Sinstaxis: CreateWindow( [x], [y], [ancho], [alto], [titulo], [estilo], [estilo extendido], [parent], [menu], [clase] )
+;Return: devuelve el hWnd
+;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600(v=vs.85).aspx
+;Estilos exentido: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543(v=vs.85).aspx
+CreateWindow(x, y, Width, Height, Caption := "", Style := 0x10CB0000, ExStyle := 0x0, Parent := 0x0, Menu := 0x0, Class := "MDIClient") {
+	hWnd := DllCall("User32.dll\CreateWindowExW", "UInt", ExStyle, "Ptr", &Class, "Ptr", &Caption, "UInt", Style
+		, "Int", x, "Int", y, "Int", Width, "Int", Height, "Ptr", Parent, "Ptr", Menu, "Ptr", A_ScriptHwnd, "PtrP", 0)
+	return hWnd, ErrorLevel := !hWnd
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632680(v=vs.85).aspx
+
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
 ;centrar ventana, opcional posicionarla arriba/abajo/izquierda/derecha.
@@ -12357,7 +12641,7 @@ FindWindowEx(Parent := 0, ChildAfter := 0, ClassName := "", WindowName*) {
 		;--> si se posiciona a la izquierda o a la derecha, se modifica el ancho (A_ScreenWidth/2-10%).
 	;• la ventana se ajusta a la pantalla visible, sin importar la posicion de la barra de tareas (la ventana no es tapada por la barra de tareas)
 ;Ejemplo: abra Notepad para el ejemplo.
- 	;MsgBox % "Centrar ventana: " ((!!WinActivate(WinExist("ahk_class Notepad"), 3)+WinMove(-3,,, 543, 403)+!!WinCenter(-3))-2)
+ 	;MsgBox % "Centrar ventana: " ((!!WinActivate(WinExist("ahk_class Notepad"))+WinMove(-3,,, 543, 403)+!!WinCenter(-3))-2)
 	;MsgBox % "Posicionar arriba a la izquierda: " WinCenter(-3, "Top Left")
 	;MsgBox % "Posicionar arriba a la derecha: " WinCenter(-3, "Top Right")
 	;MsgBox % "Posicionar abajo a la izquierda: " WinCenter(-3, "Bottom Left")
@@ -12377,22 +12661,27 @@ WinCenter(hWnd, Pos := "") {
 }
 
 ;parpadea la ventana especificada. no cambia el estado activo de la ventana.
-;Sintaxis: WinFlash( [ID], [opciones], [veces que parpadea la ventana], [velocidad de parpadeo en milisegundos] )
-;Opciones (se pueden sumar para combinar):
-	;0 = parar (defecto).
-	;1 = afecta al titulo de la ventana
-	;2 = afecta al boton de la barra de tareas
-	;12 = hasta que la ventana esté activa
-WinFlash(hWnd, dwFlags := 0, uCount := 0, dwTimeout := 0) {
+;Sintaxis: WinFlash( [hWnd], [Flags], [Count], [Timeout] )
+;Parámetros:
+	;Flags: espesificar uno o mas de los siguientes valores.	
+		;0x00000000 = parar (defecto).
+		;------------------------------------------------------------------------------
+		;0x00000001 = afecta al titulo de la ventana
+		;0x00000002 = afecta al boton de la barra de tareas
+		;0x00000004 = continuar indefinidamente hasta que se llame a la función con 0x00000000.
+		;0x0000000C = continuar hasta que la ventana esté activa
+	;Count: el número de veces
+	;Timeout: tiempo fuera, en segundos.
+WinFlash(hWnd, Flags := 0x00000000, Count := 0, Timeout := 0) {
 	_gethwnd(hWnd)
-	, cbSize := VarSetCapacity(FLASHWINFO, A_PtrSize = 4 ? 20 : 32, 0) 
-	, NumPut(cbSize, FLASHWINFO, 0, "UInt")
+	, Size := VarSetCapacity(FLASHWINFO, 16+A_PtrSize, 0) 
+	, NumPut(Size, FLASHWINFO, 0, "UInt")
 	, NumPut(hWnd, FLASHWINFO, 4, "Ptr")
-	, NumPut(dwFlags+(uCount=0?4:0), FLASHWINFO, 8, "UInt")
-	, NumPut(uCount>0?uCount:0, FLASHWINFO, A_PtrSize = 4 ? 12 : 16, "UInt")
-	, NumPut(dwTimeout>0?dwTimeout:0, FLASHWINFO, A_PtrSize = 4 ? 16 : 24, "UInt")
+	, NumPut(Flags, FLASHWINFO, 4+A_PtrSize, "UInt")
+	, NumPut(Count, FLASHWINFO, 4+A_PtrSize +4, "UInt")
+	, NumPut(Timeout, FLASHWINFO, 4+A_PtrSize +8, "UInt")
 	return DllCall("User32.dll\FlashWindowEx", "Ptr", &FLASHWINFO)
-}
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms679347(v=vs.85).aspx
 
 ;redibujar la ventana
 ;Sintaxis: WinRedraw( [ID], [x], [y], [ancho], [alto], [¿forzar redibujado?] )
@@ -12401,9 +12690,9 @@ WinRedraw(hWnd, x := "", y := "", w := "", h := "", Force := true) {
 	_gethwnd(hWnd)
 	if !(x="") && !(y="") && !(w="") && !(h="")
 		RECT(RECT, x, y, w, h), l := true
-	Ok := !!DllCall("User32.dll\InvalidateRect", "Ptr", hWnd, "Ptr", l?&RECT:0, "Int", true, "UInt")
+	Ok := !!DllCall("User32.dll\InvalidateRect", "Ptr", hWnd, "Ptr", l?&RECT:0, "Int", true)
 	if (Force)
-		Ok += !!DllCall("User32.dll\UpdateWindow", "Ptr", hWnd, "UInt")
+		Ok += !!DllCall("User32.dll\UpdateWindow", "Ptr", hWnd)
 	return Force?(Ok=2):Ok, ErrorLevel := Force?(Ok!=2):!Ok
 }
 
@@ -12414,21 +12703,20 @@ WinRedraw(hWnd, x := "", y := "", w := "", h := "", Force := true) {
 	;1 = Desvanecer | 2 = Diapositiva (combinar con 3/4 y/o 5/6)
 	;3 = Izquierda A Derecha | 4 = Derecha A Izquierda
 	;5 = Arriba Abajo | 6 = Abajo Arriba
-;Nota: cuando se usa la opcion 'S' (mostrar), a veces los controles no se muestran correctamente, por ello, es necesario
-	;redibujar la ventana, usar WinRedraw(), o agregar la opcion R.
+;Nota: usar la opción R al mostrar la ventana.
 WinAnimate(hWnd, Time := 200, Mode := "RS1", Transparent := "", Region := "") { 
 	static List := {S: 0x00020000, 1: 0x00080000, C: 0x00000010, H: 0x00010000, 3: 0x00000001, 4: 0x00000002, 2: 0x00040000, 5: 0x00000004, 6: 0x00000008}
 	_gethwnd(hWnd)
 	if InStr(Mode, "T")
-		WinSet(hWnd, "Transparent", "Off")
-	i := DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", Time, "UInt", _cstr(List, Mode, "~", "+"))
+		WinSet, Transparent, Off, ahk_id %hWnd%
+	Ok := DllCall("User32.dll\AnimateWindow", "Ptr", hWnd, "UInt", Time, "UInt", _cstr(List, Mode, "~", "+"))
 	if InStr(Mode, "R")
 		WinRedraw(hWnd)
 	if (Transparent!="")
-		WinSet(hWnd, "Transparent", Transparent)
+		WinSet, Transparent, % Transparent, ahk_id %hWnd%
 	if (Region!="")
-		WinSet(hWnd, "Region", Region)
-	return i, ErrorLevel := !i
+		WinSet, Region, % Region, ahk_id %hWnd%
+	return Ok
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms632669%28v=vs.85%29.aspx
 
 ;mover ventana
@@ -12474,10 +12762,10 @@ WinDestroy(hWnd, DeleteCtrls := false, DetectHiddenWindows := true) {
 	_gethwnd(hWnd), Ok := 0, Count := 0
 	if (DeleteCtrls) { ;eliminar todos los controles de la ventana -->
 		Loop, Parse, % WinEnum(hWnd, DetectHiddenWindows), `n
-		{	Ok += !!DllCall("User32.dll\DestroyWindow", "Ptr", A_LoopField, "UInt")
+		{	Ok += !!DllCall("User32.dll\DestroyWindow", "Ptr", A_LoopField)
 			Count++
 		} return Ok, ErrorLevel := Ok!=Count ;<--
-	} return r:=DllCall("User32.dll\DestroyWindow", "Ptr", hWnd, "UInt"), ErrorLevel := !r
+	} return r:=DllCall("User32.dll\DestroyWindow", "Ptr", hWnd), ErrorLevel := !r
 }
 
 ;cierra todas las ventanas que coincidan con los datos espesificados
@@ -12531,53 +12819,62 @@ WinRestore(hWnd, Force := 0) {
 ;NOTA: para ocultar la ventana solo en la barra de tareas usar TaskBarRemove()
 WinHide(hWnd) {
 	_gethwnd(hWnd) ;SW_HIDE = 0
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", false), ErrorLevel := !i 
+	return DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", false)
 }
 
 ;habilita la ventana
-;Sintaxis: WinEnable( [ID], [¿Activar?], [¿Esperar? (seg)] )
-WinEnable(hWnd, Activate := false, WaitActive := -1) {
+;Sintaxis: WinEnable( [hWnd] )
+WinEnable(hWnd) {
 	_gethwnd(hWnd)
-	return i := DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", true)
-		, a := Activate?WinActivate(hWnd):"", ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
+	return DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", true)
 }
 
 ;deshabilita la ventana
 WinDisable(hWnd) {
 	_gethwnd(hWnd)
-	return i:=!DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", false), ErrorLevel := !i
+	return !DllCall("User32.dll\EnableWindow", "Ptr", hWnd, "Int", false)
 }
 
 ;muestra la ventana
-;Sintaxis: WinShow( [ID], [¿Activar?], [¿Esperar? (segundos)] )
-WinShow(hWnd, Activate := false, WaitActive := -1) {
+;Sintaxis: WinShow( [ID] )
+WinShow(hWnd) {
 	_gethwnd(hWnd)
-	return i := DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", 5)
-		, a := Activate?WinActivate(hWnd):"", ErrorLevel := !i 
-		, WinWaitActive(hWnd, WaitActive) ;SW_SHOW = 5
+	return DllCall("User32.dll\ShowWindow", "Ptr", hWnd, "Int", 5)
 }
 
 ;activa la ventana
-;NOTA: si la ventana está minimizada, las restaura a su tamaño y posicion original
-;Sintaxis: WinActivate( [ID], [¿Esperar? (segundos)], [¿Forzar?] )
-WinActivate(hWnd, WaitActive := -1, Force := false) {
+;Sintaxis: WinActivate( [hWnd], [¿Forzar?] )
+;Nota: si la ventana está minimizada, las restaura a su tamaño y posicion original
+WinActivate(hWnd, Force := false) {
 	_gethwnd(hWnd)
-	if WinMin( hWnd )
+	if WinMin(hWnd)
 		WinRestore(hWnd)
-	if (Force) {
-		CurrentThreadId := ProcessExist(-2), WinGetPID(hWnd, WinThreadId)
-		, DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", true)
-		return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
+	if (Force) && WinGetPID(hWnd, WinThreadId) {
+		DllCall("User32.dll\AttachThreadInput", "UInt", ProcessExist(-2), "UInt", WinThreadId, "Int", true)
+		return DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
 			, DllCall("User32.dll\BringWindowToTop", "Ptr", hWnd)
 			, DllCall("User32.dll\SetFocus", "Ptr", hWnd)
-			, DllCall("User32.dll\AttachThreadInput", "UInt", CurrentThreadId, "UInt", WinThreadId, "Int", false)
-			, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
-	} return i := DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
-		, ErrorLevel := !i, WinWaitActive(hWnd, WaitActive)
+			, DllCall("User32.dll\AttachThreadInput", "UInt", ProcessExist(-2), "UInt", WinThreadId, "Int", false)
+	} return DllCall("User32.dll\SetForegroundWindow", "Ptr", hWnd)
 }
 
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
+;recupera información sobre la ventana
+;Sintaxis: WinGetThreadInfo( [hWnd] )
+;Return: ver https://msdn.microsoft.com/en-us/library/windows/desktop/ms632604(v=vs.85).aspx
+;Ejemplo: MsgBox % WinGetClass(WinGetThreadInfo(-1).hwndFocus)
+WinGetThreadInfo(hWnd) {
+	_gethwnd(hWnd), WinGetPID(hWnd, ThreadId), Info := {}
+	, Size := VarSetCapacity(GUITHREADINFO, 4+4 + (6*A_PtrSize) + 16, 0), NumPut(Size, GUITHREADINFO, 0, "UInt")
+	, Ok := DllCall("User32.dll\GetGUIThreadInfo", "UInt", ThreadId, "Ptr", &GUITHREADINFO)
+	, Info.Flags := NumGet(GUITHREADINFO, 4, "UInt"), Info.hwndActive := NumGet(GUITHREADINFO, 8, "Ptr")
+	, Info.hwndFocus := NumGet(GUITHREADINFO, 8 + A_PtrSize, "UInt"), Info.hwndCapture := NumGet(GUITHREADINFO, 8+A_PtrSize +A_PtrSize, "Ptr")
+	, Info.hwndMenuOwner := NumGet(GUITHREADINFO, 8+A_PtrSize +(2*A_PtrSize), "UInt"), Info.hwndMoveSize := NumGet(GUITHREADINFO, 8+A_PtrSize +(3*A_PtrSize), "Ptr")
+	, Info.hwndCaret := NumGet(GUITHREADINFO, 8+A_PtrSize +(4*A_PtrSize), "UInt"), Info.rcCaret := RECT(NumGet(GUITHREADINFO, 8+A_PtrSize +(4*A_PtrSize) +4, "Ptr"))
+	return Ok?Info:false
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms633506(v=vs.85).aspx
+
 ;obtener coordenadas y dimenciones de la ventana
 ;Sintaxis: WinGetPos( [hWNd], [x (out)], [y (out)], [ancho (out)], [alto (out)], [modo] )
 ;Modos:
@@ -12589,25 +12886,12 @@ WinActivate(hWnd, WaitActive := -1, Force := false) {
 WinGetPos(hWnd, ByRef x := "", ByRef y := "", ByRef w := "", ByRef h := "", Mode := 0) {
 	_gethwnd(hWnd), VarSetCapacity(RECT, 16, 0)
 	;if (Mode=0) || (Mode=2) ;incluir bordes. 0 | 0+2
-		Ok := DllCall("User32.dll\GetWindowRect", "Ptr", hWnd, "Ptr", &RECT, "Int"), RECT(RECT, x, y, w, h)
+		Ok := DllCall("User32.dll\GetWindowRect", "Ptr", hWnd, "Ptr", &RECT), RECT(RECT, x, y, w, h)
 	if (Mode=1) || (Mode=3) ;excluir bordes. 1 | 1+2
-		Ok := DllCall("User32.dll\GetClientRect", "Ptr", hWnd, "Ptr", &RECT, "Int"), RECT(RECT,,, w, h)
+		Ok := DllCall("User32.dll\GetClientRect", "Ptr", hWnd, "Ptr", &RECT), RECT(RECT,,, w, h)
 	if (Mode=2) || (Mode=3) ;convertir en coordenadas de pantalla. 0+2 || 1+2
-		Ok := Ok?DllCall("User32.dll\ClientToScreen", "Ptr", hWnd, "Ptr", &RECT, "Int"):false
+		DllCall("User32.dll\ClientToScreen", "Ptr", hWnd, "Ptr", &RECT)
 	return [x, y, w, h], ErrorLevel := !Ok
-}
-
-;convierte en coordenadas de pantalla o relativo a la ventana, suma/quita bordes.
-;Sintaxis: WinClient( [ID], [x], [y], [ancho], [alto], [ScreenToClient|ClientToScreen|+/-Borders] )
-;Return: [x, y, ancho, alto]
-WinClient(hWnd, ByRef x := "", ByRef y := "", ByRef w := "", ByRef h := "", Mode := "ClientToScreen") {
-	if (Mode="+Borders") || (Mode="-Borders") {
-        WinGetPos(hWnd, _x, _y, _w, _h)
-        , w := Mode="+Borders"?(w=_w?w:w<_w?w+(_w-w):w):(w=_w?w:w>_w?w-(w-_w):w)
-        , h := Mode="+Borders"?(h=_h?h:h<_h?h+(_h-h):h>_h?(_h+(h-_h)):h):(h=_h?h:h>_h?h-(h-_h):h)
-		return [x := x=""?_x:x, y := y=""?_y:y, w, h]
-	} _gethwnd(hWnd), RECT(RECT, x, y, w, h), Error := !DllCall("User32.dll\" Mode, "Ptr", hWnd, "Ptr", &RECT, "Int")
-	return RECT(RECT, x, y, w, h), ErrorLevel := Error
 }
 
 ;obtiene el ancho y alto de los bordes de la ventana
@@ -12641,16 +12925,16 @@ WinGetTitle(hWnd) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms
 	_gethwnd(hWnd)
 	, Size := DllCall("User32.dll\GetWindowTextLengthW", "Ptr", hWnd, "Int") + 1
 	, VarSetCapacity(OutputVar, Size * 2, 0)
-	, Error := !DllCall("User32.dll\GetWindowTextW", "Ptr", hWnd, "Str", OutputVar, "Int", Size * 2, "Int")
-	return OutputVar, ErrorLevel := Error
+	, Ok := DllCall("User32.dll\GetWindowTextW", "Ptr", hWnd, "Str", OutputVar, "Int", Size * 2, "Int")
+	return OutputVar, ErrorLevel := !Ok
 }
 
 ;obtiene el nombre de la clase a la que pertenece la ventana especificada.
 WinGetClass(hWnd) {
-	_gethwnd(hWnd), Size := 256 + 1
-	, VarSetCapacity(OutputVar, Size * 2, 0)
-	, Error := !DllCall("User32.dll\GetClassNameW", "Ptr", hWnd, "Str", OutputVar, "Int", Size * 2, "Int")
-	return OutputVar, ErrorLevel := Error
+	_gethwnd(hWnd) ;257 = MAX_WNDCLASS_LENGTH
+	, VarSetCapacity(OutputVar, (256 + 1) * 2)
+	, Ok := DllCall("User32.dll\GetClassNameW", "Ptr", hWnd, "Str", OutputVar, "Int", 256 + 1)
+	return OutputVar, ErrorLevel := !Ok
 }
 
 ;recupera el PID, opcional ThreadId/ProcessName/ProcessPath
@@ -12672,26 +12956,17 @@ WinGetText(hWnd) {
 	return OutputVar
 }
 
-;obtener informacion de la ventana
-;Sintaxis: WinGet( [ID], [CMD] )
-;CMD: TopChild|Top|Parent
-WinGet(hWnd, Cmd) {
+WinGetTopChild(hWnd) {
+	_gethwnd(hWnd), _ := hWnd
+	Loop {
+		if !(_:=DllCall("User32.dll\GetTopWindow", "Ptr", _, "Ptr"))
+			return __?__:hWnd
+		__ := _
+}	}
+
+WinGetParent(hWnd) {
 	_gethwnd(hWnd)
-	if (Cmd="TopChild") {
-		top_hwnd := hWnd
-		Loop {
-			if !(top_hwnd:=DllCall("User32.dll\GetTopWindow", "Ptr", top_hwnd, "Ptr"))
-				return last_hwnd?last_hwnd:hWnd
-			last_hwnd := top_hwnd
-	}} else if (Cmd="Top")
-		return DllCall("User32.dll\GetTopWindow", "Ptr", hWnd, "Ptr")
-	else if (Cmd="Parent")
-		return DllCall("User32.dll\GetParent", "Ptr", hWnd, "Ptr")
-	dhw := A_DetectHiddenWindows
-	DetectHiddenWindows, On
-	WinGet, OutputVar, %Cmd%, ahk_id %hWnd%
-	DetectHiddenWindows, %dhw%
-	return OutputVar
+	return DllCall("User32.dll\GetTopWindow", "Ptr", hWnd, "Ptr")
 }
 
 ;obtiene el icono de la ventana
@@ -12701,7 +12976,7 @@ WinGet(hWnd, Cmd) {
 		;si la aplicación no proporciona uno, el sistema utiliza el icono generado por el sistema para esa ventana.
 WinGetIcon(hWnd, Type := 0) {
 	_gethwnd(hWnd)
-	return SendMessage(hWnd, 0x007F, "UInt", Type,,, "Ptr")
+	return SendMsg(hWnd, 0x007F, Type)
 }
 
 ;obtener hWnd del menu de la ventana espesificada
@@ -12712,14 +12987,42 @@ WinGetMenu(hWnd) {
 
 ;--------------------------------------------------------------------------------------------------------
 ;--------------------------------------------------------------------------------------------------------
+
+;ajustar transparencia de la ventana
+;Sintaxis: WinSetTransparent( [hWnd], [Alpha], [TransColor] )
+;Parámetros:
+	;Alpha: espesificar un valor entre 0 y 255. establecer en OFF para desactivar la transparencia
+	;TransColor: espesificar un color RGB espesífico.
+WinSetTransparent(hWnd, Alpha := "Off", TransColor := "") {
+	_gethwnd(hWnd)
+	if (Alpha="Off")
+		return WinSetExStyle(hWnd, -0x00080000)
+	if ((Alpha+0)="")
+		return false
+	Alpha := Abs(Alpha)>255?255:Abs(Alpha), WinSetExStyle(hWnd, "+" 0x00080000)
+	if !(TransColor="")
+		VarSetCapacity(COLORREF, 4, 0), NumPut(_getcolor(TransColor), 0, "UInt")
+	return DllCall("User32.dll\SetLayeredWindowAttributes", "Ptr", hWnd, "Ptr", TransColor=""?0:&COLORREF, "Int", Alpha, "UInt", TransColor=""?2:3)
+} ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms633540(v=vs.85).aspx
+
+;obtener color y transparencia de la ventana
+;Sintaxis: WinSetTransparent( [hWnd], [out Alpha], [out TransColor] )
+;Parámetros:
+	;Alpha: nivel de transparencia, valor entre 0 y 255. vacío si no se estableció.
+	;TransColor: color RGB. vacío si no se stableció.
+WinGetTransparent(hWnd, ByRef Alpha := "", ByRef TransColor := "") {
+	VarSetCapacity(TransColor, 4, 0)
+	return DllCall("User32.dll\GetLayeredWindowAttributes", "Ptr", hWnd, "Ptr", &TransColor, "IntP", Alpha, "UIntP", Flags)
+		, TransColor := Flags&1?RGB(NumGet(TransColor, 0, "UInt")):"", Alpha := Flags&2?Alpha:""
+}
+
 ;establecer el titulo de la ventana espesificada
 ;Sintaxis: WinSetTitle( [ID], [Titulo], [Modo] )
 ;Modos: 1 = ocultar el titulo | 2 = ocultar el icono
 	;Nota: espesificar el númeo pero negativo para restaurar
 WinSetTitle(hWnd, NewTitle := "") {
 	_gethwnd(hWnd)
-	, Ok := DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Ptr", &NewTitle, "Int")
-	return Ok, ErrorLevel := !Ok
+	return DllCall("User32.dll\SetWindowTextW", "Ptr", hWnd, "Ptr", &NewTitle)
 }
 
 ;cambia el icono de la ventana
@@ -12745,9 +13048,10 @@ WinSetIcon(hWnd, Icon, Index := 1) { ;https://msdn.microsoft.com/en-us/library/w
 ;permitir/bloquear el redibujado de la ventana
 ;Sintaxis: WinSetRedraw( [hWnd], [0|1] )
 WinSetRedraw(hWnd, Redraw := true) {
-	_gethWnd(hWnd), r := SendMessage(hWnd, 0x000B, "Int", !!Redraw,,, "UInt")
-	return (r=0), ErrorLevel := (r!=0)
-}
+	_gethWnd(hWnd)
+	SendMessage, 0x000B, % !!Redraw, 0,, ahk_id %hWnd%
+	return DllCall("User32.dll\RedrawWindow", "Ptr", hWnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0004|0x0400|0x0001|0x0080)
+} ;https://msdn.microsoft.com/en-us/library/dd145219(v=vs.85).aspx
 
 ;establecer estilo
 ;Sintaxis: WinSetStyle( [ID], [+-^Estilo], [SWP_FRAMECHANGED] )
@@ -12755,13 +13059,11 @@ WinSetRedraw(hWnd, Redraw := true) {
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ms632600%28v=vs.85%29.aspx
 ;Nota: algunos cambios necesitan SWP_FRAMECHANGED para que surtan efecto.
 WinSetStyle(hWnd, Style, FRAMECHANGED := false) {
-	static Func := "User32.dll\" ((A_PtrSize=4)?"SetWindowLongW":"SetWindowLongPtrW")
-	_gethwnd(hWnd), Style := _mnum(WinGetStyle(hWnd), Style)
-	if (ErrorLevel) || !(DllCall(Func, "Ptr", hWnd, "Int", -16, "Int", Style))
-		return false, ErrorLevel := true
+	_gethwnd(hWnd), Style := _cvtvalue(WinGetStyle(hWnd), Style)
+	, Ok := DllCall("SetWindowLong" (A_PtrSize=4?"":"Ptr") "W", "Ptr", hWnd, "Int", -16, "Int", Style)
 	if (FRAMECHANGED) ;http://ahkscript.org/boards/viewtopic.php?f=5&t=9591
 		DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x27)
-	return true, ErrorLevel := false
+	return Ok, ErrorLevel := !Ok
 }
 
 ;establecer estilo extendido
@@ -12770,35 +13072,26 @@ WinSetStyle(hWnd, Style, FRAMECHANGED := false) {
 ;Estilos: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543%28v=vs.85%29.aspx
 ;Nota: algunos cambios necesitan SWP_FRAMECHANGED para que surtan efecto.
 WinSetExStyle(hWnd, ExStyle, FRAMECHANGED := false) {
-	static Func := "User32.dll\" ((A_PtrSize=4)?"SetWindowLongW":"SetWindowLongPtrW")
-	_gethwnd(hWnd), ExStyle := _mnum(WinGetExStyle(hWnd), ExStyle)
-	if (ErrorLevel) || !(DllCall(Func, "Ptr", hWnd, "Int", -20, "Int", ExStyle))
-		return false, ErrorLevel := true
+	_gethwnd(hWnd), ExStyle := _cvtvalue(WinGetExStyle(hWnd), ExStyle)
+	, Ok := DllCall("SetWindowLong" (A_PtrSize=4?"":"Ptr") "W", "Ptr", hWnd, "Int", -20, "Int", ExStyle)
 	if (FRAMECHANGED) ;http://ahkscript.org/boards/viewtopic.php?f=5&t=9591
 		DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x27)
-	return true, ErrorLevel := false
+	return Ok, ErrorLevel := !Ok
 }
 
-;hace una variedad de cambios en la ventana.
-;Sintaxis: WinSet( [ID], [Atributo], [Valor] )
-;Atributos: Bottom|Top|+/-AlwaysOnTop|Parent
-WinSet(hWnd, Attribute, Value := "") {
+WinSetBottom(hWnd) {
 	_gethwnd(hWnd)
-	if (Attribute="Bottom")
-		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-	if (Attribute="Top")
-		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-	if (Attribute="TOPMOST"||Attribute="+AlwaysOnTop"||(Attribute="AlwaysOnTop"&&Value!=0&&Value!="Off"))
-		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-	if (Attribute="NOTOPMOST"||Attribute="-AlwaysOnTop"||(Attribute="AlwaysOnTop"&&(Value=0||Value="Off")))
-		return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", -2, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
-	if (Attribute="Parent")
-		return DllCall("User32.dll\SetParent", "Ptr", hWnd, "Ptr", Value)
-	dhw := A_DetectHiddenWindows
-	DetectHiddenWindows, On
-	WinSet, %Attribute%, %Value%, ahk_id %hWnd%
-	DetectHiddenWindows, %dhw%
-	return !ErrorLevel
+	return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+}
+
+WinSetTop(hWnd) {
+	_gethwnd(hWnd)
+	return DllCall("User32.dll\SetWindowPos", "Ptr", hWnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0002|0x0001|0x0010)
+}
+
+WinSetParent(hWnd, ParentId) {
+	_gethwnd(hWnd)
+	return DllCall("User32.dll\SetParent", "Ptr", hWnd, "Ptr", ParentId)
 }
 
 ;hace una variedad de cambios en el menú de la ventana
@@ -12870,13 +13163,13 @@ WinWaitNotActive(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title
 ;esperar a que la ventana exista
 ;Sintaxis: WinWait( [ID], [Segundos], [clase], [proceso/pid], [Título] )
 ;Nota: devuelve el ID 
-WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "") {
+WinWait(hWnd := "", Seconds := 0, Class := "", ProcessName := "", Title := "", Parent := false) {
 	_gethwnd(hWnd)
 	if (Seconds=-1) || (!hWnd&&!Class&&!ProcessName)
 		return false
 	ElapsedTime := A_TickCount+(Seconds*1000)
 	Loop {
-		if (i:=IsWindow(hWnd, Class, ProcessName, Title))
+		if (i:=IsWindow(hWnd, Class, ProcessName, Title, Parent))
 			return i, ErrorLevel := false
 		if (Seconds>0) && (A_TickCount>=ElapsedTime)
 			return false, ErrorLevel := true
