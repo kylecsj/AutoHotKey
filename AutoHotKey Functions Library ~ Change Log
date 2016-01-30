@@ -1,4 +1,114 @@
 ###############################################################
+ACTUALIZACION 30/01/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• RegQueryInfoKey()
+	• RegEnumValue()
+	• RegSaveKey()
+	• RegRestoreKey()
+	• RegGetValue()
+	• RegSetKeyValue()
+	• RegCopyTree()
+	• RegDeleteTree()
+	• RegDeleteKeyValue()
+	• AllocateAndInitializeSid()
+	• InitializeSecurityDescriptor()
+	• SetProcessOwner()
+	• GetProcessOwner()
+	• GetThreadPriority()
+	• SetThreadPriority()
+	• SetProcessPriority()
+	• GetProcessPriority()
+	• ResumeProcess()
+	• SuspendProcess()
+	• GetProcessSID()
+	• ConvertStringSidToSid()
+	• ConvertSidToStringSid()
+	• IsWow64Process()
+	• GetWindowsArchitecture()
+	• WinGetTransparent()
+	• WinSetTransparent()
+	• WinGetTopChild()
+	• WinGetParent()
+	• SendMsg()
+	• VarAdjustCapacity()
+	• MulDivEx()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• GetRegViewMode(). I
+	• RegFormatValueType(). I
+
+Mejoras:
+	• RegExistValue()
+	• RegOpenKey()
+	• WinResized()
+	• WinSetRedraw()
+	• Base64Encode()
+	• Base64Decode()
+	
+Correcciones:
+	• RegExistKey()
+	• RegOpen()
+	• SplitKey(). correcciones para permitir espasios al final.
+	• GetTokenInformation()
+	• LookupPrivilegeName()
+	• WinFlash(). correcciones en 64-Bits.
+	• Properties(). correcciones en WIN_8+
+	• ARGBToRGB(). ahora se puede espesificar un entero en el color.
+	• RGBToARGB(). ahora se puede espesificar un entero en la transparencia y el color.
+	• GetCurrentDirectory()
+	
+Notas:
+	• se estan pasando las funciones con el registro con Clave\Subclave al uso con HANDLE para aumentar el rendimiento.
+	• se estan pasando las funciones con procesos con ID y Nombre al uso con HANDLE para aumentar el rendimiento.
+	• varias funciones A_XXX() eliminadas.
+	
+Funciones Renombradas:
+	• EnvUpdate() --> UpdateEnvironmentVariable()
+	• EnvGet() --> GetEnvironmentVariable().
+	• EnvAdd() --> SetEnvironmentVariable().
+	• A_Language() --> GetSystemDefaultUILanguage().
+	• A_AppDataLocal() --> A_LocalAppData().
+	• GetWorkingDir() --> GetCurrentDirectory().
+	• SetWorkingDir() --> SetCurrentDirectory().
+	• IsLower() --> IsCharLower().
+	• IsUpper() --> IsCharUpper().
+	• StrUpper() --> CharUpper().
+	• StrLower() --> CharLower().
+
+Funciones Eliminadas:
+	• SetRegView()
+	• ProcessSuspend(). usar SuspendProcess()
+	• ProcessResume(). usar ResumeProcess().
+	• ProcessGetSid(). usar GetProcessSID().
+	• WinGet()
+	• WinNormal()
+	• WinSet()
+	• IsEven()
+	• SysGet()
+	• FormatMessage(). usar GetLastError().
+	• BlockInput()
+	• GoogleSuggest()
+	• Reload()
+	• ExitApp()
+	• ExitAppTimer()
+	• GetTickCount()
+
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• IsWindow()
+	• ControlFocus()
+	• WinSetStyle()
+	• WinSetExStyle()
+	• CreateShellItemArrayFromIDLists()
+	• MulDiv()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• WinActivate()
+	• WinShow()
+	• WinEnable()
+	• Sleep()
+	• GetHandleInformation()
+###############################################################
 ACTUALIZACION 24/01/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
