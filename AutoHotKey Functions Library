@@ -6468,7 +6468,7 @@ SendMsg(hWnd, Msg, ByRef wParam := 0, ByRef lParam := 0, ReturnType := "UPtrP", 
 	if IsObject(lParam)
 		lType := lParam.1, lParam := lParam.2
 	else lType := (lParam+0)=""?"Str":"Ptr"
-		MsgBox % wType "," lType
+		;MsgBox % wType "," lType
 	Ok := DllCall("User32.dll\SendMessageTimeoutW", "Ptr", hWnd, "UInt", Abs(Msg), wType, wParam, lType, lParam, "UInt", Flags, "UInt", Timeout, ReturnType, OutputVar)
 	return OutputVar, ErrorLevel := Ok?false:A_LastError
 } SendMessage(hWnd, Msg, wType := "Ptr", ByRef wParam := 0, IType := "Ptr", ByRef IParam := 0, ReturnType := "UPtrP", Timeout := 5000) {
