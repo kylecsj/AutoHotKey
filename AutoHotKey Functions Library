@@ -287,6 +287,9 @@ CopyFile(Filename, NewFilename := "", Overwrite := false) {
 	if (NewFilename = "")
 		NewFilename := A_WorkingDir "\" File
 	else NewFilename := GetFullPathName(NewFilename), NewFilename := DirExist(NewFilename) ? NewFilename "\" File : NewFilename
+	SplitPath, NewFilename,, NewDir
+	if !FileExist(NewDir)
+		DirCreate(NewDir)
 	return DllCall("Kernel32.dll\CopyFileExW", "Str", (StrLen(Filename) > 260 ? "\\?\" : "") Filename
 		, "Str", (StrLen(NewFilename) > 260 ? "\\?\" : "") NewFilename, "Ptr", 0, "Ptr", 0, "Ptr", 0
 		, "UInt", (IsWindowsVistaOrGreater()?0x00001808:0) | (Overwrite?0:0x00000001))
@@ -304,6 +307,9 @@ MoveFile(Filename, NewFilename := "", Overwrite := false) {
 	if (NewFilename = "")
 		NewFilename := A_WorkingDir "\" File
 	else NewFilename := GetFullPathName(NewFilename), NewFilename := DirExist(NewFilename) ? NewFilename "\" File : NewFilename
+	SplitPath, NewFilename,, NewDir
+	if !FileExist(NewDir)
+		DirCreate(NewDir)
 	return DllCall("Kernel32.dll\MoveFileExW", "Str", (StrLen(Filename) > 260 ? "\\?\" : "") Filename
 		, "Str", (StrLen(NewFilename) > 260 ? "\\?\" : "") NewFilename, "UInt", 0x00000008 | (Overwrite?0:0x00000001))
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa365240(v=vs.85).aspx
@@ -1272,7 +1278,7 @@ VBS(Script, ByRef ExitCode := "", Filename := "wscript.exe") {
 	return ExitCode, CMD(Filename A_Space Chr(34) A_Temp "\~wscript.vbs" Chr(34),, ExitCode)
 }
 
-;ejecutar script
+;ejecutar AHK script (nesesario tener instalado AutoHotKey)
 ;Sintaxis: ExecScript( [script], [parámetros], [aplicación] )
 ;Ejemplo: ExecScript("MsgBox E.X.A.M.P.L.E")
 ExecScript(Script, Params := "", Filename := "") {
@@ -1292,7 +1298,7 @@ ExecScript(Script, Params := "", Filename := "") {
 CloseHandle(HANDLE*) { ;https://msdn.microsoft.com/en-us/library/windows/desktop/ms724211(v=vs.85).aspx
 	Error := ErrorLevel, Ok := 0
 	for k, v in HANDLE
-		Ok += !!DllCall("Kernel32.dll\CloseHandle", "Ptr", v, "UInt")
+		Ok += !!DllCall("Kernel32.dll\CloseHandle", "Ptr", v)
 	return Ok=HANDLE.MaxIndex(), ErrorLevel := Error
 }
 
@@ -1458,7 +1464,6 @@ CreateNamedPipe(Name, OpenMode := 0, PipeMode := 0, MaxInstances := 255, OutBuff
 ConnectNamedPipe(hNamedPipe, Overlapped := 0) {
 	return DllCall("Kernel32.dll\ConnectNamedPipe", "UPtr", hNamedPipe, "UPtr", Overlapped, "UInt")
 } ;https://msdn.microsoft.com/en-us/library/windows/desktop/aa365146(v=vs.85).aspx
-
 
 
 
