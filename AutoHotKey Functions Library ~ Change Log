@@ -1,4 +1,156 @@
 ###############################################################
+ACTUALIZACION 17/02/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• ReverseString()
+	• ReadFile()
+	• AppendFile()
+	• MoveFile()
+	• CopyFile()
+	• ShredFile()
+	• WaitProcessClose()
+	• WaitProcess()
+	• GetModuleFileName()
+	• DeleteFile()
+	• IsInt()
+	• GetWindowThreadProcessId()
+	• GetButtonImageList()
+	• SetSystemTime()
+	• WindowActive()
+	• WinNormal()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• FindFirstFile(). R
+	• QueryDosDevice(). I
+
+Mejoras:
+	• RestartWindowsExplorer(). evitar abrir ventana al reiniciar.
+	• TerminateProcess()
+	
+Correcciones:
+	• Eval(). posible solución para 64-Bit.
+	• ProcessName() & ProcessPath().
+	• WinSetRedraw(). return Value.
+	• WinDragDrop()
+	• WinResized()
+	
+Notas:
+	• Anadido "SINCRONIZACIÓN" funciones.
+	
+Funciones Renombradas:
+	• FileAppendLine() --> AppendFileLine() (+ cambios en la sintaxis, +mejoras)
+	• FileWriteLine() --> WriteFileLine() (+ mejoras)
+	• FileReadLine() --> ReadFileLine()
+	• FileSave() --> SaveFile()
+	• FileSelect() --> SelectFile()
+	• FileSetTime() --> SetFileTime()
+	• FileGetTime() --> GetFileTime()
+	• FileGetVersion() --> GetFileVersion()
+	• FileGetSize() --> GetFileSize()
+	• FileGetShortcut() --> GetShortcutFile()
+	• FileSetAttrib() --> SetFileAttributes()
+	• FileGetAttrib() --> GetFileAttributes()
+	• MouseClick() --> ClickMouse()
+	• WinGetClass() --> GetWindowClass()
+	• ControlColor() --> SetControlColor()
+	• WinGetThreadInfo() --> GetWindowThreadInfo()
+	• WinGetBorder() --> GetWindowBorder()
+	• WinGetPos() --> GetWindowPos()
+	• WinMove() --> MoveWindow()
+	• BC_SetIcon() --> SetButtonIcon()
+	• BC_Click() --> ButtonClick()
+	• SoundMute() --> Sound_Mute()
+	• SoundBeep() --> Sound_Beep()
+
+Funciones Eliminadas:
+	• ProcessClose(). usar TerminateProcess()
+	• FileAppend. usar AppendFile().
+	• FileRead(). usar ReadFile().
+	• FileVersionCompare(). usar VersionCompare().
+	• FileRDelete()
+	• FileMove() & FileCopy(). usar MoveFile() & CopyFile().
+	• DirSecureDelete()
+	• FileSecureDelete(). usar ShredFile() & DeleteFile().
+	• ProcessWait(). usar WaitProcess().
+	• ProcessWaitClose(). usar WaitProcessClose().
+	• FileCreateShortcut(). usar CreateShortcut()
+	• FileCopyEx()
+	• FileDelete() & DirDelete() & FileRecycle(). usar DeleteFile()
+	• ControlGetFocus(). usar ControlFocus()
+	• SendPlay()
+	• ControlSend() & Send() & ControlSendRaw() & SendRaw(). usar SendKeys()
+	• ControlHide() & ControlShow(). usar ControlVisible()
+	• ControlDisable() & ControlEnable(). usar ControlEnabled()
+	• SetPixelColor(). usar SetControlColor()
+	• WinActivate(). usar WindowActive()
+	• WinRestore(). usar WinNormal().
+	• WinMaximize(). usar WinMax().
+	• WinMinimize(). usar WinMin().
+	• WinDisable() & WinEnable(). usar WinEnabled()
+	• WinHide() & WinShow(). usar WinVisible()
+	• SystemSetTime(). usar SetSystemTime()
+	• SystemGetTime()
+	• SoundSet()
+	• SoundGet()
+	• SoundPlay()
+	• Abs64()
+	• DecToHex()
+	• HexToDec()
+	• RGBToInt()
+	• RGBToHex()
+	• StrToInt64()
+	• StrToInt()
+	• A_XXX (TIME & DATE) 
+
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos IMPORTANTES en la funcion, compactar):
+	• IsFile()
+	• StrToHex()
+	• WinMin()
+	• WinMax()
+	• WinEnabled()
+	• WinVisible()
+	• ControlVisible()
+	• ControlEnabld()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• ReadFile()
+	• WriteFile()
+	• WaitForSingleObject()
+	• SendKeys()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 30/01/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
