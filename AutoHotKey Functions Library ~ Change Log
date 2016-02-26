@@ -1,4 +1,111 @@
 ###############################################################
+ACTUALIZACION 26/02/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• Execute()
+	• DeleteTask()
+	• CreateXMLInfoTask()
+	• CreateTask()
+	• WindowExist()
+	• GetWindow()
+	• EnumWindows()
+	• TerminateThread()
+	• CloseWindow()
+	• IsValidCodePage()
+	• GetActiveCodePage()
+	• GetExitCodeThread()
+	• CreateThread()
+	• IsCharAlpha()
+	• MoveDir()
+	• CopyDir()
+	• RenameDir()
+
+Mejoras:
+	• GetMonitorDPI(). posible corrección para windows 8.1+ en casos espesíficos.
+	
+Correcciones:
+	• EnumPrinters(). correcciones en 64 bits.
+	• Shutdown(). correcciones en 3 y 4 (estaban invertidos). correcciones al apagar el monitor en WIN_8+
+	
+Funciones Renombradas:
+	• WinGetIcon() --> GetWindowIcon().
+	• WinSetIcon() --> SetWindowIcon().
+	• Shutdown() --> SystemShutdown().
+	• A_MonitorWorkArea() --> GetPrimaryDisplayMonitorWorkArea(). +cambios.
+	• WinCenter() --> CenterWindow(). +correcciones en multi-monitor.
+	• WinFlash() --> FlashWindow().
+	• WinSetTitle() --> SetWindowTitle().
+	• WinGetTitle() --> GetWindowTitle().
+	• WinGetText() --> GetWindowText()
+	• WinGetTopChild() --> GetWindowTopChild().
+	• WinGetParent() --> GetWindowParent().
+	• WinMinimizeAllUndo() --> MinimizeAllWindowsUndo()
+	• WinMinimizeAll() --> MinimizeAllWindows().
+	• RecycleBinGetSize() --> GetRecycleBinSize().
+	• RecycleBinEmpty() --> EmptyRecycleBin(). +cambios menores.
+	• WinGetTransparent() --> GetWindowTransparent()
+	• WinSetTransparent() --> SetWindowTransparent()
+	• DirOpen() --> OpenDir().
+
+Funciones Eliminadas:
+	• WinEnum(). usar EnumWindows().
+	• WinCloseEx() & WinClose() & WinKill(). usar CloseWindow().
+	• IsNumber(). usar "((Number + 0) = "") ? true : false".
+	• RunWait()
+	• Control()
+	• DirGetSize()
+	• DirRename(). usar RenameDir()
+	• DirMove(). usar MoveDir()
+	• DirCopy(). usar CopyDir()
+	• DirEmpty()
+	• DirDelete() & DirRemove(). usar DeleteFile().
+
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos importantes en la función, compactar):
+	• A_Args()
+	• Between()
+	• Min()
+	• Max()
+	
+Cambios (reescrito y/o cambio de sintaxis y/o mejoras/correcciones):
+	• Properties()
+	• WinMinimizeAllUndo()
+	• WinMinimizeAll()
+	• Download()
+	• DirCreate()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 17/02/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
