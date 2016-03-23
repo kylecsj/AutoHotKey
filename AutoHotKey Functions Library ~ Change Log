@@ -1,4 +1,96 @@
 ###############################################################
+ACTUALIZACION 22/03/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
+###############################################################
+Funciones Agregadas:
+	• RegEdit()
+	• ImageFileExecution()
+	• SwitchVirtualDesktop()
+	• SetRegSecurity()
+	• ChooseIcon()
+	• GenerateQRCode()
+	• GetProcessMemoryInfo()
+
+Otras Funciones (I = para uso interno de otras funciones. ? = funciones sin terminar y/o posiblemente no funcionen correctamente en otras versiones/arquitectura. R = funciones de referencia):
+	• SplitBytes(). I
+	• AHK_Main(). I
+
+Mejoras:
+	• ExecScript(). ahora devuelve el PID +otros.
+	• FileCompare(). mejoras en el rendimiento cuando se comparan archivos grandes.
+	
+Correcciones:
+	• RunAsAdmin(). ahora mantiene los parámetros usados para ejecutar el script originales.
+	• GetActiveCodePage()
+	• Power(). correcciones al elevar a la 0 y 1.
+	
+Notas:
+	• Esta es la última actualización de esta librería, la próxima actualización va a ser completamente reescrita, con las funciones totalmente reescritas y varias no se van a incluír, actualizaoo a la última versión de AHK.
+	
+Funciones Renombradas:
+	• ControlSetFont() / ControlGetFont() --> SetControlFont() / GetControlFont().
+	• ControlSetRedraw() --> SetControlRedraw().
+	• ControlSetStyle() / ControlSetExStyle() --> SetControlStyle() / SetControlExStyle().
+	• ControlGetStyle() / ControlGetExStyle() --> GetControlStyle() / GetControlExStyle().
+	• PixelGetColor() --> GetPixelColor().
+	• RegGetOwner() --> GetRegOwner(). +correcciones.
+	• SystemGetFontInfo() --> GetSystemFontInfo().
+	• SystemSetFontInfo() --> SetSystemFontInfo().
+	• SystemIconsReload() --> ReloadSystemIcons().
+	• SysGetVersion() --> GetSystemVersion().
+
+Funciones Eliminadas:
+	• ControlSetColor()
+	• ToolTipFont() / ToolTipColor() / ToolTipHook() / ToolTipWndProc() / ToolTipChange().
+	• GuiControlColor()
+	• Edit_SelectFont().
+	• RegOpen(). usar RegEdit().
+	• RunAsAdminInit()
+	• Translate()
+	• RegSetOwner() & RegSetSecurity(). usar SetRegSecurity().
+	• ProcessMemoryInfo(). usar GetProcessMemoryInfo().
+	• IniRead() / IniWrite() / IniDelete()
+	
+Otros (cambios menores, comprimir mas el codigo, cambios sin efectos importantes en la función, compactar):
+	• CMD()
+	• RunProcess()
+	• GetLastError()
+	• SetProcessPriority()
+	• GetProcessPriority()
+	• ColorSelect()
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
 ACTUALIZACION 26/02/2016 - AHK1.1.23.01 (requiere AHK1.1.23.00+)
 ###############################################################
 Funciones Agregadas:
